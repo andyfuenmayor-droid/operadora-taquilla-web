@@ -9,17 +9,15 @@ import { AuditPanel } from './components/AuditPanel/AuditPanel';
 
 const MainLayout: React.FC = () => {
   const { user, isAuthenticated, isLoading } = useAuth();
-  const [currentTab, setCurrentTab] = useState<string>('ventas');
+  const [currentTab, setCurrentTab] = useState<string>('inicio');
 
   // Set default tab once user is loaded
   useEffect(() => {
     if (user) {
       if (user.rol === 'cobrador') {
         setCurrentTab('escaner');
-      } else if (user.rol === 'supervisor' || user.rol === 'admin') {
-        setCurrentTab('pizarra');
       } else {
-        setCurrentTab('ventas');
+        setCurrentTab('inicio');
       }
     }
   }, [user]);
@@ -39,22 +37,33 @@ const MainLayout: React.FC = () => {
     return <Login />;
   }
 
+  const isCashierModule = [
+    'inicio',
+    'reporte',
+    'ventas',
+    'premios',
+    'gastos',
+    'pagos',
+    'banco',
+    'cierre'
+  ].includes(currentTab);
+
   return (
     <div className="min-h-screen bg-[#071217] text-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-black">
       <Header currentTab={currentTab} onTabChange={setCurrentTab} />
 
       <div className="flex-1">
-        {/* Cashier views */}
-        {['ventas', 'gastos', 'pagos', 'banco', 'cierre'].includes(currentTab) && (
-          <CashierTerminal currentTab={currentTab} />
+        {/* Cashier & Supervisor Terminal Tabs */}
+        {isCashierModule && (
+          <CashierTerminal currentTab={currentTab} onTabChange={setCurrentTab} />
         )}
 
-        {/* Supervisor views */}
+        {/* Supervisor Exclusive Views */}
         {currentTab === 'pizarra' && <SupervisorBoard />}
         {currentTab === 'auditoria' && <AuditPanel />}
 
-        {/* Collector views */}
-        {['escaner', 'historial_cobros'].includes(currentTab) && <CollectorPortal />}
+        {/* Route Collector Views */}
+        {currentTab === 'escaner' && <CollectorPortal />}
       </div>
 
       <footer className="py-4 border-t border-slate-900 text-center text-xs text-slate-500">

@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import type { DailyExpense } from '../../types';
 import { formatCurrency, getTodayDateString } from '../../utils/formatters';
-import { Plus, Trash2, RefreshCw, AlertCircle, Receipt, DollarSign } from 'lucide-react';
+import { Plus, Trash2, RefreshCw, AlertCircle, Receipt } from 'lucide-react';
 
 const CATEGORIES = [
   'Rollos Térmicos / Papelería',
@@ -16,7 +16,7 @@ const CATEGORIES = [
 ];
 
 export const ExpensesTab: React.FC = () => {
-  const { user, agency } = useAuth();
+  const { user, agency, assignedCurrencies, isDayClosed } = useAuth();
   const [expenses, setExpenses] = useState<DailyExpense[]>([]);
   const [loading, setLoading] = useState(false);
   const [fecha, setFecha] = useState(getTodayDateString());
@@ -25,11 +25,18 @@ export const ExpensesTab: React.FC = () => {
   const [concepto, setConcepto] = useState('');
   const [categoria, setCategoria] = useState(CATEGORIES[0]);
   const [monto, setMonto] = useState<number | ''>('');
-  const [moneda, setMoneda] = useState<'USD' | 'VES'>('USD');
+  const [moneda, setMoneda] = useState(assignedCurrencies[0] || 'BS');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const agencyName = agency?.nombre_agencia || '';
+  const isSupervisor = user?.rol === 'supervisor' || user?.rol === 'admin';
+
+  useEffect(() => {
+    if (assignedCurrencies.length > 0 && !assignedCurrencies.includes(moneda)) {
+      setMoneda(assignedCurrencies[0]);
+    }
+  }, [assignedCurrencies, moneda]);
 
   const fetchExpenses = useCallback(async () => {
     if (!agencyName) return;
@@ -72,13 +79,17 @@ export const ExpensesTab: React.FC = () => {
       const newExpense = {
         fecha,
         agencia: agencyName,
+        nombre_agency: agencyName,
         cajero_id: user?.id,
         nombre_cajero: user?.nombre || user?.usuario,
-        concepto: concepto.trim(),
+        user_id: user?.user_id || user?.id,
+        concepto: concepto.trim().toUpperCase(),
         categoria,
         monto: parsedMonto,
         moneda,
         estado: 'aprobado',
+        confirmado: false,
+        rechazado: false,
       };
 
       const { error } = await supabase.table('cda_gastos_diarios').insert(newExpense);
@@ -107,18 +118,18 @@ export const ExpensesTab: React.FC = () => {
     }
   };
 
-  const totalUsd = expenses
-    .filter((g) => g.moneda === 'USD')
-    .reduce((acc, g) => acc + (Number(g.monto) || 0), 0);
-
-  const totalVes = expenses
-    .filter((g) => g.moneda === 'VES')
-    .reduce((acc, g) => acc + (Number(g.monto) || 0), 0);
+  // Group totals by currency
+  const totalsByCurrency = assignedCurrencies.reduce((acc, curr) => {
+    acc[curr] = expenses
+      .filter((g) => (g.moneda || 'BS').toUpperCase() === curr.toUpperCase())
+      .reduce((s, g) => s + (Number(g.monto) || 0), 0);
+    return acc;
+  }, {} as Record<string, number>);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fadeIn">
       {/* Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-[#0D1B22] p-4 rounded-2xl border border-slate-800">
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-[#0D1B22] p-4 rounded-2xl border border-slate-800 shadow-md">
         <div className="flex items-center gap-3">
           <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
             Fecha de Gastos:
@@ -140,116 +151,111 @@ export const ExpensesTab: React.FC = () => {
         </button>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="bg-[#0D1B22] border border-slate-800 p-4 rounded-2xl flex items-center justify-between">
-          <div>
-            <div className="text-xs text-slate-400 font-semibold mb-1">Total Gastos en USD</div>
-            <div className="text-2xl font-black text-rose-400 font-mono">
-              {formatCurrency(totalUsd, 'USD')}
+      {/* KPI Cards per assigned currency */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {assignedCurrencies.map((curr) => (
+          <div key={curr} className="bg-[#0D1B22] border border-slate-800 p-4 rounded-2xl flex items-center justify-between shadow-md">
+            <div>
+              <div className="text-xs text-slate-400 font-semibold mb-1">Total Gastos ({curr})</div>
+              <div className="text-xl font-black text-rose-400 font-mono">
+                {formatCurrency(totalsByCurrency[curr] || 0, curr)}
+              </div>
+            </div>
+            <div className="p-3 bg-rose-500/10 rounded-xl text-rose-400 border border-rose-500/20">
+              <Receipt className="w-5 h-5" />
             </div>
           </div>
-          <div className="p-3 bg-rose-500/10 rounded-xl text-rose-400 border border-rose-500/20">
-            <DollarSign className="w-5 h-5" />
-          </div>
-        </div>
-
-        <div className="bg-[#0D1B22] border border-slate-800 p-4 rounded-2xl flex items-center justify-between">
-          <div>
-            <div className="text-xs text-slate-400 font-semibold mb-1">Total Gastos en Bolívares (VES)</div>
-            <div className="text-2xl font-black text-amber-400 font-mono">
-              {formatCurrency(totalVes, 'VES')}
-            </div>
-          </div>
-          <div className="p-3 bg-amber-500/10 rounded-xl text-amber-400 border border-amber-500/20">
-            <Receipt className="w-5 h-5" />
-          </div>
-        </div>
+        ))}
       </div>
 
       {/* Form: Add Expense */}
-      <div className="bg-[#0D1B22] border border-slate-800 rounded-2xl p-5 shadow-lg">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-white mb-4 flex items-center gap-2">
-          <Plus className="w-4 h-4 text-emerald-400" />
-          Registrar Nuevo Gasto Operativo
-        </h3>
+      {(!isDayClosed || isSupervisor) ? (
+        <div className="bg-[#0D1B22] border border-slate-800 rounded-2xl p-5 shadow-lg">
+          <h3 className="text-sm font-bold uppercase tracking-wider text-white mb-4 flex items-center gap-2">
+            <Plus className="w-4 h-4 text-emerald-400" />
+            Registrar Nuevo Gasto Operativo
+          </h3>
 
-        {errorMsg && (
-          <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{errorMsg}</span>
-          </div>
-        )}
+          {errorMsg && (
+            <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
 
-        <form onSubmit={handleCreateExpense} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
-          <div className="lg:col-span-2">
-            <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-              Concepto / Detalle
-            </label>
-            <input
-              type="text"
-              required
-              value={concepto}
-              onChange={(e) => setConcepto(e.target.value)}
-              placeholder="Ej. Compra de 5 rollos térmicos 58mm"
-              className="w-full bg-[#071217] border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-              Categoría
-            </label>
-            <select
-              value={categoria}
-              onChange={(e) => setCategoria(e.target.value)}
-              className="w-full bg-[#071217] border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
-            >
-              {CATEGORIES.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-              Monto y Moneda
-            </label>
-            <div className="flex gap-1">
+          <form onSubmit={handleCreateExpense} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+            <div className="lg:col-span-2">
+              <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                Concepto / Detalle
+              </label>
               <input
-                type="number"
-                step="0.01"
-                min="0.01"
+                type="text"
                 required
-                value={monto}
-                onChange={(e) => setMonto(e.target.value === '' ? '' : parseFloat(e.target.value))}
-                placeholder="0.00"
-                className="w-full bg-[#071217] border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
+                value={concepto}
+                onChange={(e) => setConcepto(e.target.value)}
+                placeholder="Ej. Compra de rollos térmicos, servicio..."
+                className="w-full bg-[#071217] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
               />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                Categoría
+              </label>
               <select
-                value={moneda}
-                onChange={(e) => setMoneda(e.target.value as 'USD' | 'VES')}
-                className="bg-[#071217] border border-slate-700 rounded-xl px-2 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-bold"
+                value={categoria}
+                onChange={(e) => setCategoria(e.target.value)}
+                className="w-full bg-[#071217] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
               >
-                <option value="USD">USD</option>
-                <option value="VES">VES</option>
+                {CATEGORIES.map((cat) => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
               </select>
             </div>
-          </div>
 
-          <div>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-2.5 px-4 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-            >
-              {submitting ? 'Guardando...' : 'Guardar Gasto'}
-            </button>
-          </div>
-        </form>
-      </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                Monto y Moneda
+              </label>
+              <div className="flex gap-1">
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  required
+                  value={monto}
+                  onChange={(e) => setMonto(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                  placeholder="0.00"
+                  className="w-full bg-[#071217] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
+                />
+                <select
+                  value={moneda}
+                  onChange={(e) => setMoneda(e.target.value)}
+                  className="bg-[#071217] border border-slate-700 rounded-xl px-2 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-bold"
+                >
+                  {assignedCurrencies.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold py-2 px-4 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {submitting ? 'Guardando...' : 'Guardar Gasto'}
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : (
+        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs">
+          🔒 Tu jornada de gastos está cerrada para esta fecha.
+        </div>
+      )}
 
       {/* Expenses Table */}
       <div className="bg-[#0D1B22] border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
@@ -281,15 +287,9 @@ export const ExpensesTab: React.FC = () => {
               ) : (
                 expenses.map((expense) => (
                   <tr key={expense.id} className="hover:bg-slate-800/30 transition-colors">
-                    <td className="py-3 px-4 font-medium text-white">
-                      {expense.concepto}
-                    </td>
-                    <td className="py-3 px-4 text-slate-400">
-                      {expense.categoria}
-                    </td>
-                    <td className="py-3 px-4 text-slate-400">
-                      {expense.nombre_cajero || 'N/A'}
-                    </td>
+                    <td className="py-3 px-4 font-medium text-white">{expense.concepto}</td>
+                    <td className="py-3 px-4 text-slate-400">{expense.categoria}</td>
+                    <td className="py-3 px-4 text-slate-400">{expense.nombre_cajero || 'Taquilla'}</td>
                     <td className="py-3 px-4 text-right font-mono font-bold text-rose-400">
                       {formatCurrency(expense.monto, expense.moneda)}
                     </td>

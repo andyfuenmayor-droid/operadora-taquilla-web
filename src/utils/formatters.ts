@@ -1,19 +1,41 @@
-export function formatCurrency(amount: number | string, currency: 'USD' | 'VES' = 'USD'): string {
+export function normalizarMoneda(mon?: string): string {
+  const m = String(mon || '').toUpperCase().trim();
+  if (['BS', 'VES', 'BOLIVARES', 'BOLÍVARES', 'BS.', 'BOLIVAR', 'VES.'].includes(m)) {
+    return 'BS';
+  }
+  if (['USD', 'DOLARES', 'DÓLARES', '$', 'DOLAR', 'USD.', 'USDT'].includes(m)) {
+    return 'USD';
+  }
+  if (['COP', 'PESOS', 'PESO', 'COP.'].includes(m)) {
+    return 'COP';
+  }
+  return m || 'BS';
+}
+
+export function formatCurrency(amount: number | string, currency = 'USD'): string {
   const num = typeof amount === 'string' ? parseFloat(amount) || 0 : amount || 0;
-  if (currency === 'USD') {
+  const norm = normalizarMoneda(currency);
+
+  if (norm === 'USD') {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(num);
-  } else {
-    return new Intl.NumberFormat('es-VE', {
-      style: 'currency',
-      currency: 'VES',
+  } else if (norm === 'BS') {
+    const formatted = new Intl.NumberFormat('es-VE', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }).format(num).replace('VES', 'Bs.');
+    }).format(num);
+    return `${formatted} Bs.`;
+  } else if (norm === 'COP') {
+    return `COP $${new Intl.NumberFormat('es-CO', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(num)}`;
+  } else {
+    return `${norm} ${num.toFixed(2)}`;
   }
 }
 

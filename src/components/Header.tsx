@@ -10,7 +10,10 @@ import {
   Calculator, 
   LayoutDashboard, 
   QrCode, 
-  ShieldCheck 
+  ShieldCheck,
+  Home,
+  BarChart3,
+  Award
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -23,20 +26,20 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
 
   const isSupervisorOrAdmin = user?.rol === 'supervisor' || user?.rol === 'admin';
   const isCobrador = user?.rol === 'cobrador';
-  const isCashier = !isCobrador && !isSupervisorOrAdmin;
+  const isCashier = !isCobrador;
 
   return (
     <header className="sticky top-0 z-40 w-full bg-[#0D1B22]/95 backdrop-blur-md border-b border-slate-800 shadow-lg">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Brand & Agency Info */}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-black font-extrabold shadow-md shadow-emerald-500/20">
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-black font-extrabold shadow-md shadow-emerald-500/20 text-xs">
               POS
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-extrabold text-white tracking-tight text-base">
+                <span className="font-extrabold text-white tracking-tight text-sm sm:text-base">
                   Taquilla Web
                 </span>
                 <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
@@ -45,148 +48,165 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
               </div>
               <div className="flex items-center gap-1.5 text-xs text-slate-400">
                 <Building2 className="w-3.5 h-3.5 text-slate-500" />
-                <span className="font-medium text-slate-300">
+                <span className="font-medium text-slate-300 truncate max-w-[150px] sm:max-w-[220px]">
                   {agency?.nombre_agencia || 'Agencia General'}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Navigation Pills */}
-          <nav className="hidden md:flex items-center gap-1.5 bg-[#071217] p-1 rounded-xl border border-slate-800">
+          {/* Desktop Navigation Pills */}
+          <nav className="hidden xl:flex items-center gap-1 bg-[#071217] p-1 rounded-xl border border-slate-800">
             {isCashier && (
               <>
                 <button
+                  onClick={() => onTabChange('inicio')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    currentTab === 'inicio'
+                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  }`}
+                >
+                  <Home className="w-3.5 h-3.5" />
+                  <span>Inicio</span>
+                </button>
+
+                <button
+                  onClick={() => onTabChange('reporte')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    currentTab === 'reporte'
+                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  }`}
+                >
+                  <BarChart3 className="w-3.5 h-3.5" />
+                  <span>Reporte</span>
+                </button>
+
+                <button
                   onClick={() => onTabChange('ventas')}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     currentTab === 'ventas'
-                      ? 'bg-emerald-500 text-black shadow-sm'
+                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
                       : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
                   }`}
                 >
                   <DollarSign className="w-3.5 h-3.5" />
-                  Ventas
+                  <span>Ventas</span>
                 </button>
+
+                <button
+                  onClick={() => onTabChange('premios')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    currentTab === 'premios'
+                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  }`}
+                >
+                  <Award className="w-3.5 h-3.5" />
+                  <span>Premios</span>
+                </button>
+
                 <button
                   onClick={() => onTabChange('gastos')}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     currentTab === 'gastos'
-                      ? 'bg-emerald-500 text-black shadow-sm'
+                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
                       : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
                   }`}
                 >
                   <Receipt className="w-3.5 h-3.5" />
-                  Gastos
+                  <span>Gastos</span>
                 </button>
+
                 <button
                   onClick={() => onTabChange('pagos')}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     currentTab === 'pagos'
-                      ? 'bg-emerald-500 text-black shadow-sm'
+                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
                       : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
                   }`}
                 >
                   <CreditCard className="w-3.5 h-3.5" />
-                  Pagos / Tickets
+                  <span>Pagos</span>
                 </button>
+
                 <button
                   onClick={() => onTabChange('banco')}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     currentTab === 'banco'
-                      ? 'bg-emerald-500 text-black shadow-sm'
+                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
                       : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
                   }`}
                 >
                   <ShieldCheck className="w-3.5 h-3.5" />
-                  Depósitos
+                  <span>Banco / POS</span>
                 </button>
+
                 <button
                   onClick={() => onTabChange('cierre')}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     currentTab === 'cierre'
-                      ? 'bg-emerald-500 text-black shadow-sm'
+                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
                       : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
                   }`}
                 >
                   <Calculator className="w-3.5 h-3.5" />
-                  Cierre de Caja
+                  <span>Cierre</span>
                 </button>
               </>
             )}
 
             {isSupervisorOrAdmin && (
               <>
+                <div className="w-[1px] h-5 bg-slate-800 mx-1" />
                 <button
                   onClick={() => onTabChange('pizarra')}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     currentTab === 'pizarra'
-                      ? 'bg-emerald-500 text-black shadow-sm'
+                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
                       : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
                   }`}
                 >
                   <LayoutDashboard className="w-3.5 h-3.5" />
-                  Pizarra en Vivo
-                </button>
-                <button
-                  onClick={() => onTabChange('banco')}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    currentTab === 'banco'
-                      ? 'bg-emerald-500 text-black shadow-sm'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                  }`}
-                >
-                  <CreditCard className="w-3.5 h-3.5" />
-                  Confirmación Bancaria
+                  <span>Pizarra</span>
                 </button>
                 <button
                   onClick={() => onTabChange('auditoria')}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     currentTab === 'auditoria'
-                      ? 'bg-emerald-500 text-black shadow-sm'
+                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
                       : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
                   }`}
                 >
                   <ShieldCheck className="w-3.5 h-3.5" />
-                  Auditoría General
+                  <span>Auditoría</span>
                 </button>
               </>
             )}
 
             {isCobrador && (
-              <>
-                <button
-                  onClick={() => onTabChange('escaner')}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    currentTab === 'escaner'
-                      ? 'bg-emerald-500 text-black shadow-sm'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                  }`}
-                >
-                  <QrCode className="w-3.5 h-3.5" />
-                  Escanear Tickets QR
-                </button>
-                <button
-                  onClick={() => onTabChange('historial_cobros')}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    currentTab === 'historial_cobros'
-                      ? 'bg-emerald-500 text-black shadow-sm'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                  }`}
-                >
-                  <Receipt className="w-3.5 h-3.5" />
-                  Historial de Ruta
-                </button>
-              </>
+              <button
+                onClick={() => onTabChange('escaner')}
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  currentTab === 'escaner'
+                    ? 'bg-emerald-500 text-black shadow-sm font-bold'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                }`}
+              >
+                <QrCode className="w-3.5 h-3.5" />
+                <span>Portal Cobrador</span>
+              </button>
             )}
           </nav>
 
           {/* User profile & Logout */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0">
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#071217] border border-slate-800">
               <div className="w-7 h-7 rounded-lg bg-slate-800 flex items-center justify-center text-slate-300">
                 <UserIcon className="w-4 h-4" />
               </div>
-              <div className="text-left">
+              <div className="text-left hidden sm:block">
                 <div className="text-xs font-bold text-slate-200 leading-tight">
                   {user?.nombre || user?.usuario}
                 </div>
@@ -206,37 +226,71 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
           </div>
         </div>
 
-        {/* Mobile Navigation Bar */}
-        <div className="md:hidden flex items-center justify-around py-2 border-t border-slate-800/80 overflow-x-auto gap-1">
+        {/* Medium/Mobile Navigation Bar with horizontal scrolling */}
+        <div className="xl:hidden flex items-center py-2.5 border-t border-slate-800/80 overflow-x-auto gap-1 scrollbar-none">
           {isCashier && (
             <>
               <button
+                onClick={() => onTabChange('inicio')}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                  currentTab === 'inicio' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Inicio
+              </button>
+              <button
+                onClick={() => onTabChange('reporte')}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                  currentTab === 'reporte' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Reporte
+              </button>
+              <button
                 onClick={() => onTabChange('ventas')}
-                className={`text-[11px] font-bold px-2.5 py-1 rounded-md ${currentTab === 'ventas' ? 'bg-emerald-500 text-black' : 'text-slate-400'}`}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                  currentTab === 'ventas' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                }`}
               >
                 Ventas
               </button>
               <button
+                onClick={() => onTabChange('premios')}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                  currentTab === 'premios' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Premios
+              </button>
+              <button
                 onClick={() => onTabChange('gastos')}
-                className={`text-[11px] font-bold px-2.5 py-1 rounded-md ${currentTab === 'gastos' ? 'bg-emerald-500 text-black' : 'text-slate-400'}`}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                  currentTab === 'gastos' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                }`}
               >
                 Gastos
               </button>
               <button
                 onClick={() => onTabChange('pagos')}
-                className={`text-[11px] font-bold px-2.5 py-1 rounded-md ${currentTab === 'pagos' ? 'bg-emerald-500 text-black' : 'text-slate-400'}`}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                  currentTab === 'pagos' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                }`}
               >
                 Pagos
               </button>
               <button
                 onClick={() => onTabChange('banco')}
-                className={`text-[11px] font-bold px-2.5 py-1 rounded-md ${currentTab === 'banco' ? 'bg-emerald-500 text-black' : 'text-slate-400'}`}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                  currentTab === 'banco' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                }`}
               >
-                Depósitos
+                Banco
               </button>
               <button
                 onClick={() => onTabChange('cierre')}
-                className={`text-[11px] font-bold px-2.5 py-1 rounded-md ${currentTab === 'cierre' ? 'bg-emerald-500 text-black' : 'text-slate-400'}`}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                  currentTab === 'cierre' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                }`}
               >
                 Cierre
               </button>
@@ -247,19 +301,17 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
             <>
               <button
                 onClick={() => onTabChange('pizarra')}
-                className={`text-[11px] font-bold px-3 py-1 rounded-md ${currentTab === 'pizarra' ? 'bg-emerald-500 text-black' : 'text-slate-400'}`}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                  currentTab === 'pizarra' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                }`}
               >
                 Pizarra
               </button>
               <button
-                onClick={() => onTabChange('banco')}
-                className={`text-[11px] font-bold px-3 py-1 rounded-md ${currentTab === 'banco' ? 'bg-emerald-500 text-black' : 'text-slate-400'}`}
-              >
-                Banco
-              </button>
-              <button
                 onClick={() => onTabChange('auditoria')}
-                className={`text-[11px] font-bold px-3 py-1 rounded-md ${currentTab === 'auditoria' ? 'bg-emerald-500 text-black' : 'text-slate-400'}`}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                  currentTab === 'auditoria' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                }`}
               >
                 Auditoría
               </button>
@@ -267,20 +319,14 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
           )}
 
           {isCobrador && (
-            <>
-              <button
-                onClick={() => onTabChange('escaner')}
-                className={`text-[11px] font-bold px-3 py-1 rounded-md ${currentTab === 'escaner' ? 'bg-emerald-500 text-black' : 'text-slate-400'}`}
-              >
-                Escáner QR
-              </button>
-              <button
-                onClick={() => onTabChange('historial_cobros')}
-                className={`text-[11px] font-bold px-3 py-1 rounded-md ${currentTab === 'historial_cobros' ? 'bg-emerald-500 text-black' : 'text-slate-400'}`}
-              >
-                Historial
-              </button>
-            </>
+            <button
+              onClick={() => onTabChange('escaner')}
+              className={`text-xs font-bold px-4 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                currentTab === 'escaner' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Portal Cobranza
+            </button>
           )}
         </div>
       </div>

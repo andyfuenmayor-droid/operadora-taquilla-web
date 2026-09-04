@@ -6,20 +6,31 @@ import { formatCurrency, getTodayDateString } from '../../utils/formatters';
 import { Plus, Trash2, RefreshCw, AlertCircle, DollarSign, TrendingUp, Award, MinusCircle } from 'lucide-react';
 
 export const DailySalesTab: React.FC = () => {
-  const { user, agency } = useAuth();
+  const { user, agency, assignedSystems, assignedCurrencies, isDayClosed } = useAuth();
   const [sales, setSales] = useState<DailySale[]>([]);
   const [loading, setLoading] = useState(false);
   const [fecha, setFecha] = useState(getTodayDateString());
 
   // Form State
-  const [sistema, setSistema] = useState('Apuestas');
+  const [sistema, setSistema] = useState(assignedSystems[0] || 'BETM3');
+  const [moneda, setMoneda] = useState(assignedCurrencies[0] || 'BS');
   const [montoVentas, setMontoVentas] = useState<number | ''>('');
-  const [montoAnulaciones, setMontoAnulaciones] = useState<number | ''>('');
+  const [comision, setComision] = useState<number | ''>('');
   const [montoPremios, setMontoPremios] = useState<number | ''>('');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const agencyName = agency?.nombre_agencia || '';
+  const isSupervisor = user?.rol === 'supervisor' || user?.rol === 'admin';
+
+  useEffect(() => {
+    if (assignedSystems.length > 0 && !assignedSystems.includes(sistema)) {
+      setSistema(assignedSystems[0]);
+    }
+    if (assignedCurrencies.length > 0 && !assignedCurrencies.includes(moneda)) {
+      setMoneda(assignedCurrencies[0]);
+    }
+  }, [assignedSystems, assignedCurrencies, sistema, moneda]);
 
   const fetchSales = useCallback(async () => {
     if (!agencyName) return;
@@ -50,7 +61,7 @@ export const DailySalesTab: React.FC = () => {
   const handleCreateSale = async (e: React.FormEvent) => {
     e.preventDefault();
     const ventas = typeof montoVentas === 'number' ? montoVentas : 0;
-    const anulaciones = typeof montoAnulaciones === 'number' ? montoAnulaciones : 0;
+    const comis = typeof comision === 'number' ? comision : 0;
     const premios = typeof montoPremios === 'number' ? montoPremios : 0;
 
     if (ventas <= 0) {
@@ -65,22 +76,27 @@ export const DailySalesTab: React.FC = () => {
       const newRecord = {
         fecha,
         agencia: agencyName,
+        nombre_agency: agencyName,
         cajero_id: user?.id,
         nombre_cajero: user?.nombre || user?.usuario,
+        user_id: user?.user_id || user?.id,
         sistema,
+        monto_venta: ventas,
         monto_ventas: ventas,
-        monto_anulaciones: anulaciones,
+        comision: comis,
+        monto_anulaciones: comis,
         monto_premios: premios,
-        monto_neto: ventas - anulaciones - premios,
+        neto: ventas - comis - premios,
+        monto_neto: ventas - comis - premios,
+        moneda,
         cerrado: false,
       };
 
       const { error } = await supabase.table('cda_reportes_diarios').insert(newRecord);
       if (error) throw error;
 
-      // Reset form
       setMontoVentas('');
-      setMontoAnulaciones('');
+      setComision('');
       setMontoPremios('');
       fetchSales();
     } catch (err: unknown) {
@@ -103,19 +119,18 @@ export const DailySalesTab: React.FC = () => {
     }
   };
 
-  // Totals calculations
-  const totalVentas = sales.reduce((acc, s) => acc + (Number(s.monto_ventas) || 0), 0);
-  const totalAnulaciones = sales.reduce((acc, s) => acc + (Number(s.monto_anulaciones) || 0), 0);
+  const totalVentas = sales.reduce((acc, s) => acc + (Number(s.monto_ventas || s.monto_venta) || 0), 0);
+  const totalComision = sales.reduce((acc, s) => acc + (Number(s.comision || s.monto_anulaciones) || 0), 0);
   const totalPremios = sales.reduce((acc, s) => acc + (Number(s.monto_premios) || 0), 0);
-  const totalNeto = totalVentas - totalAnulaciones - totalPremios;
+  const totalNeto = totalVentas - totalComision - totalPremios;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fadeIn">
       {/* Date filter & Refresh */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-[#0D1B22] p-4 rounded-2xl border border-slate-800">
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-[#0D1B22] p-4 rounded-2xl border border-slate-800 shadow-md">
         <div className="flex items-center gap-3">
           <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
-            Fecha de Operación:
+            Fecha de Carga:
           </label>
           <input
             type="date"
@@ -136,143 +151,161 @@ export const DailySalesTab: React.FC = () => {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-[#0D1B22] border border-slate-800 p-4 rounded-2xl">
+        <div className="bg-[#0D1B22] border border-slate-800 p-4 rounded-2xl shadow-md">
           <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
             <span>Ventas Brutas</span>
             <DollarSign className="w-4 h-4 text-emerald-400" />
           </div>
-          <div className="text-xl font-black text-emerald-400">
-            {formatCurrency(totalVentas, 'USD')}
+          <div className="text-xl font-black text-emerald-400 font-mono">
+            {formatCurrency(totalVentas, moneda)}
           </div>
         </div>
 
-        <div className="bg-[#0D1B22] border border-slate-800 p-4 rounded-2xl">
+        <div className="bg-[#0D1B22] border border-slate-800 p-4 rounded-2xl shadow-md">
           <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
-            <span>Anulaciones</span>
+            <span>Comisión</span>
             <MinusCircle className="w-4 h-4 text-amber-400" />
           </div>
-          <div className="text-xl font-black text-amber-400">
-            {formatCurrency(totalAnulaciones, 'USD')}
+          <div className="text-xl font-black text-amber-400 font-mono">
+            {formatCurrency(totalComision, moneda)}
           </div>
         </div>
 
-        <div className="bg-[#0D1B22] border border-slate-800 p-4 rounded-2xl">
+        <div className="bg-[#0D1B22] border border-slate-800 p-4 rounded-2xl shadow-md">
           <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
             <span>Premios Pagados</span>
-            <Award className="w-4 h-4 text-rose-400" />
+            <Award className="w-4 h-4 text-purple-400" />
           </div>
-          <div className="text-xl font-black text-rose-400">
-            {formatCurrency(totalPremios, 'USD')}
+          <div className="text-xl font-black text-purple-400 font-mono">
+            {formatCurrency(totalPremios, moneda)}
           </div>
         </div>
 
-        <div className="bg-[#0D1B22] border border-slate-800 p-4 rounded-2xl bg-gradient-to-br from-[#0D1B22] to-emerald-950/30">
+        <div className="bg-[#0D1B22] border border-slate-800 p-4 rounded-2xl bg-gradient-to-br from-[#0D1B22] to-emerald-950/30 shadow-md">
           <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
             <span>Venta Neta</span>
             <TrendingUp className="w-4 h-4 text-sky-400" />
           </div>
-          <div className="text-xl font-black text-sky-400">
-            {formatCurrency(totalNeto, 'USD')}
+          <div className={`text-xl font-black font-mono ${totalNeto >= 0 ? 'text-sky-400' : 'text-rose-400'}`}>
+            {formatCurrency(totalNeto, moneda)}
           </div>
         </div>
       </div>
 
       {/* Form: Add Daily Sales Entry */}
-      <div className="bg-[#0D1B22] border border-slate-800 rounded-2xl p-5 shadow-lg">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-white mb-4 flex items-center gap-2">
-          <Plus className="w-4 h-4 text-emerald-400" />
-          Registrar Venta por Sistema
-        </h3>
+      {(!isDayClosed || isSupervisor) ? (
+        <div className="bg-[#0D1B22] border border-slate-800 rounded-2xl p-5 shadow-lg">
+          <h3 className="text-sm font-bold uppercase tracking-wider text-white mb-4 flex items-center gap-2">
+            <Plus className="w-4 h-4 text-emerald-400" />
+            Carga Manual de Ventas (Sistemas Asignados)
+          </h3>
 
-        {errorMsg && (
-          <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{errorMsg}</span>
-          </div>
-        )}
+          {errorMsg && (
+            <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
 
-        <form onSubmit={handleCreateSale} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
-          <div>
-            <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-              Sistema / Proveedor
-            </label>
-            <select
-              value={sistema}
-              onChange={(e) => setSistema(e.target.value)}
-              className="w-full bg-[#071217] border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
-            >
-              <option value="Apuestas">Apuestas Deportivas</option>
-              <option value="Lotería">Lotería / Animalitos</option>
-              <option value="Hipismo">Hipismo Internacional</option>
-              <option value="Parley">Parley Express</option>
-              <option value="Casino Virtual">Casino Virtual</option>
-              <option value="Otros">Otros</option>
-            </select>
-          </div>
+          <form onSubmit={handleCreateSale} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 items-end">
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                Sistema Asignado
+              </label>
+              <select
+                value={sistema}
+                onChange={(e) => setSistema(e.target.value)}
+                className="w-full bg-[#071217] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-semibold"
+              >
+                {assignedSystems.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
 
-          <div>
-            <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-              Ventas Brutas ($)
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              required
-              value={montoVentas}
-              onChange={(e) => setMontoVentas(e.target.value === '' ? '' : parseFloat(e.target.value))}
-              placeholder="0.00"
-              className="w-full bg-[#071217] border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
-            />
-          </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                Moneda Asignada
+              </label>
+              <select
+                value={moneda}
+                onChange={(e) => setMoneda(e.target.value)}
+                className="w-full bg-[#071217] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-semibold"
+              >
+                {assignedCurrencies.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
 
-          <div>
-            <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-              Anulaciones ($)
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              value={montoAnulaciones}
-              onChange={(e) => setMontoAnulaciones(e.target.value === '' ? '' : parseFloat(e.target.value))}
-              placeholder="0.00"
-              className="w-full bg-[#071217] border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
-            />
-          </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                Ventas Brutas
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                required
+                value={montoVentas}
+                onChange={(e) => setMontoVentas(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                placeholder="0.00"
+                className="w-full bg-[#071217] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
+              />
+            </div>
 
-          <div>
-            <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-              Premios Pagados ($)
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              value={montoPremios}
-              onChange={(e) => setMontoPremios(e.target.value === '' ? '' : parseFloat(e.target.value))}
-              placeholder="0.00"
-              className="w-full bg-[#071217] border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
-            />
-          </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                Comisión
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={comision}
+                onChange={(e) => setComision(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                placeholder="0.00"
+                className="w-full bg-[#071217] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
+              />
+            </div>
 
-          <div>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-2.5 px-4 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-            >
-              {submitting ? 'Guardando...' : 'Guardar Venta'}
-            </button>
-          </div>
-        </form>
-      </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                Premios
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={montoPremios}
+                onChange={(e) => setMontoPremios(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                placeholder="0.00"
+                className="w-full bg-[#071217] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
+              />
+            </div>
+
+            <div>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold py-2 px-4 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {submitting ? 'Guardando...' : 'Guardar Venta'}
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : (
+        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs">
+          🔒 Tu jornada del día está cerrada. Contacta al supervisor para reabrirla si requieres registrar ventas.
+        </div>
+      )}
 
       {/* Sales Table */}
       <div className="bg-[#0D1B22] border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
         <div className="p-4 border-b border-slate-800 flex justify-between items-center">
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">
-            Registros de Venta del Día ({sales.length})
+            Registros de Carga del Día ({sales.length})
           </h3>
         </div>
 
@@ -283,7 +316,7 @@ export const DailySalesTab: React.FC = () => {
                 <th className="py-3 px-4 font-semibold">Sistema</th>
                 <th className="py-3 px-4 font-semibold">Cajero</th>
                 <th className="py-3 px-4 font-semibold text-right">Ventas</th>
-                <th className="py-3 px-4 font-semibold text-right">Anulaciones</th>
+                <th className="py-3 px-4 font-semibold text-right">Comisión</th>
                 <th className="py-3 px-4 font-semibold text-right">Premios</th>
                 <th className="py-3 px-4 font-semibold text-right">Neto</th>
                 <th className="py-3 px-4 font-semibold text-center">Acción</th>
@@ -298,27 +331,30 @@ export const DailySalesTab: React.FC = () => {
                 </tr>
               ) : (
                 sales.map((sale) => {
-                  const neto = (Number(sale.monto_ventas) || 0) - (Number(sale.monto_anulaciones) || 0) - (Number(sale.monto_premios) || 0);
+                  const v = Number(sale.monto_ventas || sale.monto_venta) || 0;
+                  const c = Number(sale.comision || sale.monto_anulaciones) || 0;
+                  const p = Number(sale.monto_premios) || 0;
+                  const neto = v - c - p;
                   return (
                     <tr key={sale.id} className="hover:bg-slate-800/30 transition-colors">
-                      <td className="py-3 px-4 font-medium text-white">
+                      <td className="py-3 px-4 font-bold text-white">
                         <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 mr-2" />
                         {sale.sistema}
                       </td>
                       <td className="py-3 px-4 text-slate-400">
-                        {sale.nombre_cajero || 'N/A'}
+                        {sale.nombre_cajero || 'Taquilla'}
                       </td>
                       <td className="py-3 px-4 text-right font-mono text-emerald-400">
-                        {formatCurrency(sale.monto_ventas, 'USD')}
+                        {formatCurrency(v, sale.moneda || moneda)}
                       </td>
                       <td className="py-3 px-4 text-right font-mono text-amber-400">
-                        {formatCurrency(sale.monto_anulaciones, 'USD')}
+                        {formatCurrency(c, sale.moneda || moneda)}
                       </td>
-                      <td className="py-3 px-4 text-right font-mono text-rose-400">
-                        {formatCurrency(sale.monto_premios, 'USD')}
+                      <td className="py-3 px-4 text-right font-mono text-purple-400">
+                        {formatCurrency(p, sale.moneda || moneda)}
                       </td>
-                      <td className="py-3 px-4 text-right font-mono font-bold text-sky-400">
-                        {formatCurrency(neto, 'USD')}
+                      <td className={`py-3 px-4 text-right font-mono font-bold ${neto >= 0 ? 'text-sky-400' : 'text-rose-400'}`}>
+                        {formatCurrency(neto, sale.moneda || moneda)}
                       </td>
                       <td className="py-3 px-4 text-center">
                         <button

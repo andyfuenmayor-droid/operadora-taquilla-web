@@ -19,37 +19,75 @@ export interface Agency {
   usuario_taquilla?: string;
   clave_taquilla?: string;
   grupo?: string;
-  cuentas_asignadas?: string[];
+  cuentas_asignadas?: string | string[];
+  sistemas?: string; // Comma-separated list of assigned systems (e.g. "BETM3,PARLEY,LOTERIAS")
+  monedas?: string;  // Comma-separated list of assigned currencies (e.g. "BS,USD,COP")
+  telefono?: string;
+  telefono_whatsapp?: string;
+  user_id?: string | number;
   saldo_actual?: number;
   activo?: boolean;
+}
+
+export interface SystemCycle {
+  desde: string;
+  hasta: string;
+  tipo: string;
+  semana: string;
 }
 
 export interface DailySale {
   id?: number;
   fecha: string;
-  agencia: string;
+  agencia?: string;
+  nombre_agency?: string;
   cajero_id?: string | number;
   nombre_cajero?: string;
   sistema: string;
-  monto_ventas: number;
-  monto_anulaciones: number;
-  monto_premios: number;
+  monto_venta?: number;
+  monto_ventas?: number;
+  comision?: number;
+  monto_anulaciones?: number;
+  monto_premios?: number;
+  neto?: number;
   monto_neto?: number;
+  moneda?: string;
+  user_id?: string | number;
   cerrado?: boolean;
+  created_at?: string;
+}
+
+export interface AwardedTicket {
+  id?: number;
+  fecha: string;
+  agencia: string;
+  nombre_agency?: string;
+  cajero_id?: string | number;
+  user_id?: string | number;
+  sistema: string;
+  numero_ticket: string;
+  monto: number;
+  moneda?: string;
+  estado?: string;
   created_at?: string;
 }
 
 export interface DailyExpense {
   id?: number;
   fecha: string;
-  agencia: string;
+  agencia?: string;
+  nombre_agency?: string;
   cajero_id?: string | number;
   nombre_cajero?: string;
+  user_id?: string | number;
   concepto: string;
-  categoria: string;
+  categoria?: string;
   monto: number;
-  moneda: 'USD' | 'VES';
+  moneda: string;
   estado?: 'aprobado' | 'pendiente' | 'rechazado';
+  confirmado?: boolean;
+  rechazado?: boolean;
+  motivo_rechazo?: string;
   comprobante_url?: string;
   created_at?: string;
 }
@@ -57,16 +95,23 @@ export interface DailyExpense {
 export interface DailyPayment {
   id?: number;
   fecha: string;
-  hora: string;
-  agencia: string;
+  hora?: string;
+  agencia?: string;
+  nombre_agency?: string;
   cajero_id?: string | number;
   nombre_cajero?: string;
-  ticket_nro: string;
+  user_id?: string | number;
+  ticket_nro?: string;
   monto: number;
-  moneda: 'USD' | 'VES';
-  metodo_pago: 'Efectivo' | 'Transferencia' | 'Punto de Venta';
+  moneda: string;
+  tipo_pago?: string;
+  metodo_pago?: string;
   concepto?: string;
-  qr_token: string;
+  qr_token?: string;
+  pin_6?: string;
+  confirmado?: boolean;
+  confirmado_supervisor?: boolean;
+  rechazado?: boolean;
   estado?: 'pagado' | 'anulado' | 'cobrado';
   cobrado_por?: string;
   fecha_cobro?: string;
@@ -76,16 +121,19 @@ export interface DailyPayment {
 export interface BankPayment {
   id?: number;
   fecha: string;
-  hora: string;
-  agencia: string;
+  hora?: string;
+  agencia?: string;
+  nombre_agency?: string;
   cajero_id?: string | number;
   nombre_cajero?: string;
+  user_id?: string | number;
   banco_origen: string;
   banco_destino: string;
   referencia: string;
   monto: number;
-  moneda: 'USD' | 'VES';
-  tipo?: 'deposito' | 'transferencia' | 'pago_movil';
+  moneda: string;
+  metodo_pago?: string;
+  tipo?: string;
   confirmado: boolean;
   rechazado?: boolean;
   motivo_rechazo?: string;
@@ -119,9 +167,25 @@ export interface BankAccount {
   banco: string;
   numero_cuenta: string;
   titular: string;
-  documento: string;
-  tipo?: string;
-  activa: boolean;
+  documento?: string;
+  tipo_cuenta?: string;
+  moneda?: string;
+  agencia_asignada?: string;
+  saldo_inicial?: number;
+  estatus?: string;
+  activa?: boolean;
+}
+
+export interface PaymentDevice {
+  id: number;
+  alias_nombre: string;
+  tipo_dispositivo: string;
+  serial_tid: string;
+  cuenta_asociada?: string;
+  agencia_asignada?: string;
+  moneda?: string;
+  estatus?: string;
+  notas?: string;
 }
 
 export interface ThermalReceiptData {
@@ -133,7 +197,7 @@ export interface ThermalReceiptData {
   fecha: string;
   hora: string;
   monto: number;
-  moneda: 'USD' | 'VES';
+  moneda: string;
   metodoPago: string;
   concepto: string;
   qrPayload: string;
