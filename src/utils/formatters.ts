@@ -39,6 +39,16 @@ export function formatCurrency(amount: number | string, currency = 'USD'): strin
   }
 }
 
+export function formatMoney(amount: number | string, currency = 'BS'): string {
+  const num = typeof amount === 'string' ? parseFloat(amount) || 0 : amount || 0;
+  const norm = normalizarMoneda(currency);
+  const numStr = num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (norm === 'BS') return `Bs. ${numStr}`;
+  if (norm === 'USD') return `$${numStr}`;
+  if (norm === 'COP') return `COP $${Math.round(num).toLocaleString('en-US')}`;
+  return `${norm} ${numStr}`;
+}
+
 export function formatDate(dateStr?: string | Date): string {
   if (!dateStr) return '';
   const d = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
