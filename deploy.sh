@@ -14,9 +14,9 @@ systemctl enable --now nginx || true
 echo "📦 Construyendo la imagen de Docker para taquilla-web..."
 docker build -t taquilla-web-app .
 
-echo "🛑 Deteniendo contenedor anterior si existe..."
-docker stop taquilla-web-container 2>/dev/null || true
-docker rm taquilla-web-container 2>/dev/null || true
+echo "🛑 Deteniendo y limpiando contenedor anterior..."
+docker rm -f taquilla-web-container 2>/dev/null || true
+sleep 2
 
 echo "▶️ Iniciando nuevo contenedor en puerto dedicado $PORT..."
 docker run -d \

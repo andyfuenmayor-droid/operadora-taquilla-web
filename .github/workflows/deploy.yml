@@ -13,16 +13,20 @@ jobs:
       - name: Deploying web application via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.SERVER_IP }}
-          username: root
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          host: ${{ secrets.SERVER_IP || secrets.SSH_HOST || '67.205.150.98' }}
+          username: ${{ secrets.SSH_USERNAME || 'root' }}
+          key: ${{ secrets.SSH_PRIVATE_KEY || secrets.SSH_KEY }}
+          port: 22
+          script_stop: true
           script: |
+            echo "🚀 Actualizando repositorio /opt/operadora-taquilla-web..."
             mkdir -p /opt/operadora-taquilla-web
             cd /opt/operadora-taquilla-web
+            git config --global --add safe.directory "*" || true
             if [ ! -d ".git" ]; then
               git clone https://github.com/andyfuenmayor-droid/operadora-taquilla-web.git .
             else
-              git fetch --all
+              git fetch origin main
               git reset --hard origin/main
             fi
             bash deploy.sh
