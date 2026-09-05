@@ -28,6 +28,8 @@ export const DateRangeReportTab: React.FC = () => {
 
   const agencyName = agency?.nombre_agencia || '';
   const isSupervisor = user?.rol === 'supervisor' || user?.rol === 'admin';
+  const isCajero = user?.rol === 'cajero';
+  const isAgencia = user?.rol === 'agencia';
   const mainCurrency = assignedCurrencies[0] || 'USD';
 
   // Load cashiers for supervisor filter
@@ -35,12 +37,18 @@ export const DateRangeReportTab: React.FC = () => {
     if (isSupervisor) {
       const fetchCashiers = async () => {
         try {
-          const { data } = await supabase
+          let q = supabase
             .table('taquilla_usuarios')
-            .select('id, usuario, nombre_cajero, rol');
+            .select('id, usuario, nombre_cajero, rol')
+            .eq('rol', 'cajero');
+
+          if (agency?.id) {
+            q = q.eq('agencia_id', agency.id);
+          }
+
+          const { data } = await q;
 
           const cajeros = (data || [])
-            .filter((u: any) => u.rol === 'cajero')
             .map((u: any) => ({
               id: String(u.id),
               nombre: u.nombre_cajero || u.usuario,
@@ -52,7 +60,7 @@ export const DateRangeReportTab: React.FC = () => {
       };
       fetchCashiers();
     }
-  }, [isSupervisor]);
+  }, [isSupervisor, agency?.id]);
 
   const fetchReportData = useCallback(async () => {
     if (!agencyName) return;
@@ -63,11 +71,11 @@ export const DateRangeReportTab: React.FC = () => {
       let qSales = supabase
         .table('cda_reportes_diarios')
         .select('*')
-        .ilike('agencia', agencyName)
+        .ilike('nombre_agency', agencyName)
         .gte('fecha', desde)
         .lte('fecha', hasta);
 
-      if (!isSupervisor && user?.id) {
+      if (isCajero && user?.id) {
         qSales = qSales.eq('cajero_id', String(user.id));
       } else if (isSupervisor && selectedCashier !== 'all') {
         qSales = qSales.eq('cajero_id', selectedCashier);
@@ -79,11 +87,11 @@ export const DateRangeReportTab: React.FC = () => {
       let qExpenses = supabase
         .table('cda_gastos_diarios')
         .select('*')
-        .ilike('agencia', agencyName)
+        .or(`agencia.ilike.${agencyName},nombre_agency.ilike.${agencyName}`)
         .gte('fecha', desde)
         .lte('fecha', hasta);
 
-      if (!isSupervisor && user?.id) {
+      if (isCajero && user?.id) {
         qExpenses = qExpenses.eq('cajero_id', String(user.id));
       } else if (isSupervisor && selectedCashier !== 'all') {
         qExpenses = qExpenses.eq('cajero_id', selectedCashier);
@@ -99,6 +107,12 @@ export const DateRangeReportTab: React.FC = () => {
         .gte('fecha', desde)
         .lte('fecha', hasta)
         .eq('confirmado', true);
+
+      if (isCajero && user?.id) {
+        qBank = qBank.eq('cajero_id', String(user.id));
+      } else if (isSupervisor && selectedCashier !== 'all') {
+        qBank = qBank.eq('cajero_id', selectedCashier);
+      }
 
       const { data: bankData } = await qBank;
 
@@ -162,7 +176,7 @@ export const DateRangeReportTab: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [agencyName, desde, hasta, isSupervisor, selectedCashier, user?.id]);
+  }, [agencyName, desde, hasta, isSupervisor, isCajero, selectedCashier, user?.id]);
 
   useEffect(() => {
     fetchReportData();
@@ -220,6 +234,13 @@ export const DateRangeReportTab: React.FC = () => {
                   </option>
                 ))}
               </select>
+            </div>
+          )}
+
+          {isAgencia && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-500/10 border border-sky-500/20 text-xs text-sky-400 font-semibold">
+              <Building2 className="w-3.5 h-3.5" />
+              <span>Consolidado General</span>
             </div>
           )}
         </div>

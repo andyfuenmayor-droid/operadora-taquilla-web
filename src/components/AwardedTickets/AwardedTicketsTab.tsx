@@ -95,13 +95,10 @@ export const AwardedTicketsTab: React.FC = () => {
       const newTicket = {
         fecha,
         agencia: agencyName,
-        nombre_agency: agencyName,
-        cajero_id: user?.id,
-        user_id: user?.id,
+        user_id: user?.user_id || user?.id,
         sistema,
         numero_ticket: numeroTicket.trim().toUpperCase(),
         monto: Math.round(numMonto * 100) / 100,
-        moneda,
         estado: 'RECLAMADO',
       };
 
@@ -126,41 +123,44 @@ export const AwardedTicketsTab: React.FC = () => {
 
   const updateDailyReportPrizes = async (addedAmount: number) => {
     try {
-      const { data: dRes } = await supabase
+      let q = supabase
         .table('cda_reportes_diarios')
         .select('*')
-        .ilike('agencia', agencyName)
+        .ilike('nombre_agency', agencyName)
         .eq('fecha', fecha)
-        .eq('sistema', sistema)
-        .maybeSingle();
+        .eq('sistema', sistema);
+
+      if (user?.id) {
+        q = q.eq('cajero_id', String(user.id));
+      }
+
+      const { data: dRes } = await q.maybeSingle();
 
       if (dRes) {
         const nuevoPremios = (Number(dRes.monto_premios) || 0) + addedAmount;
-        const venta = Number(dRes.monto_ventas || dRes.monto_venta) || 0;
-        const comision = Number(dRes.comision || dRes.monto_anulaciones) || 0;
+        const venta = Number(dRes.monto_venta || 0);
+        const comision = Number(dRes.comision || 0);
         const nuevoNeto = venta - comision - nuevoPremios;
 
         await supabase
           .table('cda_reportes_diarios')
           .update({
             monto_premios: nuevoPremios,
-            monto_neto: nuevoNeto,
             neto: nuevoNeto,
           })
           .eq('id', dRes.id);
       } else {
         await supabase.table('cda_reportes_diarios').insert({
           fecha,
-          agencia: agencyName,
           nombre_agency: agencyName,
-          cajero_id: user?.id,
+          cajero_id: user?.id ? String(user.id) : null,
+          user_id: user?.user_id || user?.id,
           sistema,
-          monto_ventas: 0,
           monto_venta: 0,
           comision: 0,
           monto_premios: addedAmount,
-          monto_neto: -addedAmount,
           neto: -addedAmount,
+          moneda,
           cerrado: false,
         });
       }
@@ -169,13 +169,12 @@ export const AwardedTicketsTab: React.FC = () => {
     }
   };
 
-  const handleSaveBatch = async () => {
-    const validItems = loteTickets.filter(
-      (item) => item.serial.trim() && typeof item.monto === 'number' && item.monto > 0
-    );
+  const handleSaveBatch = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const validItems = loteTickets.filter((t) => t.serial.trim() && Number(t.monto) > 0);
 
     if (validItems.length === 0) {
-      setErrorMsg('Ingrese al menos un ticket con últimos 3 dígitos y monto válido.');
+      setErrorMsg('Debe ingresar al menos un ticket con número y monto válido mayor a 0');
       return;
     }
 
@@ -192,13 +191,10 @@ export const AwardedTicketsTab: React.FC = () => {
         await supabase.table('cda_premios_tickets').insert({
           fecha,
           agencia: agencyName,
-          nombre_agency: agencyName,
-          cajero_id: user?.id,
-          user_id: user?.id,
+          user_id: user?.user_id || user?.id,
           sistema,
           numero_ticket: item.serial.trim().toUpperCase(),
           monto: itemMonto,
-          moneda,
           estado: 'RECLAMADO',
         });
       }

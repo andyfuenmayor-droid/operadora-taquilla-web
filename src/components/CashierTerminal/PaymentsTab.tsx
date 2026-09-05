@@ -67,12 +67,17 @@ export const PaymentsTab: React.FC = () => {
     setLoading(true);
     setErrorMsg(null);
     try {
-      const { data, error } = await supabase
+      let q = supabase
         .table('cda_pagos_diarios')
         .select('*')
         .eq('fecha', fecha)
-        .ilike('agencia', agencyName)
-        .order('id', { ascending: false });
+        .or(`agencia.ilike.${agencyName},nombre_agency.ilike.${agencyName}`);
+
+      if (user?.rol === 'cajero' && user?.id) {
+        q = q.eq('cajero_id', String(user.id));
+      }
+
+      const { data, error } = await q.order('id', { ascending: false });
 
       if (error) throw error;
       setPayments(data || []);
@@ -82,7 +87,7 @@ export const PaymentsTab: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [agencyName, fecha]);
+  }, [agencyName, fecha, user?.rol, user?.id]);
 
   useEffect(() => {
     fetchPayments();
@@ -101,7 +106,7 @@ export const PaymentsTab: React.FC = () => {
       moneda: p.moneda,
       metodoPago: p.metodo_pago || 'Efectivo',
       concepto: p.concepto || p.tipo_pago || 'Pago de Efectivo',
-      qrPayload: p.qr_token || `TK:${p.ticket_nro}|AG:${p.agencia}|MTO:${p.monto}|FEC:${p.fecha}`,
+      qrPayload: p.qr_token || `TK:${p.ticket_nro || p.id}|AG:${p.agencia || agencyName}|MTO:${p.monto}|FEC:${p.fecha}`,
     };
 
     printThermalReceipt(receiptData);
@@ -111,16 +116,13 @@ export const PaymentsTab: React.FC = () => {
     e.preventDefault();
     const parsedMonto = typeof monto === 'number' ? monto : 0;
     if (parsedMonto <= 0) {
-      setErrorMsg('El monto del pago debe ser mayor a 0');
+      setErrorMsg('El monto debe ser mayor a 0');
       return;
     }
 
     setSubmitting(true);
     setErrorMsg(null);
     setSuccessMsg(null);
-
-    const now = new Date();
-    const currentTimeStr = now.toTimeString().slice(0, 8);
 
     // Generate PIN and QR Token if "Entregado a Cobrador"
     let pin6: string | undefined = undefined;
@@ -134,24 +136,17 @@ export const PaymentsTab: React.FC = () => {
     try {
       const newPayment = {
         fecha,
-        hora: currentTimeStr,
         agencia: agencyName,
         nombre_agency: agencyName,
-        cajero_id: user?.id,
-        nombre_cajero: user?.nombre || user?.usuario,
+        cajero_id: user?.id ? String(user.id) : null,
         user_id: user?.user_id || user?.id,
-        ticket_nro: ticketNro,
-        concepto,
         tipo_pago: concepto,
         monto: parsedMonto,
         moneda,
-        metodo_pago: metodoPago,
         qr_token: qrTokenVal,
-        pin_6: pin6,
         confirmado: false,
         confirmado_supervisor: false,
         rechazado: false,
-        estado: 'pagado',
       };
 
       const { data, error } = await supabase

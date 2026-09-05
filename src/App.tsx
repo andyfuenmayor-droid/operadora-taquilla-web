@@ -59,11 +59,11 @@ const MainLayout: React.FC = () => {
         )}
 
         {/* Supervisor Exclusive Views */}
-        {currentTab === 'pizarra' && <SupervisorBoard />}
-        {currentTab === 'auditoria' && <AuditPanel />}
+        {currentTab === 'pizarra' && (user?.rol === 'supervisor' || user?.rol === 'admin') && <SupervisorBoard />}
+        {currentTab === 'auditoria' && (user?.rol === 'supervisor' || user?.rol === 'admin') && <AuditPanel />}
 
         {/* Route Collector Views */}
-        {currentTab === 'escaner' && <CollectorPortal />}
+        {currentTab === 'escaner' && user?.rol === 'cobrador' && <CollectorPortal />}
       </div>
 
       <footer className="py-4 border-t border-slate-900 text-center text-xs text-slate-500">

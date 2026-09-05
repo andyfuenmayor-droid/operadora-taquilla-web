@@ -37,12 +37,17 @@ export const DailySalesTab: React.FC = () => {
     setLoading(true);
     setErrorMsg(null);
     try {
-      const { data, error } = await supabase
+      let q = supabase
         .table('cda_reportes_diarios')
         .select('*')
         .eq('fecha', fecha)
-        .ilike('agencia', agencyName)
-        .order('id', { ascending: false });
+        .ilike('nombre_agency', agencyName);
+
+      if (user?.rol === 'cajero' && user?.id) {
+        q = q.eq('cajero_id', String(user.id));
+      }
+
+      const { data, error } = await q.order('id', { ascending: false });
 
       if (error) throw error;
       setSales(data || []);
@@ -52,7 +57,7 @@ export const DailySalesTab: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [agencyName, fecha]);
+  }, [agencyName, fecha, user?.rol, user?.id]);
 
   useEffect(() => {
     fetchSales();
@@ -75,19 +80,14 @@ export const DailySalesTab: React.FC = () => {
     try {
       const newRecord = {
         fecha,
-        agencia: agencyName,
         nombre_agency: agencyName,
-        cajero_id: user?.id,
-        nombre_cajero: user?.nombre || user?.usuario,
+        cajero_id: user?.id ? String(user.id) : null,
         user_id: user?.user_id || user?.id,
         sistema,
         monto_venta: ventas,
-        monto_ventas: ventas,
         comision: comis,
-        monto_anulaciones: comis,
         monto_premios: premios,
         neto: ventas - comis - premios,
-        monto_neto: ventas - comis - premios,
         moneda,
         cerrado: false,
       };

@@ -43,12 +43,17 @@ export const ExpensesTab: React.FC = () => {
     setLoading(true);
     setErrorMsg(null);
     try {
-      const { data, error } = await supabase
+      let q = supabase
         .table('cda_gastos_diarios')
         .select('*')
         .eq('fecha', fecha)
-        .ilike('agencia', agencyName)
-        .order('id', { ascending: false });
+        .or(`agencia.ilike.${agencyName},nombre_agency.ilike.${agencyName}`);
+
+      if (user?.rol === 'cajero' && user?.id) {
+        q = q.eq('cajero_id', String(user.id));
+      }
+
+      const { data, error } = await q.order('id', { ascending: false });
 
       if (error) throw error;
       setExpenses(data || []);
@@ -58,7 +63,7 @@ export const ExpensesTab: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [agencyName, fecha]);
+  }, [agencyName, fecha, user?.rol, user?.id]);
 
   useEffect(() => {
     fetchExpenses();
@@ -76,18 +81,17 @@ export const ExpensesTab: React.FC = () => {
     setErrorMsg(null);
 
     try {
+      const cleanConcepto = concepto.trim().toUpperCase();
       const newExpense = {
         fecha,
         agencia: agencyName,
         nombre_agency: agencyName,
-        cajero_id: user?.id,
-        nombre_cajero: user?.nombre || user?.usuario,
+        cajero_id: user?.id ? String(user.id) : null,
         user_id: user?.user_id || user?.id,
-        concepto: concepto.trim().toUpperCase(),
-        categoria,
+        concepto: cleanConcepto,
+        descripcion: cleanConcepto,
         monto: parsedMonto,
         moneda,
-        estado: 'aprobado',
         confirmado: false,
         rechazado: false,
       };

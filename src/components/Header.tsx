@@ -24,9 +24,11 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
   const { user, agency, logout } = useAuth();
 
-  const isSupervisorOrAdmin = user?.rol === 'supervisor' || user?.rol === 'admin';
-  const isCobrador = user?.rol === 'cobrador';
-  const isCashier = !isCobrador;
+  const role = (user?.rol || 'cajero').toLowerCase();
+  const isCajero = role === 'cajero';
+  const isSupervisor = role === 'supervisor' || role === 'admin';
+  const isAgencia = role === 'agencia';
+  const isCobrador = role === 'cobrador';
 
   return (
     <header className="sticky top-0 z-40 w-full bg-[#0D1B22]/95 backdrop-blur-md border-b border-slate-800 shadow-lg">
@@ -42,7 +44,15 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                 <span className="font-extrabold text-white tracking-tight text-sm sm:text-base">
                   Taquilla Web
                 </span>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                <span className={`text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded border ${
+                  isSupervisor
+                    ? 'bg-purple-500/20 text-purple-400 border-purple-500/30'
+                    : isAgencia
+                    ? 'bg-sky-500/20 text-sky-400 border-sky-500/30'
+                    : isCobrador
+                    ? 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                    : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                }`}>
                   {user?.rol || 'cajero'}
                 </span>
               </div>
@@ -57,7 +67,8 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
 
           {/* Desktop Navigation Pills */}
           <nav className="hidden xl:flex items-center gap-1 bg-[#071217] p-1 rounded-xl border border-slate-800">
-            {isCashier && (
+            {/* 1. ROL CAJERO */}
+            {isCajero && (
               <>
                 <button
                   onClick={() => onTabChange('inicio')}
@@ -157,9 +168,21 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
               </>
             )}
 
-            {isSupervisorOrAdmin && (
+            {/* 2. ROL SUPERVISOR */}
+            {isSupervisor && (
               <>
-                <div className="w-[1px] h-5 bg-slate-800 mx-1" />
+                <button
+                  onClick={() => onTabChange('inicio')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    currentTab === 'inicio'
+                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  }`}
+                >
+                  <Home className="w-3.5 h-3.5" />
+                  <span>Inicio</span>
+                </button>
+
                 <button
                   onClick={() => onTabChange('pizarra')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
@@ -171,6 +194,19 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                   <LayoutDashboard className="w-3.5 h-3.5" />
                   <span>Pizarra</span>
                 </button>
+
+                <button
+                  onClick={() => onTabChange('reporte')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    currentTab === 'reporte'
+                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  }`}
+                >
+                  <BarChart3 className="w-3.5 h-3.5" />
+                  <span>Reporte</span>
+                </button>
+
                 <button
                   onClick={() => onTabChange('auditoria')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
@@ -182,9 +218,75 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                   <ShieldCheck className="w-3.5 h-3.5" />
                   <span>Auditoría</span>
                 </button>
+
+                <button
+                  onClick={() => onTabChange('cierre')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    currentTab === 'cierre'
+                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  }`}
+                >
+                  <Calculator className="w-3.5 h-3.5" />
+                  <span>Cierre Maestro</span>
+                </button>
               </>
             )}
 
+            {/* 3. ROL AGENCIA */}
+            {isAgencia && (
+              <>
+                <button
+                  onClick={() => onTabChange('inicio')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    currentTab === 'inicio'
+                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  }`}
+                >
+                  <Home className="w-3.5 h-3.5" />
+                  <span>Inicio</span>
+                </button>
+
+                <button
+                  onClick={() => onTabChange('reporte')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    currentTab === 'reporte'
+                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  }`}
+                >
+                  <BarChart3 className="w-3.5 h-3.5" />
+                  <span>Reporte</span>
+                </button>
+
+                <button
+                  onClick={() => onTabChange('pagos')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    currentTab === 'pagos'
+                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  }`}
+                >
+                  <CreditCard className="w-3.5 h-3.5" />
+                  <span>Pago Efectivo</span>
+                </button>
+
+                <button
+                  onClick={() => onTabChange('banco')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    currentTab === 'banco'
+                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  }`}
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Gestión Bancaria</span>
+                </button>
+              </>
+            )}
+
+            {/* 4. ROL COBRADOR */}
             {isCobrador && (
               <button
                 onClick={() => onTabChange('escaner')}
@@ -228,7 +330,8 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
 
         {/* Medium/Mobile Navigation Bar with horizontal scrolling */}
         <div className="xl:hidden flex items-center py-2.5 border-t border-slate-800/80 overflow-x-auto gap-1 scrollbar-none">
-          {isCashier && (
+          {/* Mobile Cajero */}
+          {isCajero && (
             <>
               <button
                 onClick={() => onTabChange('inicio')}
@@ -297,8 +400,17 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
             </>
           )}
 
-          {isSupervisorOrAdmin && (
+          {/* Mobile Supervisor */}
+          {isSupervisor && (
             <>
+              <button
+                onClick={() => onTabChange('inicio')}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                  currentTab === 'inicio' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Inicio
+              </button>
               <button
                 onClick={() => onTabChange('pizarra')}
                 className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
@@ -308,6 +420,14 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                 Pizarra
               </button>
               <button
+                onClick={() => onTabChange('reporte')}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                  currentTab === 'reporte' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Reporte
+              </button>
+              <button
                 onClick={() => onTabChange('auditoria')}
                 className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
                   currentTab === 'auditoria' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
@@ -315,9 +435,56 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
               >
                 Auditoría
               </button>
+              <button
+                onClick={() => onTabChange('cierre')}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                  currentTab === 'cierre' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Cierre Maestro
+              </button>
             </>
           )}
 
+          {/* Mobile Agencia */}
+          {isAgencia && (
+            <>
+              <button
+                onClick={() => onTabChange('inicio')}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                  currentTab === 'inicio' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Inicio
+              </button>
+              <button
+                onClick={() => onTabChange('reporte')}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                  currentTab === 'reporte' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Reporte
+              </button>
+              <button
+                onClick={() => onTabChange('pagos')}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                  currentTab === 'pagos' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Pago Efectivo
+              </button>
+              <button
+                onClick={() => onTabChange('banco')}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                  currentTab === 'banco' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Gestión Bancaria
+              </button>
+            </>
+          )}
+
+          {/* Mobile Cobrador */}
           {isCobrador && (
             <button
               onClick={() => onTabChange('escaner')}

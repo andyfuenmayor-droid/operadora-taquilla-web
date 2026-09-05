@@ -47,19 +47,19 @@ export const SupervisorBoard: React.FC = () => {
       // 2. Fetch all sales for this date
       const { data: sData } = await supabase
         .table('cda_reportes_diarios')
-        .select('agencia, monto_ventas, monto_anulaciones, monto_premios, cerrado')
+        .select('nombre_agency, monto_venta, comision, monto_premios, cerrado')
         .eq('fecha', fecha);
 
       // 3. Fetch all expenses for this date
       const { data: gData } = await supabase
         .table('cda_gastos_diarios')
-        .select('agencia, monto')
+        .select('agencia, nombre_agency, monto')
         .eq('fecha', fecha);
 
       // 4. Fetch all closed balances
       const { data: saldoData } = await supabase
         .table('saldo_taquilla')
-        .select('nombre_agency, cerrado, saldo_restante')
+        .select('nombre_agency, saldo_restante')
         .eq('fecha', fecha);
 
       // Aggregate by agency
@@ -67,7 +67,7 @@ export const SupervisorBoard: React.FC = () => {
 
       // Initialize from sales
       (sData || []).forEach((row: any) => {
-        const ag = row.agencia || 'Sin Agencia';
+        const ag = row.nombre_agency || 'Sin Agencia';
         if (!mapAgencies[ag]) {
           mapAgencies[ag] = {
             agencia: ag,
@@ -76,11 +76,16 @@ export const SupervisorBoard: React.FC = () => {
             totalGastos: 0,
             totalBanco: 0,
             saldoEstimado: 0,
-            cerrado: false,
+            cerrado: Boolean(row.cerrado),
           };
         }
-        mapAgencies[ag].totalVentas += (Number(row.monto_ventas) || 0) - (Number(row.monto_anulaciones) || 0);
+        const venta = Number(row.monto_venta) || 0;
+        const comision = Number(row.comision) || 0;
+        mapAgencies[ag].totalVentas += (venta - comision);
         mapAgencies[ag].totalPremios += Number(row.monto_premios) || 0;
+        if (row.cerrado) {
+          mapAgencies[ag].cerrado = true;
+        }
       });
 
       // Add expenses
@@ -123,7 +128,7 @@ export const SupervisorBoard: React.FC = () => {
       (saldoData || []).forEach((s: any) => {
         const ag = s.nombre_agency;
         if (mapAgencies[ag]) {
-          mapAgencies[ag].cerrado = !!s.cerrado;
+          mapAgencies[ag].cerrado = true;
           if (s.saldo_restante !== undefined && s.saldo_restante !== null) {
             mapAgencies[ag].saldoEstimado = Number(s.saldo_restante);
           }

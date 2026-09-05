@@ -300,7 +300,7 @@ export async function fetchFullCycleMetrics(
         let qRep = supabase
           .from('cda_reportes_diarios')
           .select('*')
-          .ilike('agencia', agencyName)
+          .ilike('nombre_agency', agencyName)
           .gte('fecha', fDesdeCarga)
           .lte('fecha', fHastaEfectivo);
 

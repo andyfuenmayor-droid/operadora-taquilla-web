@@ -86,12 +86,17 @@ export const BankTransfersTab: React.FC = () => {
     setLoading(true);
     setErrorMsg(null);
     try {
-      const { data, error } = await supabase
+      let q = supabase
         .table('cda_pagos_bancarios')
         .select('*')
         .eq('fecha', fecha)
-        .ilike('agencia', agencyName)
-        .order('id', { ascending: false });
+        .ilike('agencia', agencyName);
+
+      if (user?.rol === 'cajero' && user?.id) {
+        q = q.eq('cajero_id', String(user.id));
+      }
+
+      const { data, error } = await q.order('id', { ascending: false });
 
       if (error) throw error;
       setTransfers(data || []);
@@ -101,7 +106,7 @@ export const BankTransfersTab: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [agencyName, fecha]);
+  }, [agencyName, fecha, user?.rol, user?.id]);
 
   useEffect(() => {
     fetchTransfers();
@@ -119,21 +124,16 @@ export const BankTransfersTab: React.FC = () => {
     setErrorMsg(null);
     setSuccessMsg(null);
 
-    const now = new Date();
-    const currentTimeStr = now.toTimeString().slice(0, 8);
-
     try {
       const newRecord = {
         fecha,
-        hora: currentTimeStr,
         agencia: agencyName,
-        nombre_agency: agencyName,
-        cajero_id: user?.id,
-        nombre_cajero: user?.nombre || user?.usuario,
+        cajero_id: user?.id ? String(user.id) : null,
         user_id: user?.user_id || user?.id,
-        banco_origen: bancoOrigen || metodo,
-        banco_destino: bancoDestino || 'Cuenta Operadora',
         metodo_pago: metodo,
+        concepto: bancoOrigen || metodo,
+        pos_o_cuenta: bancoDestino || 'Cuenta Operadora',
+        datos_pagador: user?.nombre || user?.usuario || 'CAJERO',
         referencia: referencia.trim(),
         monto: parsedMonto,
         moneda,

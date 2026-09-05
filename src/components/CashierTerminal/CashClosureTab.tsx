@@ -102,14 +102,14 @@ export const CashClosureTab: React.FC = () => {
         .table('cda_reportes_diarios')
         .select('cerrado')
         .eq('fecha', fecha)
-        .ilike('agencia', agencyName)
+        .ilike('nombre_agency', agencyName)
         .eq('cerrado', true);
 
       if (targetCajeroId) {
         qRepCerrado = qRepCerrado.eq('cajero_id', String(targetCajeroId));
       }
       const { data: repCerradoList } = await qRepCerrado.limit(1);
-      const isDayClosed = (closureData && closureData.cerrado) || (repCerradoList && repCerradoList.length > 0);
+      const isDayClosed = (closureData && closureData.saldo_restante !== undefined) || (repCerradoList && repCerradoList.length > 0);
 
       setYaCerrado(Boolean(isDayClosed));
 
@@ -147,9 +147,9 @@ export const CashClosureTab: React.FC = () => {
       // 4. Query Today Sales from cda_reportes_diarios
       let qSales = supabase
         .table('cda_reportes_diarios')
-        .select('monto_ventas, monto_venta, comision, monto_premios, moneda, cajero_id')
+        .select('monto_venta, comision, monto_premios, moneda, cajero_id')
         .eq('fecha', fecha)
-        .ilike('agencia', agencyName);
+        .ilike('nombre_agency', agencyName);
 
       if (targetCajeroId) {
         qSales = qSales.eq('cajero_id', String(targetCajeroId));
@@ -161,7 +161,7 @@ export const CashClosureTab: React.FC = () => {
       );
 
       const sumVentas = salesFiltered.reduce(
-        (acc: number, r: any) => acc + (Number(r.monto_ventas || r.monto_venta) || 0),
+        (acc: number, r: any) => acc + (Number(r.monto_venta) || 0),
         0
       );
       const sumComisiones = salesFiltered.reduce(
@@ -287,20 +287,10 @@ export const CashClosureTab: React.FC = () => {
       const targetCajeroId = !isSupervisorOrAdmin ? user?.id : (selectedCashierId !== 'ALL' ? selectedCashierId : user?.id);
 
       const closureRecord: any = {
-        fecha,
         nombre_agency: agencyName,
+        fecha,
         cajero_id: targetCajeroId ? String(targetCajeroId) : null,
-        nombre_cajero: user?.nombre || user?.usuario,
-        saldo_inicial: saldoInicial,
-        total_ventas: totalVentas,
-        total_premios: totalPremios,
-        total_gastos: totalGastos,
-        total_banco: totalBanco,
-        total_efectivo: fisicoNum,
         saldo_restante: fisicoNum,
-        sobrante_faltante: diferencia,
-        cerrado: true,
-        observaciones,
       };
 
       // 1. Upsert into saldo_taquilla
@@ -318,7 +308,7 @@ export const CashClosureTab: React.FC = () => {
         .table('cda_reportes_diarios')
         .update({ cerrado: true })
         .eq('fecha', fecha)
-        .ilike('agencia', agencyName);
+        .ilike('nombre_agency', agencyName);
 
       if (targetCajeroId) {
         qUpdateRep = qUpdateRep.eq('cajero_id', String(targetCajeroId));
@@ -355,7 +345,7 @@ export const CashClosureTab: React.FC = () => {
         .table('cda_reportes_diarios')
         .update({ cerrado: false })
         .eq('fecha', fecha)
-        .ilike('agencia', agencyName);
+        .ilike('nombre_agency', agencyName);
 
       if (targetCajeroId) {
         qRep = qRep.eq('cajero_id', String(targetCajeroId));
