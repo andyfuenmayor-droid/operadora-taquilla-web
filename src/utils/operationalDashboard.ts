@@ -20,9 +20,11 @@ export interface CurrencyOperationalMetrics {
   gastosDetalle: GastosDetalleRow[];
   pagosOrdinariosDetalle: PagosDetalleRow[];
   pagosPremiosDetalle: PagosDetalleRow[];
+  rawTicketText?: string;
 }
 
 export interface VentasDetalleRow {
+  fecha?: string;
   sistema: string;
   moneda: string;
   venta: number;
@@ -225,6 +227,12 @@ export async function obtenerSaldoAnterior(
   return 0;
 }
 
+export interface PeriodMetricsOptions {
+  customDesde?: string;
+  customHasta?: string;
+  filterCajeroId?: string | null;
+}
+
 /**
  * Consulta y unifica todos los datos operativos de la agencia para el ciclo seleccionado
  */
@@ -234,18 +242,24 @@ export async function fetchFullCycleMetrics(
   assignedCurrencies: string[],
   assignedSystems: string[],
   user: UserSession | null,
-  agencyData?: Agency | null
+  agencyData?: Agency | null,
+  options?: PeriodMetricsOptions
 ): Promise<Record<string, CurrencyOperationalMetrics>> {
   if (!agencyName) return {};
 
   const todayStr = new Date().toISOString().slice(0, 10);
-  const fDesdeAdmin = systemCycle?.desde || todayStr;
-  const fHastaAdmin = systemCycle?.hasta || todayStr;
+  const fDesdeAdmin = options?.customDesde || systemCycle?.desde || todayStr;
+  const fHastaAdmin = options?.customHasta || systemCycle?.hasta || todayStr;
   const fHastaEfectivo = fHastaAdmin > todayStr ? fHastaAdmin : todayStr;
   const fDesdeCarga = fDesdeAdmin <= todayStr ? fDesdeAdmin : todayStr;
 
   const isSupervisor = user?.rol === 'supervisor' || user?.rol === 'agencia' || user?.rol === 'admin';
-  const cajeroId = !isSupervisor && user?.id ? String(user.id) : undefined;
+  let cajeroId: string | undefined = undefined;
+  if (options?.filterCajeroId !== undefined) {
+    cajeroId = options.filterCajeroId && options.filterCajeroId !== 'all' ? String(options.filterCajeroId) : undefined;
+  } else {
+    cajeroId = !isSupervisor && user?.id ? String(user.id) : undefined;
+  }
   const uIdAdmin = agencyData?.user_id ? String(agencyData.user_id) : undefined;
 
   // 1. VENTAS: Prioridad carga_actual, fallback cda_reportes_diarios
@@ -563,6 +577,7 @@ export async function fetchFullCycleMetrics(
 
     // Filas para las tablas del ciclo
     const ventasDetalle: VentasDetalleRow[] = vM.map((v) => ({
+      fecha: String(v.fecha || todayStr).slice(0, 10),
       sistema: v.sistema || 'BETM3',
       moneda: mCode,
       venta: Number(v.monto_venta || 0),
@@ -614,6 +629,44 @@ export async function fetchFullCycleMetrics(
       tipo_clasif: p.tipo_clasif
     }));
 
+    // Generar formato de texto de ticket matching taquilla.py
+    const lines: string[] = [];
+    lines.push('====================================');
+    lines.push(`  Reporte (${mCode}): ${fDesdeAdmin} al ${fHastaAdmin}`);
+    lines.push(`  ${agencyName}`);
+    lines.push('====================================');
+    if (ventasDetalle.length > 0) {
+      const fechasUnicas = Array.from(new Set(ventasDetalle.map((v) => v.fecha || fDesdeAdmin))).sort();
+      for (const fe of fechasUnicas) {
+        lines.push(`  --- ${fe} ---`);
+        const diaRows = ventasDetalle.filter((v) => (v.fecha || fDesdeAdmin) === fe);
+        for (const r of diaRows) {
+          lines.push(`  ${r.sistema}`);
+          lines.push(`    Venta:    ${sym} ${r.venta.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).padStart(10)}`);
+          lines.push(`    Comisión: ${sym} ${r.comision.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).padStart(10)}`);
+          lines.push(`    Premios:  ${sym} ${r.premios.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).padStart(10)}`);
+        }
+        lines.push('------------------------------------');
+      }
+    }
+    lines.push('====================================');
+    lines.push(`  TOTAL VENTAS:    ${sym} ${totalVenta.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).padStart(10)}`);
+    lines.push(`  TOTAL COMISION:  ${sym} ${totalComision.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).padStart(10)}`);
+    lines.push(`  TOTAL PREMIOS:   ${sym} ${totalPremios.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).padStart(10)}`);
+    lines.push(`  TOTAL GASTOS:    ${sym} ${totalGastos.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).padStart(10)}`);
+    lines.push(`  PAGO EFECTIVO:   ${sym} ${totalPagoEfectivo.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).padStart(10)}`);
+    lines.push(`  PAGOS BANCOS:    ${sym} ${totalPagoBanco.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).padStart(10)}`);
+    lines.push(`  PAGO PREMIOS:    ${sym} ${totalPagoPremios.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).padStart(10)}`);
+    lines.push('------------------------------------');
+    lines.push(`  SALDO PERIODO:   ${sym} ${saldoOp.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).padStart(10)}`);
+    lines.push(`  SALDO ANTERIOR:  ${sym} ${saldoAnt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).padStart(10)}`);
+    lines.push(`  SALDO ACTUAL:    ${sym} ${saldoActual.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).padStart(10)}`);
+    lines.push('====================================');
+    const nowStr = new Date().toISOString().replace('T', ' ').slice(0, 16);
+    lines.push(`  Generado: ${nowStr}`);
+    lines.push('====================================');
+    const rawTicketText = lines.join('\n');
+
     results[mCode] = {
       moneda: mCode,
       sym,
@@ -631,7 +684,8 @@ export async function fetchFullCycleMetrics(
       ventasDetalle,
       gastosDetalle,
       pagosOrdinariosDetalle,
-      pagosPremiosDetalle
+      pagosPremiosDetalle,
+      rawTicketText
     };
   }
 
