@@ -259,30 +259,6 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                   <BarChart3 className="w-3.5 h-3.5" />
                   <span>Reporte</span>
                 </button>
-
-                <button
-                  onClick={() => onTabChange('pagos')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                    currentTab === 'pagos'
-                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                  }`}
-                >
-                  <CreditCard className="w-3.5 h-3.5" />
-                  <span>Pago Efectivo</span>
-                </button>
-
-                <button
-                  onClick={() => onTabChange('banco')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                    currentTab === 'banco'
-                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                  }`}
-                >
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>Gestión Bancaria</span>
-                </button>
               </>
             )}
 
@@ -464,22 +440,6 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                 }`}
               >
                 Reporte
-              </button>
-              <button
-                onClick={() => onTabChange('pagos')}
-                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
-                  currentTab === 'pagos' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Pago Efectivo
-              </button>
-              <button
-                onClick={() => onTabChange('banco')}
-                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
-                  currentTab === 'banco' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Gestión Bancaria
               </button>
             </>
           )}

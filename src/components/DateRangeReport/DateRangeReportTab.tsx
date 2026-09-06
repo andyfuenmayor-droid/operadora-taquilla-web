@@ -425,180 +425,166 @@ export const DateRangeReportTab: React.FC = () => {
         </div>
       </div>
 
-      {/* 6. Acordeones Desplegables de Actividad del Periodo */}
-      <div className="space-y-3">
-        {/* Acordeón: Gastos */}
-        <div className="bg-[#0D1B22] border border-slate-800 rounded-2xl overflow-hidden shadow-md">
-          <button
-            onClick={() => setOpenGastos(!openGastos)}
-            className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-800/40 transition-colors cursor-pointer"
-          >
-            <div className="flex items-center gap-2">
-              <Receipt className="w-4 h-4 text-rose-400" />
-              <span className="text-xs font-bold text-white tracking-wide">
-                💸 Gastos ({selectedCurrency})
-              </span>
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-mono font-bold">
-                {activeMetrics?.gastosDetalle?.length || 0}
-              </span>
-            </div>
-            {openGastos ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-          </button>
+      {/* 6. Acordeones Desplegables de Actividad del Periodo (solo si hay registros) */}
+      {((activeMetrics?.gastosDetalle?.length || 0) > 0 ||
+        (activeMetrics?.pagosOrdinariosDetalle?.length || 0) > 0 ||
+        (activeMetrics?.pagosPremiosDetalle?.length || 0) > 0) && (
+        <div className="space-y-3">
+          {/* Acordeón: Gastos */}
+          {(activeMetrics?.gastosDetalle?.length || 0) > 0 && (
+            <div className="bg-[#0D1B22] border border-slate-800 rounded-2xl overflow-hidden shadow-md">
+              <button
+                onClick={() => setOpenGastos(!openGastos)}
+                className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-800/40 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <Receipt className="w-4 h-4 text-rose-400" />
+                  <span className="text-xs font-bold text-white tracking-wide">
+                    💸 Gastos ({selectedCurrency})
+                  </span>
+                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-mono font-bold">
+                    {activeMetrics?.gastosDetalle?.length || 0}
+                  </span>
+                </div>
+                {openGastos ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+              </button>
 
-          {openGastos && (
-            <div className="border-t border-slate-800/80 overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-[#071217] text-slate-400 font-bold uppercase tracking-wider border-b border-slate-800">
-                  <tr>
-                    <th className="py-2.5 px-4">Fecha</th>
-                    <th className="py-2.5 px-4">Agencia</th>
-                    <th className="py-2.5 px-4">Cajero</th>
-                    <th className="py-2.5 px-4">Concepto</th>
-                    <th className="py-2.5 px-4 text-right">Monto</th>
-                    <th className="py-2.5 px-4 text-center">Estado</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60 font-mono">
-                  {!activeMetrics?.gastosDetalle || activeMetrics.gastosDetalle.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="py-6 text-center text-slate-500 font-sans">
-                        Sin gastos registrados en {selectedCurrency} para este periodo.
-                      </td>
-                    </tr>
-                  ) : (
-                    activeMetrics.gastosDetalle.map((g, idx) => (
-                      <tr key={idx} className="hover:bg-slate-800/20">
-                        <td className="py-2.5 px-4 text-slate-300 font-sans">{g.fecha}</td>
-                        <td className="py-2.5 px-4 text-slate-400 font-sans">{g.agencia}</td>
-                        <td className="py-2.5 px-4 text-slate-300 font-sans">{g.cajero}</td>
-                        <td className="py-2.5 px-4 text-white font-sans font-medium">{g.concepto}</td>
-                        <td className="py-2.5 px-4 text-right font-bold text-rose-400">{formatMoney(g.monto, selectedCurrency)}</td>
-                        <td className="py-2.5 px-4 text-center">{renderStatusBadge(g.confirmado, g.rechazado)}</td>
+              {openGastos && (
+                <div className="border-t border-slate-800/80 overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-[#071217] text-slate-400 font-bold uppercase tracking-wider border-b border-slate-800">
+                      <tr>
+                        <th className="py-2.5 px-4">Fecha</th>
+                        <th className="py-2.5 px-4">Agencia</th>
+                        <th className="py-2.5 px-4">Cajero</th>
+                        <th className="py-2.5 px-4">Concepto</th>
+                        <th className="py-2.5 px-4 text-right">Monto</th>
+                        <th className="py-2.5 px-4 text-center">Estado</th>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 font-mono">
+                      {activeMetrics.gastosDetalle.map((g, idx) => (
+                        <tr key={idx} className="hover:bg-slate-800/20">
+                          <td className="py-2.5 px-4 text-slate-300 font-sans">{g.fecha}</td>
+                          <td className="py-2.5 px-4 text-slate-400 font-sans">{g.agencia}</td>
+                          <td className="py-2.5 px-4 text-slate-300 font-sans">{g.cajero}</td>
+                          <td className="py-2.5 px-4 text-white font-sans font-medium">{g.concepto}</td>
+                          <td className="py-2.5 px-4 text-right font-bold text-rose-400">{formatMoney(g.monto, selectedCurrency)}</td>
+                          <td className="py-2.5 px-4 text-center">{renderStatusBadge(g.confirmado, g.rechazado)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Acordeón: Pagos a la Operadora (Bancos / Efectivo) */}
+          {(activeMetrics?.pagosOrdinariosDetalle?.length || 0) > 0 && (
+            <div className="bg-[#0D1B22] border border-slate-800 rounded-2xl overflow-hidden shadow-md">
+              <button
+                onClick={() => setOpenPagosOrdinarios(!openPagosOrdinarios)}
+                className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-800/40 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-sky-400" />
+                  <span className="text-xs font-bold text-white tracking-wide">
+                    🏦 Pagos a la Operadora (Bancos / Efectivo) ({selectedCurrency})
+                  </span>
+                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-mono font-bold">
+                    {activeMetrics?.pagosOrdinariosDetalle?.length || 0}
+                  </span>
+                </div>
+                {openPagosOrdinarios ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+              </button>
+
+              {openPagosOrdinarios && (
+                <div className="border-t border-slate-800/80 overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-[#071217] text-slate-400 font-bold uppercase tracking-wider border-b border-slate-800">
+                      <tr>
+                        <th className="py-2.5 px-4">Fecha</th>
+                        <th className="py-2.5 px-4">Agencia</th>
+                        <th className="py-2.5 px-4">Cajero</th>
+                        <th className="py-2.5 px-4">Pagos Registrados</th>
+                        <th className="py-2.5 px-4">Referencia / Banco</th>
+                        <th className="py-2.5 px-4 text-right">Monto</th>
+                        <th className="py-2.5 px-4 text-center">Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 font-mono">
+                      {activeMetrics.pagosOrdinariosDetalle.map((p, idx) => (
+                        <tr key={idx} className="hover:bg-slate-800/20">
+                          <td className="py-2.5 px-4 text-slate-300 font-sans">{p.fecha}</td>
+                          <td className="py-2.5 px-4 text-slate-400 font-sans">{p.agencia}</td>
+                          <td className="py-2.5 px-4 text-slate-300 font-sans">{p.cajero}</td>
+                          <td className="py-2.5 px-4 text-white font-sans font-medium">{p.tipo_pago}</td>
+                          <td className="py-2.5 px-4 text-sky-400 font-sans">{p.referencia}</td>
+                          <td className="py-2.5 px-4 text-right font-bold text-emerald-400">{formatMoney(p.monto, selectedCurrency)}</td>
+                          <td className="py-2.5 px-4 text-center">{renderStatusBadge(p.confirmado, p.rechazado)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Acordeón: Pagos de Premios / Reposición de Pérdidas */}
+          {(activeMetrics?.pagosPremiosDetalle?.length || 0) > 0 && (
+            <div className="bg-[#0D1B22] border border-slate-800 rounded-2xl overflow-hidden shadow-md">
+              <button
+                onClick={() => setOpenPagosPremios(!openPagosPremios)}
+                className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-800/40 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <Award className="w-4 h-4 text-amber-400" />
+                  <span className="text-xs font-bold text-white tracking-wide">
+                    🏆 Pagos de Premios / Reposición de Pérdidas ({selectedCurrency})
+                  </span>
+                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-mono font-bold">
+                    {activeMetrics?.pagosPremiosDetalle?.length || 0}
+                  </span>
+                </div>
+                {openPagosPremios ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+              </button>
+
+              {openPagosPremios && (
+                <div className="border-t border-slate-800/80 overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-[#071217] text-slate-400 font-bold uppercase tracking-wider border-b border-slate-800">
+                      <tr>
+                        <th className="py-2.5 px-4">Fecha</th>
+                        <th className="py-2.5 px-4">Agencia</th>
+                        <th className="py-2.5 px-4">Cajero</th>
+                        <th className="py-2.5 px-4">Detalle / Concepto</th>
+                        <th className="py-2.5 px-4">Referencia / Cuenta</th>
+                        <th className="py-2.5 px-4 text-right">Monto</th>
+                        <th className="py-2.5 px-4 text-center">Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 font-mono">
+                      {activeMetrics.pagosPremiosDetalle.map((p, idx) => (
+                        <tr key={idx} className="hover:bg-slate-800/20">
+                          <td className="py-2.5 px-4 text-slate-300 font-sans">{p.fecha}</td>
+                          <td className="py-2.5 px-4 text-slate-400 font-sans">{p.agencia}</td>
+                          <td className="py-2.5 px-4 text-slate-300 font-sans">{p.cajero}</td>
+                          <td className="py-2.5 px-4 text-white font-sans font-medium">{p.tipo_pago}</td>
+                          <td className="py-2.5 px-4 text-amber-400 font-sans">{p.referencia}</td>
+                          <td className="py-2.5 px-4 text-right font-bold text-amber-400">{formatMoney(p.monto, selectedCurrency)}</td>
+                          <td className="py-2.5 px-4 text-center">{renderStatusBadge(p.confirmado, p.rechazado)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
         </div>
-
-        {/* Acordeón: Pagos a la Operadora (Bancos / Efectivo) */}
-        <div className="bg-[#0D1B22] border border-slate-800 rounded-2xl overflow-hidden shadow-md">
-          <button
-            onClick={() => setOpenPagosOrdinarios(!openPagosOrdinarios)}
-            className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-800/40 transition-colors cursor-pointer"
-          >
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-sky-400" />
-              <span className="text-xs font-bold text-white tracking-wide">
-                🏦 Pagos a la Operadora (Bancos / Efectivo) ({selectedCurrency})
-              </span>
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-mono font-bold">
-                {activeMetrics?.pagosOrdinariosDetalle?.length || 0}
-              </span>
-            </div>
-            {openPagosOrdinarios ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-          </button>
-
-          {openPagosOrdinarios && (
-            <div className="border-t border-slate-800/80 overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-[#071217] text-slate-400 font-bold uppercase tracking-wider border-b border-slate-800">
-                  <tr>
-                    <th className="py-2.5 px-4">Fecha</th>
-                    <th className="py-2.5 px-4">Agencia</th>
-                    <th className="py-2.5 px-4">Cajero</th>
-                    <th className="py-2.5 px-4">Pagos Registrados</th>
-                    <th className="py-2.5 px-4">Referencia / Banco</th>
-                    <th className="py-2.5 px-4 text-right">Monto</th>
-                    <th className="py-2.5 px-4 text-center">Estado</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60 font-mono">
-                  {!activeMetrics?.pagosOrdinariosDetalle || activeMetrics.pagosOrdinariosDetalle.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="py-6 text-center text-slate-500 font-sans">
-                        Sin pagos a la operadora registrados en {selectedCurrency}.
-                      </td>
-                    </tr>
-                  ) : (
-                    activeMetrics.pagosOrdinariosDetalle.map((p, idx) => (
-                      <tr key={idx} className="hover:bg-slate-800/20">
-                        <td className="py-2.5 px-4 text-slate-300 font-sans">{p.fecha}</td>
-                        <td className="py-2.5 px-4 text-slate-400 font-sans">{p.agencia}</td>
-                        <td className="py-2.5 px-4 text-slate-300 font-sans">{p.cajero}</td>
-                        <td className="py-2.5 px-4 text-white font-sans font-medium">{p.tipo_pago}</td>
-                        <td className="py-2.5 px-4 text-sky-400 font-sans">{p.referencia}</td>
-                        <td className="py-2.5 px-4 text-right font-bold text-emerald-400">{formatMoney(p.monto, selectedCurrency)}</td>
-                        <td className="py-2.5 px-4 text-center">{renderStatusBadge(p.confirmado, p.rechazado)}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        {/* Acordeón: Pagos de Premios / Reposición de Pérdidas */}
-        <div className="bg-[#0D1B22] border border-slate-800 rounded-2xl overflow-hidden shadow-md">
-          <button
-            onClick={() => setOpenPagosPremios(!openPagosPremios)}
-            className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-800/40 transition-colors cursor-pointer"
-          >
-            <div className="flex items-center gap-2">
-              <Award className="w-4 h-4 text-amber-400" />
-              <span className="text-xs font-bold text-white tracking-wide">
-                🏆 Pagos de Premios / Reposición de Pérdidas ({selectedCurrency})
-              </span>
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-mono font-bold">
-                {activeMetrics?.pagosPremiosDetalle?.length || 0}
-              </span>
-            </div>
-            {openPagosPremios ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-          </button>
-
-          {openPagosPremios && (
-            <div className="border-t border-slate-800/80 overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-[#071217] text-slate-400 font-bold uppercase tracking-wider border-b border-slate-800">
-                  <tr>
-                    <th className="py-2.5 px-4">Fecha</th>
-                    <th className="py-2.5 px-4">Agencia</th>
-                    <th className="py-2.5 px-4">Cajero</th>
-                    <th className="py-2.5 px-4">Detalle / Concepto</th>
-                    <th className="py-2.5 px-4">Referencia / Cuenta</th>
-                    <th className="py-2.5 px-4 text-right">Monto</th>
-                    <th className="py-2.5 px-4 text-center">Estado</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60 font-mono">
-                  {!activeMetrics?.pagosPremiosDetalle || activeMetrics.pagosPremiosDetalle.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="py-6 text-center text-slate-500 font-sans">
-                        Sin pagos de premios o reposiciones en {selectedCurrency}.
-                      </td>
-                    </tr>
-                  ) : (
-                    activeMetrics.pagosPremiosDetalle.map((p, idx) => (
-                      <tr key={idx} className="hover:bg-slate-800/20">
-                        <td className="py-2.5 px-4 text-slate-300 font-sans">{p.fecha}</td>
-                        <td className="py-2.5 px-4 text-slate-400 font-sans">{p.agencia}</td>
-                        <td className="py-2.5 px-4 text-slate-300 font-sans">{p.cajero}</td>
-                        <td className="py-2.5 px-4 text-white font-sans font-medium">{p.tipo_pago}</td>
-                        <td className="py-2.5 px-4 text-amber-400 font-sans">{p.referencia}</td>
-                        <td className="py-2.5 px-4 text-right font-bold text-amber-400">{formatMoney(p.monto, selectedCurrency)}</td>
-                        <td className="py-2.5 px-4 text-center">{renderStatusBadge(p.confirmado, p.rechazado)}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
+      )}
 
       {/* 7. Vista Previa de Reporte en Ticket Monoespaciado y WhatsApp */}
       <div className="bg-[#0D1B22] border border-slate-800 rounded-2xl p-4 shadow-xl space-y-3">
