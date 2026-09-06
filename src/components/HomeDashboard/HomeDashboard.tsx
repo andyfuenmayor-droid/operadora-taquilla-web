@@ -10,12 +10,9 @@ import {
   Calendar, 
   Phone, 
   DollarSign, 
-  Receipt, 
-  CreditCard, 
   Calculator, 
   Award, 
   TrendingUp, 
-  ShieldCheck, 
   Lock, 
   Unlock,
   RefreshCw,
@@ -26,10 +23,10 @@ import {
 } from 'lucide-react';
 
 interface HomeDashboardProps {
-  onNavigate: (tab: string) => void;
+  onNavigate?: (tab: string) => void;
 }
 
-export const HomeDashboard: React.FC<HomeDashboardProps> = ({ onNavigate }) => {
+export const HomeDashboard: React.FC<HomeDashboardProps> = () => {
   const { user, agency, systemCycle, assignedCurrencies, assignedSystems, isDayClosed } = useAuth();
   const [metricsByCurrency, setMetricsByCurrency] = useState<Record<string, CurrencyOperationalMetrics>>({});
   const [selectedCurrency, setSelectedCurrency] = useState<string>(assignedCurrencies[0] || 'BS');
@@ -651,75 +648,6 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({ onNavigate }) => {
             )}
           </div>
         </div>
-      </div>
-
-      {/* 7. Accesos Directos Rápidos */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-2">
-        <button
-          onClick={() => onNavigate('ventas')}
-          className="bg-[#0D1B22] hover:bg-[#12242e] border border-slate-800 hover:border-emerald-500/40 p-4 rounded-2xl text-center transition-all cursor-pointer group shadow-md"
-        >
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform">
-            <DollarSign className="w-5 h-5" />
-          </div>
-          <div className="text-xs font-bold text-white">Carga Ventas</div>
-          <div className="text-[10px] text-slate-500 mt-0.5">Auditoría diaria</div>
-        </button>
-
-        <button
-          onClick={() => onNavigate('premios')}
-          className="bg-[#0D1B22] hover:bg-[#12242e] border border-slate-800 hover:border-purple-500/40 p-4 rounded-2xl text-center transition-all cursor-pointer group shadow-md"
-        >
-          <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20 flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform">
-            <Award className="w-5 h-5" />
-          </div>
-          <div className="text-xs font-bold text-white">Tickets Premios</div>
-          <div className="text-[10px] text-slate-500 mt-0.5">Registro y lotes</div>
-        </button>
-
-        <button
-          onClick={() => onNavigate('gastos')}
-          className="bg-[#0D1B22] hover:bg-[#12242e] border border-slate-800 hover:border-rose-500/40 p-4 rounded-2xl text-center transition-all cursor-pointer group shadow-md"
-        >
-          <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20 flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform">
-            <Receipt className="w-5 h-5" />
-          </div>
-          <div className="text-xs font-bold text-white">Gastos Agencia</div>
-          <div className="text-[10px] text-slate-500 mt-0.5">Operación</div>
-        </button>
-
-        <button
-          onClick={() => onNavigate('pagos')}
-          className="bg-[#0D1B22] hover:bg-[#12242e] border border-slate-800 hover:border-amber-500/40 p-4 rounded-2xl text-center transition-all cursor-pointer group shadow-md"
-        >
-          <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform">
-            <CreditCard className="w-5 h-5" />
-          </div>
-          <div className="text-xs font-bold text-white">Pago Efectivo</div>
-          <div className="text-[10px] text-slate-500 mt-0.5">PIN &amp; QR ruta</div>
-        </button>
-
-        <button
-          onClick={() => onNavigate('banco')}
-          className="bg-[#0D1B22] hover:bg-[#12242e] border border-slate-800 hover:border-sky-500/40 p-4 rounded-2xl text-center transition-all cursor-pointer group shadow-md"
-        >
-          <div className="w-10 h-10 rounded-xl bg-sky-500/10 text-sky-400 border border-sky-500/20 flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform">
-            <ShieldCheck className="w-5 h-5" />
-          </div>
-          <div className="text-xs font-bold text-white">Gestión Bancaria</div>
-          <div className="text-[10px] text-slate-500 mt-0.5">Cuentas &amp; POS</div>
-        </button>
-
-        <button
-          onClick={() => onNavigate('cierre')}
-          className="bg-[#0D1B22] hover:bg-[#12242e] border border-slate-800 hover:border-teal-500/40 p-4 rounded-2xl text-center transition-all cursor-pointer group shadow-md"
-        >
-          <div className="w-10 h-10 rounded-xl bg-teal-500/10 text-teal-400 border border-teal-500/20 flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform">
-            <Calculator className="w-5 h-5" />
-          </div>
-          <div className="text-xs font-bold text-white">Cierre Diario</div>
-          <div className="text-[10px] text-slate-500 mt-0.5">Arqueo físico</div>
-        </button>
       </div>
     </div>
   );
