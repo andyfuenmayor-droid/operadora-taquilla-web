@@ -2,17 +2,15 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { fetchFullCycleMetrics, type CurrencyOperationalMetrics } from '../../utils/operationalDashboard';
-import { formatCurrency, getTodayDateString, formatTime, normalizarMoneda } from '../../utils/formatters';
+import { formatCurrency, getTodayDateString, normalizarMoneda } from '../../utils/formatters';
 import { 
   Building2, 
   RefreshCw, 
   AlertCircle, 
   CheckCircle2, 
-  Clock, 
-  XCircle, 
   Receipt, 
-  CreditCard,
-  Send
+  CreditCard, 
+  Send 
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -98,6 +96,10 @@ export const BankTransfersTab: React.FC = () => {
   const [fechaHistorial, setFechaHistorial] = useState(defaultFecha);
   const [transfers, setTransfers] = useState<BankTransferRow[]>([]);
   const [loadingHistorial, setLoadingHistorial] = useState(false);
+
+  // Daily transfers state for "Registrar Pago"
+  const [dailyTransfers, setDailyTransfers] = useState<BankTransferRow[]>([]);
+  const [loadingDaily, setLoadingDaily] = useState(false);
 
   // -------------------------------------------------------------
   // 1. CARGAR CUENTAS BANCARIAS Y DISPOSITIVOS EXACTO A STREAMLIT
@@ -465,8 +467,10 @@ export const BankTransfersTab: React.FC = () => {
       setReferenciaPago('');
       setDatosPagador('');
 
-      // Recargar deudas e historial
+      // Recargar deudas, pagos del día e historial
       loadDebtMetrics(true);
+      fetchDailyTransfers();
+      fetchHistorial();
     } catch (err: any) {
       console.error('Error saving bank payment:', err);
       setFormError(err?.message || 'Error al registrar el pago bancario.');
@@ -474,6 +478,39 @@ export const BankTransfersTab: React.FC = () => {
       setSubmitting(false);
     }
   };
+
+  // -------------------------------------------------------------
+  // 5.1 CARGAR PAGOS DEL DÍA PARA EL FORMULARIO DE REGISTRO
+  // -------------------------------------------------------------
+  const fetchDailyTransfers = useCallback(async () => {
+    if (!agencyName) return;
+    setLoadingDaily(true);
+    try {
+      let q = supabase
+        .table('cda_pagos_bancarios')
+        .select('*')
+        .eq('fecha', fechaPago)
+        .ilike('agencia', agencyName.trim());
+
+      if (!isSupervisor && !isAgencia && user?.id) {
+        q = q.eq('cajero_id', String(user.id));
+      }
+
+      const { data, error } = await q.order('id', { ascending: false });
+      if (error) throw error;
+      setDailyTransfers((data || []) as BankTransferRow[]);
+    } catch (err) {
+      console.error('Error fetching daily bank transfers:', err);
+    } finally {
+      setLoadingDaily(false);
+    }
+  }, [agencyName, fechaPago, isSupervisor, isAgencia, user?.id]);
+
+  useEffect(() => {
+    if (subTab === 'registrar') {
+      fetchDailyTransfers();
+    }
+  }, [subTab, fetchDailyTransfers]);
 
   // -------------------------------------------------------------
   // 6. CARGAR HISTORIAL DE TRANSFERENCIAS BANCARIAS
@@ -486,7 +523,7 @@ export const BankTransfersTab: React.FC = () => {
         .table('cda_pagos_bancarios')
         .select('*')
         .eq('fecha', fechaHistorial)
-        .or(`agencia.ilike.${agencyName},nombre_agency.ilike.${agencyName}`);
+        .ilike('agencia', agencyName.trim());
 
       if (!isSupervisor && !isAgencia && user?.id) {
         q = q.eq('cajero_id', String(user.id));
@@ -1030,6 +1067,85 @@ export const BankTransfersTab: React.FC = () => {
               </div>
             </form>
           </div>
+
+          {/* TABLA DE PAGOS REGISTRADOS EN ESTA FECHA */}
+          <div className="bg-[#0D1B22] border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
+            <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                <Receipt className="w-4 h-4 text-emerald-400" />
+                <span>Pagos Bancarios Registrados del Día ({dailyTransfers.length})</span>
+              </h4>
+              <button
+                onClick={fetchDailyTransfers}
+                disabled={loadingDaily}
+                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
+                title="Actualizar pagos de hoy"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingDaily ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-slate-800/80 bg-slate-900/40 text-slate-400 font-semibold">
+                    <th className="py-3 px-3">Hora</th>
+                    <th className="py-3 px-4">Método</th>
+                    <th className="py-3 px-3 text-right">Monto</th>
+                    <th className="py-3 px-2 text-center">Moneda</th>
+                    <th className="py-3 px-4">Referencia</th>
+                    <th className="py-3 px-4">POS / Cuenta Destino</th>
+                    <th className="py-3 px-4">Concepto</th>
+                    <th className="py-3 px-4">Datos Pagador</th>
+                    <th className="py-3 px-3 text-center">Conf.</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/50">
+                  {dailyTransfers.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="py-8 text-center text-slate-500 font-medium">
+                        ℹ️ No hay transacciones bancarias registradas para esta fecha.
+                      </td>
+                    </tr>
+                  ) : (
+                    dailyTransfers.map((t) => (
+                      <tr key={t.id} className="hover:bg-slate-800/30 transition-colors">
+                        <td className="py-3 px-3 font-mono text-slate-400">
+                          {t.created_at ? new Date(t.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (t.hora || 'N/A')}
+                        </td>
+                        <td className="py-3 px-4 font-semibold text-white">{t.metodo_pago}</td>
+                        <td className="py-3 px-3 text-right font-mono font-bold text-white">
+                          {t.monto.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-3 px-2 text-center font-semibold text-slate-300">{t.moneda}</td>
+                        <td className="py-3 px-4 font-mono font-bold text-sky-400">{t.referencia}</td>
+                        <td className="py-3 px-4 text-slate-300 max-w-[200px] truncate" title={t.pos_o_cuenta}>
+                          {t.pos_o_cuenta || 'N/A'}
+                        </td>
+                        <td className="py-3 px-4 text-slate-400">{t.concepto}</td>
+                        <td className="py-3 px-4 text-slate-300">{t.datos_pagador || 'N/A'}</td>
+                        <td className="py-3 px-3 text-center">
+                          {t.confirmado ? (
+                            <span className="font-bold text-emerald-400 font-mono">
+                              ✅ C
+                            </span>
+                          ) : t.rechazado ? (
+                            <span className="font-bold text-rose-400">
+                              ❌ Rechazado
+                            </span>
+                          ) : (
+                            <span className="font-bold text-amber-400">
+                              ⏳ Pendiente
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1075,61 +1191,61 @@ export const BankTransfersTab: React.FC = () => {
                 📟 POS
               </div>
               <div className="text-xs sm:text-sm font-bold text-white font-mono">
-                ${historialMetrics.totPos.toFixed(2)}
+                ${historialMetrics.totPos.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
             </div>
 
             <div className="bg-[#0D1B22] border border-slate-800/80 rounded-xl p-2.5 text-center shadow-sm">
               <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
-                👆 BioPago
+                👆 BIOPAGO
               </div>
               <div className="text-xs sm:text-sm font-bold text-white font-mono">
-                ${historialMetrics.totBiopago.toFixed(2)}
+                ${historialMetrics.totBiopago.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
             </div>
 
             <div className="bg-[#0D1B22] border border-slate-800/80 rounded-xl p-2.5 text-center shadow-sm">
               <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
-                📲 Pago Móvil
+                📲 PAGO MÓVIL
               </div>
               <div className="text-xs sm:text-sm font-bold text-white font-mono">
-                ${historialMetrics.totPm.toFixed(2)}
+                ${historialMetrics.totPm.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
             </div>
 
             <div className="bg-[#0D1B22] border border-slate-800/80 rounded-xl p-2.5 text-center shadow-sm">
               <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
-                💵 Zelle
+                💵 ZELLE
               </div>
               <div className="text-xs sm:text-sm font-bold text-white font-mono">
-                ${historialMetrics.totZelle.toFixed(2)}
+                ${historialMetrics.totZelle.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
             </div>
 
             <div className="bg-[#0D1B22] border border-slate-800/80 rounded-xl p-2.5 text-center shadow-sm">
               <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
-                🏦 Transf/Dep
+                🏦 TRANSF/DEP
               </div>
               <div className="text-xs sm:text-sm font-bold text-white font-mono">
-                ${historialMetrics.totTransf.toFixed(2)}
+                ${historialMetrics.totTransf.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
             </div>
 
             <div className="bg-[#0D1B22] border border-slate-800/80 rounded-xl p-2.5 text-center shadow-sm">
               <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5 truncate">
-                💵 Efectivo
+                💵 EFECTIVO (POR COBRAR)
               </div>
               <div className="text-xs sm:text-sm font-bold text-white font-mono">
-                ${historialMetrics.totEfectivo.toFixed(2)}
+                ${historialMetrics.totEfectivo.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
             </div>
 
             <div className="col-span-2 sm:col-span-4 lg:col-span-1 bg-[#0D1B22] border border-emerald-500/30 rounded-xl p-2.5 text-center shadow-sm">
               <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider mb-0.5">
-                🏛️ Total General
+                🏛️ TOTAL GENERAL
               </div>
               <div className="text-xs sm:text-sm font-black text-emerald-400 font-mono">
-                ${historialMetrics.totGeneral.toFixed(2)}
+                ${historialMetrics.totGeneral.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
             </div>
           </div>
@@ -1147,34 +1263,32 @@ export const BankTransfersTab: React.FC = () => {
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="border-b border-slate-800/80 bg-slate-900/40 text-slate-400 font-semibold">
-                    <th className="py-3 px-3">Fecha / Hora</th>
-                    <th className="py-3 px-4">Método de Pago</th>
-                    <th className="py-3 px-3 text-right">Monto</th>
-                    <th className="py-3 px-2 text-center">Moneda</th>
-                    <th className="py-3 px-4">Referencia</th>
-                    <th className="py-3 px-4">POS / Cuenta Destino</th>
-                    <th className="py-3 px-4">Concepto</th>
-                    <th className="py-3 px-4">Datos Pagador</th>
+                    <th className="py-3 px-3">fecha</th>
+                    <th className="py-3 px-4">metodo_pago</th>
+                    <th className="py-3 px-3 text-right">monto</th>
+                    <th className="py-3 px-2 text-center">moneda</th>
+                    <th className="py-3 px-4">referencia</th>
+                    <th className="py-3 px-4">pos_o_cuenta</th>
+                    <th className="py-3 px-4">concepto</th>
+                    <th className="py-3 px-4">datos_pagador</th>
                     <th className="py-3 px-3 text-center">Conf.</th>
+                    <th className="py-3 px-4">created_at</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/50">
                   {transfers.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="py-10 text-center text-slate-500 font-medium">
+                      <td colSpan={10} className="py-10 text-center text-slate-500 font-medium">
                         ℹ️ No hay transacciones bancarias registradas el día {fechaHistorial}.
                       </td>
                     </tr>
                   ) : (
                     transfers.map((t) => (
                       <tr key={t.id} className="hover:bg-slate-800/30 transition-colors">
-                        <td className="py-3 px-3 font-mono text-slate-400">
-                          <div>{t.fecha}</div>
-                          {t.hora && <div className="text-[10px] text-slate-500">{formatTime(t.hora)}</div>}
-                        </td>
-                        <td className="py-3 px-4 font-bold text-white">{t.metodo_pago}</td>
-                        <td className="py-3 px-3 text-right font-mono font-bold text-emerald-400">
-                          {formatCurrency(t.monto, t.moneda)}
+                        <td className="py-3 px-3 font-mono text-slate-300">{t.fecha}</td>
+                        <td className="py-3 px-4 font-semibold text-white">{t.metodo_pago}</td>
+                        <td className="py-3 px-3 text-right font-mono font-bold text-white">
+                          {t.monto.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </td>
                         <td className="py-3 px-2 text-center font-semibold text-slate-300">{t.moneda}</td>
                         <td className="py-3 px-4 font-mono font-bold text-sky-400">{t.referencia}</td>
@@ -1182,27 +1296,24 @@ export const BankTransfersTab: React.FC = () => {
                           {t.pos_o_cuenta || 'N/A'}
                         </td>
                         <td className="py-3 px-4 text-slate-400">{t.concepto}</td>
-                        <td className="py-3 px-4 text-slate-300">{t.datos_pagador || 'N/A'}</td>
+                        <td className="py-3 px-4 text-slate-300 font-medium">{t.datos_pagador || 'N/A'}</td>
                         <td className="py-3 px-3 text-center">
                           {t.confirmado ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                              <CheckCircle2 className="w-3 h-3" />
-                              <span>Confirmado</span>
+                            <span className="font-bold text-emerald-400 font-mono">
+                              ✅ C
                             </span>
                           ) : t.rechazado ? (
-                            <span
-                              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-rose-500/20 text-rose-400 border border-rose-500/30"
-                              title={t.motivo_rechazo || 'Rechazado'}
-                            >
-                              <XCircle className="w-3 h-3" />
-                              <span>Rechazado</span>
+                            <span className="font-bold text-rose-400">
+                              ❌ Rechazado
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                              <Clock className="w-3 h-3" />
-                              <span>Pendiente</span>
+                            <span className="font-bold text-amber-400">
+                              ⏳ Pendiente
                             </span>
                           )}
+                        </td>
+                        <td className="py-3 px-4 font-mono text-[11px] text-slate-400">
+                          {t.created_at || 'N/A'}
                         </td>
                       </tr>
                     ))
