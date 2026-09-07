@@ -42,7 +42,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = () => {
     }
   }, [assignedCurrencies, selectedCurrency]);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (force = false) => {
     if (!agencyName) return;
     setLoading(true);
     try {
@@ -52,7 +52,8 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = () => {
         assignedCurrencies,
         assignedSystems,
         user,
-        agency
+        agency,
+        { forceRefresh: force }
       );
       setMetricsByCurrency(data);
     } catch (err) {
@@ -149,7 +150,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = () => {
               )}
 
               <button
-                onClick={loadData}
+                onClick={() => loadData(true)}
                 disabled={loading}
                 title="Actualizar datos operativos"
                 className="p-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-all cursor-pointer"

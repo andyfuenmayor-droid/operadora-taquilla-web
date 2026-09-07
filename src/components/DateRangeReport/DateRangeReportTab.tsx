@@ -93,7 +93,7 @@ export const DateRangeReportTab: React.FC = () => {
     }
   }, [isSupervisor, agency?.id]);
 
-  const fetchReportData = useCallback(async () => {
+  const fetchReportData = useCallback(async (force = false) => {
     if (!agencyName) return;
     setLoading(true);
 
@@ -109,7 +109,8 @@ export const DateRangeReportTab: React.FC = () => {
         {
           customDesde: desde,
           customHasta: hasta,
-          filterCajeroId: filterCajero
+          filterCajeroId: filterCajero,
+          forceRefresh: force
         }
       );
       setMetricsByCurrency(data);
@@ -231,7 +232,7 @@ export const DateRangeReportTab: React.FC = () => {
         </div>
 
         <button
-          onClick={fetchReportData}
+          onClick={() => fetchReportData(true)}
           disabled={loading}
           className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold transition-all shadow-md shadow-emerald-500/10 cursor-pointer disabled:opacity-50"
         >

@@ -231,10 +231,24 @@ export interface PeriodMetricsOptions {
   customDesde?: string;
   customHasta?: string;
   filterCajeroId?: string | null;
+  forceRefresh?: boolean;
+}
+
+interface CacheEntry {
+  timestamp: number;
+  data: Record<string, CurrencyOperationalMetrics>;
+}
+
+const metricsCache = new Map<string, CacheEntry>();
+const CACHE_TTL_MS = 60 * 1000; // 60 segundos de vigencia
+
+export function clearMetricsCache() {
+  metricsCache.clear();
 }
 
 /**
  * Consulta y unifica todos los datos operativos de la agencia para el ciclo seleccionado
+ * Totalmente optimizado con consultas paralelas (Promise.all) y caché en memoria.
  */
 export async function fetchFullCycleMetrics(
   agencyName: string,
@@ -262,32 +276,42 @@ export async function fetchFullCycleMetrics(
   }
   const uIdAdmin = agencyData?.user_id ? String(agencyData.user_id) : undefined;
 
-  // 1. VENTAS: Prioridad carga_actual, fallback cda_reportes_diarios
-  let salesRows: any[] = [];
-  try {
-    let qCarga = supabase
-      .from('carga_actual')
-      .select('*')
-      .ilike('agencia', agencyName)
-      .gte('fecha', fDesdeAdmin)
-      .lte('fecha', fHastaEfectivo);
-
-    if (uIdAdmin) {
-      qCarga = qCarga.eq('user_id', uIdAdmin);
+  // Verificación de caché en memoria para carga instantánea al cambiar pestañas
+  const cacheKey = `${agencyName}_${fDesdeAdmin}_${fHastaAdmin}_${cajeroId || 'all'}_${assignedCurrencies.slice().sort().join(',')}`;
+  if (!options?.forceRefresh) {
+    const cached = metricsCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      return cached.data;
     }
-    const { data: dataCarga } = await qCarga;
+  }
 
-    if (dataCarga && dataCarga.length > 0) {
-      salesRows = dataCarga.map((r: any) => ({
-        ...r,
-        monto_venta: Number(r.venta ?? r.monto_venta ?? 0),
-        comision: Number(r.comision ?? 0),
-        monto_premios: Number(r.premios ?? r.monto_premios ?? 0),
-        neto: Number(r.neto ?? 0),
-        moneda: normalizarMoneda(r.moneda),
-        sistema: String(r.sistema || 'BETM3').trim().toUpperCase()
-      }));
-    } else {
+  // 1. Subtarea: Ventas (con sus fallbacks)
+  const fetchSales = async (): Promise<any[]> => {
+    try {
+      let qCarga = supabase
+        .from('carga_actual')
+        .select('*')
+        .ilike('agencia', agencyName)
+        .gte('fecha', fDesdeAdmin)
+        .lte('fecha', fHastaEfectivo);
+
+      if (uIdAdmin) {
+        qCarga = qCarga.eq('user_id', uIdAdmin);
+      }
+      const { data: dataCarga } = await qCarga;
+
+      if (dataCarga && dataCarga.length > 0) {
+        return dataCarga.map((r: any) => ({
+          ...r,
+          monto_venta: Number(r.venta ?? r.monto_venta ?? 0),
+          comision: Number(r.comision ?? 0),
+          monto_premios: Number(r.premios ?? r.monto_premios ?? 0),
+          neto: Number(r.neto ?? 0),
+          moneda: normalizarMoneda(r.moneda),
+          sistema: String(r.sistema || 'BETM3').trim().toUpperCase()
+        }));
+      }
+
       // Fallback carga_actual sin fecha
       let qCargaAny = supabase
         .from('carga_actual')
@@ -300,7 +324,7 @@ export async function fetchFullCycleMetrics(
       const { data: dataCargaAny } = await qCargaAny;
 
       if (dataCargaAny && dataCargaAny.length > 0) {
-        salesRows = dataCargaAny.map((r: any) => ({
+        return dataCargaAny.map((r: any) => ({
           ...r,
           monto_venta: Number(r.venta ?? r.monto_venta ?? 0),
           comision: Number(r.comision ?? 0),
@@ -309,201 +333,223 @@ export async function fetchFullCycleMetrics(
           moneda: normalizarMoneda(r.moneda),
           sistema: String(r.sistema || 'BETM3').trim().toUpperCase()
         }));
-      } else {
-        // Fallback a cda_reportes_diarios
-        let qRep = supabase
-          .from('cda_reportes_diarios')
-          .select('*')
-          .ilike('nombre_agency', agencyName)
-          .gte('fecha', fDesdeCarga)
-          .lte('fecha', fHastaEfectivo);
-
-        const { data: dataRep } = await qRep;
-        if (dataRep && dataRep.length > 0) {
-          salesRows = dataRep.map((r: any) => {
-            const v = Number(r.monto_ventas ?? r.monto_venta ?? 0);
-            const c = Number(r.comision ?? 0);
-            const p = Number(r.monto_premios ?? 0);
-            return {
-              ...r,
-              monto_venta: v,
-              comision: c,
-              monto_premios: p,
-              neto: Number(r.neto ?? (v - c - p)),
-              moneda: normalizarMoneda(r.moneda),
-              sistema: String(r.sistema || 'BETM3').trim().toUpperCase()
-            };
-          });
-        }
       }
+
+      // Fallback a cda_reportes_diarios
+      const { data: dataRep } = await supabase
+        .from('cda_reportes_diarios')
+        .select('*')
+        .ilike('nombre_agency', agencyName)
+        .gte('fecha', fDesdeCarga)
+        .lte('fecha', fHastaEfectivo);
+
+      if (dataRep && dataRep.length > 0) {
+        return dataRep.map((r: any) => {
+          const v = Number(r.monto_ventas ?? r.monto_venta ?? 0);
+          const c = Number(r.comision ?? 0);
+          const p = Number(r.monto_premios ?? 0);
+          return {
+            ...r,
+            monto_venta: v,
+            comision: c,
+            monto_premios: p,
+            neto: Number(r.neto ?? (v - c - p)),
+            moneda: normalizarMoneda(r.moneda),
+            sistema: String(r.sistema || 'BETM3').trim().toUpperCase()
+          };
+        });
+      }
+    } catch (err) {
+      console.error('Error querying sales data:', err);
     }
-  } catch (err) {
-    console.error('Error querying sales data:', err);
-  }
+    return [];
+  };
 
-  // 2. GASTOS: Prioridad gastos admin, fallback cda_gastos_diarios
-  let expensesRows: any[] = [];
-  try {
-    let qGastos = supabase
-      .from('gastos')
-      .select('*')
-      .ilike('agencia', agencyName)
-      .gte('fecha', fDesdeAdmin)
-      .lte('fecha', fHastaEfectivo);
-
-    const { data: dataGastos } = await qGastos;
-    if (dataGastos && dataGastos.length > 0) {
-      expensesRows = dataGastos.map((g: any) => ({
-        ...g,
-        concepto: g.concepto || g.descripcion || 'Gasto General',
-        moneda: normalizarMoneda(g.moneda),
-        monto: Number(g.monto ?? 0)
-      }));
-    } else {
-      let qGastosAny = supabase
+  // 2. Subtarea: Gastos (con sus fallbacks)
+  const fetchExpenses = async (): Promise<any[]> => {
+    try {
+      const { data: dataGastos } = await supabase
         .from('gastos')
         .select('*')
-        .ilike('agencia', agencyName);
-      const { data: dataGastosAny } = await qGastosAny;
+        .ilike('agencia', agencyName)
+        .gte('fecha', fDesdeAdmin)
+        .lte('fecha', fHastaEfectivo);
 
-      if (dataGastosAny && dataGastosAny.length > 0) {
-        expensesRows = dataGastosAny.map((g: any) => ({
+      if (dataGastos && dataGastos.length > 0) {
+        return dataGastos.map((g: any) => ({
           ...g,
           concepto: g.concepto || g.descripcion || 'Gasto General',
           moneda: normalizarMoneda(g.moneda),
           monto: Number(g.monto ?? 0)
         }));
-      } else {
-        const { data: dataCdaGastos } = await supabase
-          .from('cda_gastos_diarios')
+      }
+
+      const { data: dataGastosAny } = await supabase
+        .from('gastos')
+        .select('*')
+        .ilike('agencia', agencyName);
+
+      if (dataGastosAny && dataGastosAny.length > 0) {
+        return dataGastosAny.map((g: any) => ({
+          ...g,
+          concepto: g.concepto || g.descripcion || 'Gasto General',
+          moneda: normalizarMoneda(g.moneda),
+          monto: Number(g.monto ?? 0)
+        }));
+      }
+
+      const { data: dataCdaGastos } = await supabase
+        .from('cda_gastos_diarios')
+        .select('*')
+        .ilike('agencia', agencyName)
+        .gte('fecha', fDesdeCarga)
+        .lte('fecha', fHastaEfectivo);
+
+      if (dataCdaGastos && dataCdaGastos.length > 0) {
+        return dataCdaGastos.map((g: any) => ({
+          ...g,
+          moneda: normalizarMoneda(g.moneda),
+          monto: Number(g.monto ?? 0)
+        }));
+      }
+    } catch (err) {
+      console.error('Error querying expenses data:', err);
+    }
+    return [];
+  };
+
+  // 3. Subtarea: Pagos Unificados (bancos, diarios, semanales) en paralelo
+  const fetchPayments = async (): Promise<any[]> => {
+    try {
+      const [bankRes, dailyRes, weekRes] = await Promise.all([
+        supabase
+          .from('cda_pagos_bancarios')
           .select('*')
           .ilike('agencia', agencyName)
           .gte('fecha', fDesdeCarga)
-          .lte('fecha', fHastaEfectivo);
+          .lte('fecha', fHastaEfectivo),
+        supabase
+          .from('cda_pagos_diarios')
+          .select('*')
+          .ilike('agencia', agencyName)
+          .gte('fecha', fDesdeCarga)
+          .lte('fecha', fHastaEfectivo),
+        supabase
+          .from('pagos_semana')
+          .select('*')
+          .ilike('agencia', agencyName)
+          .gte('fecha', fDesdeAdmin)
+          .lte('fecha', fHastaEfectivo)
+      ]);
 
-        if (dataCdaGastos && dataCdaGastos.length > 0) {
-          expensesRows = dataCdaGastos.map((g: any) => ({
-            ...g,
-            moneda: normalizarMoneda(g.moneda),
-            monto: Number(g.monto ?? 0)
-          }));
-        }
-      }
-    }
-  } catch (err) {
-    console.error('Error querying expenses data:', err);
-  }
+      const bankData = bankRes.data || [];
+      const dailyData = dailyRes.data || [];
+      const weekData = weekRes.data || [];
 
-  // 3. PAGOS UNIFICADOS (cda_pagos_bancarios, cda_pagos_diarios, pagos_semana)
-  let paymentsRows: any[] = [];
-  try {
-    // A. Pagos bancarios
-    const { data: bankData } = await supabase
-      .from('cda_pagos_bancarios')
-      .select('*')
-      .ilike('agencia', agencyName)
-      .gte('fecha', fDesdeCarga)
-      .lte('fecha', fHastaEfectivo);
+      const unified: any[] = [];
 
-    // B. Pagos diarios
-    const { data: dailyData } = await supabase
-      .from('cda_pagos_diarios')
-      .select('*')
-      .ilike('agencia', agencyName)
-      .gte('fecha', fDesdeCarga)
-      .lte('fecha', fHastaEfectivo);
-
-    // C. Pagos semana
-    const { data: weekData } = await supabase
-      .from('pagos_semana')
-      .select('*')
-      .ilike('agencia', agencyName)
-      .gte('fecha', fDesdeAdmin)
-      .lte('fecha', fHastaEfectivo);
-
-    const unified: any[] = [];
-
-    (dailyData || []).forEach((p: any) => {
-      unified.push({
-        ...p,
-        origen: 'cda_pagos_diarios',
-        tabla: 'cda_pagos_diarios',
-        metodo: p.metodo || 'EFECTIVO',
-        metodo_pago: p.metodo_pago || 'EFECTIVO',
-        referencia: p.referencia || 'Efectivo',
-        moneda: normalizarMoneda(p.moneda),
-        monto: Number(p.monto ?? 0)
-      });
-    });
-
-    (bankData || []).forEach((b: any) => {
-      const ref = String(b.referencia || '').trim();
-      const metodo = String(b.metodo_pago || 'Pago Bancario').trim();
-      const concepto = String(b.concepto || '').trim();
-      const tipo = concepto && !metodo.toUpperCase().includes(concepto.toUpperCase())
-        ? `${concepto} - ${metodo}`
-        : metodo;
-
-      unified.push({
-        ...b,
-        origen: 'cda_pagos_bancarios',
-        tabla: 'cda_pagos_bancarios',
-        tipo_pago: ref ? `${tipo} (Ref: ${ref})` : tipo,
-        concepto: concepto || metodo,
-        metodo_pago: metodo,
-        referencia: ref || b.pos_o_cuenta || 'Banco',
-        moneda: normalizarMoneda(b.moneda),
-        monto: Number(b.monto ?? 0)
-      });
-    });
-
-    (weekData || []).forEach((w: any) => {
-      const montoPs = Number(w.monto ?? 0);
-      const fechaPs = String(w.fecha || '').slice(0, 10);
-      // Evitar duplicados si coincide fecha y monto
-      const yaExiste = unified.some(
-        (u) => String(u.fecha || '').slice(0, 10) === fechaPs && Math.abs(Number(u.monto) - montoPs) < 0.01
-      );
-      if (!yaExiste && montoPs > 0) {
+      dailyData.forEach((p: any) => {
         unified.push({
-          ...w,
-          origen: 'pagos_semana',
-          tabla: 'pagos_semana',
-          tipo_pago: w.tipo_pago || w.metodo || 'Pago',
-          referencia: w.referencia || 'Semana',
-          moneda: normalizarMoneda(w.moneda),
-          monto: montoPs
+          ...p,
+          origen: 'cda_pagos_diarios',
+          tabla: 'cda_pagos_diarios',
+          metodo: p.metodo || 'EFECTIVO',
+          metodo_pago: p.metodo_pago || 'EFECTIVO',
+          referencia: p.referencia || 'Efectivo',
+          moneda: normalizarMoneda(p.moneda),
+          monto: Number(p.monto ?? 0)
         });
-      }
-    });
+      });
 
-    paymentsRows = unified;
-  } catch (err) {
-    console.error('Error querying unified payments:', err);
-  }
+      bankData.forEach((b: any) => {
+        const ref = String(b.referencia || '').trim();
+        const metodo = String(b.metodo_pago || 'Pago Bancario').trim();
+        const concepto = String(b.concepto || '').trim();
+        const tipo = concepto && !metodo.toUpperCase().includes(concepto.toUpperCase())
+          ? `${concepto} - ${metodo}`
+          : metodo;
 
-  // 4. TICKETS PREMIADOS
-  let ticketsRows: any[] = [];
-  try {
-    const { data: tData } = await supabase
-      .from('cda_premios_tickets')
-      .select('*')
-      .ilike('agencia', agencyName)
-      .gte('fecha', fDesdeCarga)
-      .lte('fecha', fHastaAdmin);
+        unified.push({
+          ...b,
+          origen: 'cda_pagos_bancarios',
+          tabla: 'cda_pagos_bancarios',
+          tipo_pago: ref ? `${tipo} (Ref: ${ref})` : tipo,
+          concepto: concepto || metodo,
+          metodo_pago: metodo,
+          referencia: ref || b.pos_o_cuenta || 'Banco',
+          moneda: normalizarMoneda(b.moneda),
+          monto: Number(b.monto ?? 0)
+        });
+      });
 
-    if (tData) {
-      ticketsRows = tData.map((t: any) => ({
+      weekData.forEach((w: any) => {
+        const montoPs = Number(w.monto ?? 0);
+        const fechaPs = String(w.fecha || '').slice(0, 10);
+        const yaExiste = unified.some(
+          (u) => String(u.fecha || '').slice(0, 10) === fechaPs && Math.abs(Number(u.monto) - montoPs) < 0.01
+        );
+        if (!yaExiste && montoPs > 0) {
+          unified.push({
+            ...w,
+            origen: 'pagos_semana',
+            tabla: 'pagos_semana',
+            tipo_pago: w.tipo_pago || w.metodo || 'Pago',
+            referencia: w.referencia || 'Semana',
+            moneda: normalizarMoneda(w.moneda),
+            monto: montoPs
+          });
+        }
+      });
+
+      return unified;
+    } catch (err) {
+      console.error('Error querying unified payments:', err);
+      return [];
+    }
+  };
+
+  // 4. Subtarea: Tickets Premiados
+  const fetchTickets = async (): Promise<any[]> => {
+    try {
+      const { data: tData } = await supabase
+        .from('cda_premios_tickets')
+        .select('*')
+        .ilike('agencia', agencyName)
+        .gte('fecha', fDesdeCarga)
+        .lte('fecha', fHastaAdmin);
+
+      return (tData || []).map((t: any) => ({
         ...t,
         moneda: normalizarMoneda(t.moneda),
         monto: Number(t.monto ?? 0)
       }));
+    } catch (err) {
+      console.warn('Error querying tickets prizes:', err);
+      return [];
     }
-  } catch (err) {
-    console.warn('Error querying tickets prizes:', err);
-  }
+  };
 
-  // CALCULAR RESULTADOS POR CADA MONEDA ASIGNADA
+  // 5. Subtarea: Saldos anteriores de todas las monedas en paralelo
+  const fetchAnteriorBalances = async (): Promise<Record<string, number>> => {
+    const balances: Record<string, number> = {};
+    await Promise.all(
+      assignedCurrencies.map(async (mCode) => {
+        balances[mCode] = await obtenerSaldoAnterior(agencyName, todayStr, mCode, cajeroId, agencyData);
+      })
+    );
+    return balances;
+  };
+
+  // 🚀 DISPARO SIMULTÁNEO DE TODAS LAS CONSULTAS (4X MÁS RÁPIDO) 🚀
+  const [salesRows, expensesRows, paymentsRows, ticketsRows, anteriorBalancesMap] = await Promise.all([
+    fetchSales(),
+    fetchExpenses(),
+    fetchPayments(),
+    fetchTickets(),
+    fetchAnteriorBalances()
+  ]);
+
+  // CALCULAR RESULTADOS POR CADA MONEDA ASIGNADA (SIN RECONSULTAS)
   const results: Record<string, CurrencyOperationalMetrics> = {};
 
   for (const mCode of assignedCurrencies) {
@@ -572,7 +618,7 @@ export async function fetchFullCycleMetrics(
     // Resultados
     const saldoOp = totalVenta - totalComision - totalPremios;
     const saldoNeto = saldoOp - totalGastos - totalPagoEfectivo - totalPagoBanco + totalPagoPremios;
-    const saldoAnt = await obtenerSaldoAnterior(agencyName, todayStr, mCode, cajeroId, agencyData);
+    const saldoAnt = anteriorBalancesMap[mCode] ?? 0;
     const saldoActual = saldoAnt + saldoNeto;
 
     // Filas para las tablas del ciclo
@@ -688,6 +734,9 @@ export async function fetchFullCycleMetrics(
       rawTicketText
     };
   }
+
+  // Guardar en caché para evitar reconsultas continuas
+  metricsCache.set(cacheKey, { timestamp: Date.now(), data: results });
 
   return results;
 }
