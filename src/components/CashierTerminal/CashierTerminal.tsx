@@ -23,7 +23,7 @@ export const CashierTerminal: React.FC<CashierTerminalProps> = ({ currentTab, on
     cajero: ['inicio', 'reporte', 'ventas', 'premios', 'gastos', 'pagos', 'banco', 'cierre'],
     supervisor: ['inicio', 'reporte', 'cierre'],
     admin: ['inicio', 'reporte', 'cierre'],
-    agencia: ['inicio', 'reporte'],
+    agencia: ['inicio', 'reporte', 'pagos', 'banco'],
     cobrador: ['inicio']
   };
 

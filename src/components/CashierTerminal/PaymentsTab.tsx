@@ -1,48 +1,95 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
-import type { DailyPayment, ThermalReceiptData } from '../../types';
-import { formatCurrency, getTodayDateString, generateTicketNumber, formatTime } from '../../utils/formatters';
-import { printThermalReceipt } from '../../lib/thermalPrinter';
-import { Plus, Printer, RefreshCw, AlertCircle, CheckCircle2, DollarSign, QrCode, X } from 'lucide-react';
+import { 
+  fetchFullCycleMetrics, 
+  type CurrencyOperationalMetrics 
+} from '../../utils/operationalDashboard';
+import { formatMoney, getTodayDateString } from '../../utils/formatters';
+import { 
+  Save, 
+  RefreshCw, 
+  AlertCircle, 
+  CheckCircle2, 
+  XCircle, 
+  Clock, 
+  X, 
+  Users 
+} from 'lucide-react';
 import confetti from 'canvas-confetti';
 
+interface PaymentRow {
+  id: number;
+  fecha: string;
+  agencia: string;
+  nombre_cajero?: string;
+  cajero?: string;
+  tipo_pago: string;
+  moneda: string;
+  monto: number;
+  confirmado?: boolean;
+  rechazado?: boolean;
+  motivo_rechazo?: string;
+  qr_token?: string;
+  pin_6?: string;
+}
+
+const FLAG_MAP: Record<string, string> = {
+  BS: '🇻🇪',
+  USD: '🇺🇸',
+  COP: '🇨🇴',
+  EUR: '🇪🇺',
+  BRL: '🇧🇷'
+};
+
 export const PaymentsTab: React.FC = () => {
-  const { user, agency, assignedCurrencies, isDayClosed } = useAuth();
-  const [payments, setPayments] = useState<DailyPayment[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [fecha, setFecha] = useState(getTodayDateString());
+  const { user, agency, systemCycle, assignedCurrencies, assignedSystems, isDayClosed } = useAuth();
+  
+  // Fecha seleccionada para ver pagos (por defecto hoy o hasta del ciclo)
+  const defaultFecha = systemCycle?.hasta || getTodayDateString();
+  const [fechaFiltro, setFechaFiltro] = useState(defaultFecha);
 
-  // Active delivery PIN/QR display
-  const [activeDelivery, setActiveDelivery] = useState<{
-    pago_id?: number;
-    pin: string;
-    token: string;
-    monto: number;
-    moneda: string;
-  } | null>(null);
+  // Supervisor cashier filter
+  const [cashiersList, setCashiersList] = useState<{ id: string; nombre: string }[]>([]);
+  const [selectedCashier, setSelectedCashier] = useState<string>('all');
 
-  // Form State
-  const [ticketNro, setTicketNro] = useState(generateTicketNumber());
-  const [concepto, setConcepto] = useState('Entregado a Supervisor');
-  const [monto, setMonto] = useState<number | ''>('');
-  const [moneda, setMoneda] = useState(assignedCurrencies[0] || 'BS');
-  const [metodoPago, setMetodoPago] = useState<'Efectivo' | 'Transferencia' | 'Punto de Venta'>('Efectivo');
+  // Estado de Deuda / Saldo Pendiente por Moneda
+  const [metricsByCurrency, setMetricsByCurrency] = useState<Record<string, CurrencyOperationalMetrics>>({});
+  const [loadingMetrics, setLoadingMetrics] = useState(false);
+
+  // Pagos del día
+  const [payments, setPayments] = useState<PaymentRow[]>([]);
+  const [loadingPayments, setLoadingPayments] = useState(false);
+
+  // Formulario nuevo pago
+  const [fechaPago, setFechaPago] = useState(defaultFecha);
+  const [monedaPago, setMonedaPago] = useState(assignedCurrencies[0] || 'BS');
+  const [montoPago, setMontoPago] = useState<number | ''>('');
+  const [tipoPago, setTipoPago] = useState<string>('Pago a Comercializador');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Comprobante PIN activo para entregas a cobrador
+  const [activeDelivery, setActiveDelivery] = useState<{
+    agencia: string;
+    fecha: string;
+    monto: number;
+    moneda: string;
+    pin: string;
+  } | null>(null);
 
   const agencyName = agency?.nombre_agencia || '';
   const isSupervisor = user?.rol === 'supervisor' || user?.rol === 'admin';
   const isAgencia = user?.rol === 'agencia';
 
-  // Options for payment type based on role
+  // Opciones de Concepto según el rol
   const paymentTypeOptions = React.useMemo(() => {
     if (isAgencia) {
       return ['Pago a Comercializador', 'Entregado a Cobrador'];
     }
     if (user?.rol === 'cajero') {
-      return ['Entregado a Supervisor', 'Pago de Premios'];
+      return ['Entregado a Supervisor'];
     }
     return [
       'Entregado a Cobrador',
@@ -54,69 +101,114 @@ export const PaymentsTab: React.FC = () => {
   }, [isAgencia, user?.rol]);
 
   useEffect(() => {
-    if (paymentTypeOptions.length > 0 && !paymentTypeOptions.includes(concepto)) {
-      setConcepto(paymentTypeOptions[0]);
+    if (paymentTypeOptions.length > 0 && !paymentTypeOptions.includes(tipoPago)) {
+      setTipoPago(paymentTypeOptions[0]);
     }
-    if (assignedCurrencies.length > 0 && !assignedCurrencies.includes(moneda)) {
-      setMoneda(assignedCurrencies[0]);
+    if (assignedCurrencies.length > 0 && !assignedCurrencies.includes(monedaPago)) {
+      setMonedaPago(assignedCurrencies[0]);
     }
-  }, [paymentTypeOptions, assignedCurrencies, concepto, moneda]);
+  }, [paymentTypeOptions, assignedCurrencies, tipoPago, monedaPago]);
 
+  // Cargar lista de cajeros para Supervisor
+  useEffect(() => {
+    if (isSupervisor) {
+      const fetchCashiers = async () => {
+        try {
+          let q = supabase
+            .table('taquilla_usuarios')
+            .select('id, usuario, nombre_cajero, rol')
+            .eq('rol', 'cajero');
+
+          if (agency?.id) {
+            q = q.eq('agencia_id', agency.id);
+          }
+
+          const { data } = await q;
+          const cajeros = (data || []).map((u: any) => ({
+            id: String(u.id),
+            nombre: u.nombre_cajero || u.usuario,
+          }));
+          setCashiersList(cajeros);
+        } catch (err) {
+          console.error('Error fetching cashiers in payments:', err);
+        }
+      };
+      fetchCashiers();
+    }
+  }, [isSupervisor, agency?.id]);
+
+  // 1. Cargar Estado de Deuda / Saldo Pendiente por Moneda
+  const loadDebtMetrics = useCallback(async (force = false) => {
+    if (!agencyName) return;
+    setLoadingMetrics(true);
+    try {
+      const filterCajero = isSupervisor ? selectedCashier : (isAgencia ? null : (user?.id ? String(user.id) : null));
+      const data = await fetchFullCycleMetrics(
+        agencyName,
+        systemCycle,
+        assignedCurrencies,
+        assignedSystems,
+        user,
+        agency,
+        {
+          filterCajeroId: filterCajero,
+          forceRefresh: force
+        }
+      );
+      setMetricsByCurrency(data);
+    } catch (err) {
+      console.error('Error fetching debt metrics in payments:', err);
+    } finally {
+      setLoadingMetrics(false);
+    }
+  }, [agencyName, systemCycle, assignedCurrencies, assignedSystems, user, agency, isSupervisor, isAgencia, selectedCashier]);
+
+  // 2. Cargar Pagos del Día filtrado
   const fetchPayments = useCallback(async () => {
     if (!agencyName) return;
-    setLoading(true);
-    setErrorMsg(null);
+    setLoadingPayments(true);
     try {
       let q = supabase
         .table('cda_pagos_diarios')
         .select('*')
-        .eq('fecha', fecha)
+        .eq('fecha', fechaFiltro)
         .or(`agencia.ilike.${agencyName},nombre_agency.ilike.${agencyName}`);
 
-      if (user?.rol === 'cajero' && user?.id) {
+      if (!isSupervisor && !isAgencia && user?.id) {
         q = q.eq('cajero_id', String(user.id));
+      } else if (isSupervisor && selectedCashier !== 'all') {
+        q = q.eq('cajero_id', selectedCashier);
       }
 
       const { data, error } = await q.order('id', { ascending: false });
-
       if (error) throw error;
-      setPayments(data || []);
-    } catch (err: unknown) {
-      console.error('Error fetching payments:', err);
-      setErrorMsg(err instanceof Error ? err.message : 'Error al cargar pagos');
+      setPayments((data || []) as PaymentRow[]);
+    } catch (err) {
+      console.error('Error fetching payments of day:', err);
     } finally {
-      setLoading(false);
+      setLoadingPayments(false);
     }
-  }, [agencyName, fecha, user?.rol, user?.id]);
+  }, [agencyName, fechaFiltro, isSupervisor, isAgencia, selectedCashier, user?.id]);
+
+  useEffect(() => {
+    loadDebtMetrics();
+  }, [loadDebtMetrics]);
 
   useEffect(() => {
     fetchPayments();
   }, [fetchPayments]);
 
-  const handlePrintReceipt = (p: DailyPayment) => {
-    const receiptData: ThermalReceiptData = {
-      titulo: 'MULTIBANCA EXPRESS',
-      agencia: p.agencia || agencyName,
-      terminal: user?.terminal_id ? String(user.terminal_id) : undefined,
-      cajero: p.nombre_cajero || user?.nombre || 'Cajero',
-      ticketNro: p.ticket_nro || `TK-${p.id}`,
-      fecha: p.fecha,
-      hora: p.hora || new Date().toLocaleTimeString(),
-      monto: p.monto,
-      moneda: p.moneda,
-      metodoPago: p.metodo_pago || 'Efectivo',
-      concepto: p.concepto || p.tipo_pago || 'Pago de Efectivo',
-      qrPayload: p.qr_token || `TK:${p.ticket_nro || p.id}|AG:${p.agencia || agencyName}|MTO:${p.monto}|FEC:${p.fecha}`,
-    };
-
-    printThermalReceipt(receiptData);
+  const handleRefreshAll = () => {
+    loadDebtMetrics(true);
+    fetchPayments();
   };
 
-  const handleCreatePayment = async (e: React.FormEvent, autoPrint = true) => {
+  // 3. Registrar Nuevo Pago
+  const handleGuardarPago = async (e: React.FormEvent) => {
     e.preventDefault();
-    const parsedMonto = typeof monto === 'number' ? monto : 0;
-    if (parsedMonto <= 0) {
-      setErrorMsg('El monto debe ser mayor a 0');
+    const parsedMonto = typeof montoPago === 'number' ? montoPago : parseFloat(String(montoPago));
+    if (!parsedMonto || parsedMonto <= 0) {
+      setErrorMsg('Ingrese un monto válido mayor a cero.');
       return;
     }
 
@@ -124,76 +216,232 @@ export const PaymentsTab: React.FC = () => {
     setErrorMsg(null);
     setSuccessMsg(null);
 
-    // Generate PIN and QR Token if "Entregado a Cobrador"
     let pin6: string | undefined = undefined;
-    let qrTokenVal = `TK:${ticketNro}|AG:${agencyName}|MTO:${parsedMonto}|MON:${moneda}|FEC:${fecha}|TS:${Date.now()}`;
+    let qrTokenVal: string | null = null;
 
-    if (concepto.includes('Cobrador')) {
+    if (tipoPago.includes('Cobrador')) {
       pin6 = `${Math.floor(Math.random() * 900000 + 100000)}`;
       qrTokenVal = `QR-REC-${pin6}`;
     }
 
     try {
       const newPayment = {
-        fecha,
+        fecha: fechaPago,
         agencia: agencyName,
         nombre_agency: agencyName,
         cajero_id: user?.id ? String(user.id) : null,
         user_id: user?.user_id || user?.id,
-        tipo_pago: concepto,
-        monto: parsedMonto,
-        moneda,
+        tipo_pago: tipoPago,
+        monto: Math.round(parsedMonto * 100) / 100,
+        moneda: monedaPago,
         qr_token: qrTokenVal,
         confirmado: false,
         confirmado_supervisor: false,
         rechazado: false,
       };
 
-      const { data, error } = await supabase
+      const { error } = await supabase
         .table('cda_pagos_diarios')
-        .insert(newPayment)
-        .select()
-        .single();
+        .insert(newPayment);
 
       if (error) throw error;
 
-      confetti({ particleCount: 40, spread: 60, origin: { y: 0.8 } });
+      confetti({ particleCount: 35, spread: 60, origin: { y: 0.8 } });
       setSuccessMsg(`Pago registrado con éxito.`);
 
       if (pin6) {
         setActiveDelivery({
-          pago_id: data?.id,
-          pin: pin6,
-          token: qrTokenVal,
+          agencia: agencyName,
+          fecha: fechaPago,
           monto: parsedMonto,
-          moneda,
+          moneda: monedaPago,
+          pin: pin6,
         });
       }
 
-      if (autoPrint) {
-        handlePrintReceipt(data || newPayment);
-      }
-
-      setTicketNro(generateTicketNumber());
-      setMonto('');
+      setMontoPago('');
       fetchPayments();
+      loadDebtMetrics(true);
     } catch (err: unknown) {
-      console.error('Error creating payment:', err);
-      setErrorMsg(err instanceof Error ? err.message : 'Error al emitir pago');
+      console.error('Error registering payment:', err);
+      setErrorMsg(err instanceof Error ? err.message : 'Error al registrar el pago.');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const totalEfectivo = payments
-    .filter((p) => (p.metodo_pago || 'Efectivo') === 'Efectivo')
-    .reduce((acc, p) => acc + (Number(p.monto) || 0), 0);
+  const renderStatusBadge = (confirmado?: boolean, rechazado?: boolean) => {
+    if (rechazado) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-400 border border-rose-500/30">
+          <XCircle className="w-3 h-3" />
+          Rechazado
+        </span>
+      );
+    }
+    if (confirmado) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+          <CheckCircle2 className="w-3 h-3" />
+          Confirmado
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+        <Clock className="w-3 h-3" />
+        Pendiente
+      </span>
+    );
+  };
 
   return (
-    <div className="space-y-6 animate-fadeIn">
-      {/* Active PIN display card for Collector delivery */}
+    <div className="space-y-6 animate-fadeIn pb-12">
+      {/* 1. Encabezado de Página y Filtros */}
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-[#0D1B22] p-4 rounded-2xl border border-slate-800 shadow-md">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-bold text-slate-300">
+              📅 Ver pagos del día:
+            </label>
+            <input
+              type="date"
+              value={fechaFiltro}
+              onChange={(e) => {
+                setFechaFiltro(e.target.value);
+                setFechaPago(e.target.value);
+              }}
+              className="bg-[#071217] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono font-bold"
+            />
+          </div>
+
+          {isSupervisor && (
+            <div className="flex items-center gap-2">
+              <Users className="w-4 h-4 text-sky-400" />
+              <select
+                value={selectedCashier}
+                onChange={(e) => setSelectedCashier(e.target.value)}
+                className="bg-[#071217] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-semibold cursor-pointer"
+              >
+                <option value="all">👥 TODOS LOS CAJEROS</option>
+                {cashiersList.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    👤 {c.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+
+        <button
+          onClick={handleRefreshAll}
+          disabled={loadingPayments || loadingMetrics}
+          className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 transition-colors cursor-pointer disabled:opacity-50"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${(loadingPayments || loadingMetrics) ? 'animate-spin text-emerald-400' : ''}`} />
+          <span>Actualizar</span>
+        </button>
+      </div>
+
+      {/* 2. Sección: Estado de Deuda / Saldo Pendiente por Moneda */}
+      <div className="space-y-2">
+        <div>
+          <h3 className="text-sm font-extrabold text-white flex items-center gap-2 tracking-wide">
+            <span>💳 Estado de Deuda / Saldo Pendiente por Moneda</span>
+          </h3>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Consulta en tiempo real cuánto debes en cada moneda asignada para este periodo operativo antes de registrar tu pago.
+          </p>
+        </div>
+
+        {/* Grid de Tarjetas de Deuda por Moneda */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-1">
+          {assignedCurrencies.map((mCode) => {
+            const flag = FLAG_MAP[mCode] || '💱';
+            const metrics = metricsByCurrency[mCode];
+            const sym = metrics?.sym || (mCode === 'BS' ? 'Bs.' : mCode === 'USD' ? '$' : 'COP$');
+
+            const saldoAnt = metrics?.saldoAnterior ?? 0;
+            const saldoOp = metrics?.resultadoOp ?? 0;
+            const gastos = metrics?.gastos ?? 0;
+            const pagosAbonados = (metrics?.pagoEfectivo ?? 0) + (metrics?.pagoBanco ?? 0) - (metrics?.pagoPremios ?? 0);
+            const saldoAct = metrics?.saldoActual ?? (saldoAnt + saldoOp - gastos - pagosAbonados);
+
+            const isDebt = saldoAct > 0.005;
+            const isFavor = saldoAct < -0.005;
+
+            return (
+              <div 
+                key={mCode}
+                className="bg-gradient-to-br from-[#0F172A] to-[#1E293B] border border-slate-700/80 rounded-2xl p-4 shadow-xl flex flex-col justify-between"
+              >
+                {/* Cabecera Tarjeta: Bandera + Moneda + Badge */}
+                <div className="flex items-center justify-between mb-2">
+                  <div className="font-black text-base text-white flex items-center gap-1.5">
+                    <span>{flag}</span>
+                    <span>{mCode}</span>
+                  </div>
+
+                  <div>
+                    {isDebt && (
+                      <span className="bg-rose-500/15 text-rose-400 border border-rose-500/35 rounded-full px-2.5 py-0.5 text-[11px] font-bold">
+                        🔴 DEUDA PENDIENTE
+                      </span>
+                    )}
+                    {isFavor && (
+                      <span className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/35 rounded-full px-2.5 py-0.5 text-[11px] font-bold">
+                        🟢 SALDO A FAVOR
+                      </span>
+                    )}
+                    {!isDebt && !isFavor && (
+                      <span className="bg-slate-700/40 text-slate-300 border border-slate-600/40 rounded-full px-2.5 py-0.5 text-[11px] font-bold">
+                        ⚪ AL DÍA / SOLVENTE
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Monto que debes pagar */}
+                <div className="my-2">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    {isDebt ? 'Monto que debes pagar' : (isFavor ? 'Saldo a favor de la Taquilla' : 'Sin deuda pendiente')}
+                  </div>
+                  <div className={`text-2xl sm:text-3xl font-black font-mono tracking-tight mt-0.5 ${
+                    isDebt ? 'text-rose-500' : (isFavor ? 'text-emerald-400' : 'text-slate-300')
+                  }`}>
+                    {sym} {Math.abs(saldoAct).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                </div>
+
+                {/* Desglose de 4 Conceptos */}
+                <div className="border-t border-slate-700/60 pt-2.5 mt-2 space-y-1 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-400">Saldo Anterior:</span>
+                    <b className="text-slate-200 font-mono">{sym} {saldoAnt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-400">Resultado Operativo:</span>
+                    <b className="text-slate-200 font-mono">{sym} {saldoOp.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-400">Gastos:</span>
+                    <b className="text-slate-200 font-mono">{sym} {gastos.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-400">Pagos Abonados:</span>
+                    <b className="text-slate-200 font-mono">{sym} {pagosAbonados.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 3. Comprobante PIN de Entrega a Cobrador Activo (si se generó uno) */}
       {activeDelivery && (
-        <div className="bg-gradient-to-r from-emerald-950/80 via-[#0D1B22] to-sky-950/80 border-2 border-emerald-500 rounded-3xl p-6 shadow-2xl relative text-center">
+        <div className="bg-gradient-to-r from-emerald-950/80 via-[#0D1B22] to-sky-950/80 border-2 border-emerald-500 rounded-3xl p-6 shadow-2xl relative text-center animate-fadeIn">
           <button
             onClick={() => setActiveDelivery(null)}
             className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800 transition-colors cursor-pointer"
@@ -201,247 +449,207 @@ export const PaymentsTab: React.FC = () => {
             <X className="w-4 h-4" />
           </button>
 
-          <div className="inline-flex p-2.5 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 mb-2">
-            <QrCode className="w-6 h-6" />
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-base font-extrabold text-emerald-400 flex items-center gap-2">
+              <span>🛵 Comprobante de Entrega a Cobrador</span>
+            </h4>
+            <span className="bg-emerald-500/20 text-emerald-400 px-2.5 py-0.5 rounded-md text-xs font-black border border-emerald-500/30">
+              PIN ACTIVO
+            </span>
           </div>
-          <h3 className="text-base font-extrabold text-white">
-            🛵 Comprobante de Entrega a Cobrador en Ruta
-          </h3>
+
           <p className="text-xs text-slate-300 mt-1 max-w-md mx-auto">
-            Díctale este PIN de 6 dígitos al Cobrador para validar la recepción del efectivo al instante:
+            Díctale este PIN de 6 dígitos al Cobrador de Ruta para validar la recepción del efectivo en 1 segundo:
           </p>
 
           <div className="bg-slate-900 border-2 border-emerald-400 rounded-2xl py-3 px-6 max-w-xs mx-auto my-4 shadow-xl">
             <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest block">
-              CÓDIGO PIN (6 DÍGITOS)
+              🔢 CÓDIGO PIN (6 DÍGITOS)
             </span>
-            <span className="text-4xl font-black font-mono tracking-[0.3em] text-white">
+            <span className="text-4xl font-black font-mono tracking-[0.25em] text-white">
               {activeDelivery.pin}
             </span>
           </div>
 
-          <div className="text-xs text-slate-400 font-semibold">
-            Monto a Recibir:{' '}
-            <strong className="text-emerald-400 text-sm font-mono font-black">
-              {formatCurrency(activeDelivery.monto, activeDelivery.moneda)}
-            </strong>
+          <div className="grid grid-cols-2 gap-2 text-xs text-slate-300 max-w-md mx-auto">
+            <div><b>🏢 Agencia:</b> {activeDelivery.agencia}</div>
+            <div><b>📅 Fecha:</b> {activeDelivery.fecha}</div>
+            <div className="col-span-2 text-sm mt-1">
+              <b>💰 Monto:</b>{' '}
+              <span className="text-emerald-400 font-black font-mono text-base">
+                {activeDelivery.moneda} {activeDelivery.monto.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <button
+              onClick={() => setActiveDelivery(null)}
+              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 transition-colors cursor-pointer"
+            >
+              ❌ Cerrar Comprobante
+            </button>
           </div>
         </div>
       )}
 
-      {/* Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-[#0D1B22] p-4 rounded-2xl border border-slate-800 shadow-md">
-        <div className="flex items-center gap-3">
-          <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
-            Fecha de Pagos:
-          </label>
-          <input
-            type="date"
-            value={fecha}
-            onChange={(e) => setFecha(e.target.value)}
-            className="bg-[#071217] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
-          />
-        </div>
-        <button
-          onClick={fetchPayments}
-          disabled={loading}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition-colors cursor-pointer"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          <span>Actualizar</span>
-        </button>
+      {/* 4. Tabla de Pagos del Día o Mensaje Vacío */}
+      <div className="space-y-2">
+        {payments.length === 0 ? (
+          <div className="bg-sky-500/10 border border-sky-500/20 text-sky-400 p-4 rounded-2xl text-xs flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>ℹ️ No hay pagos en este día.</span>
+          </div>
+        ) : (
+          <div className="bg-[#0D1B22] border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
+            <div className="p-4 border-b border-slate-800 flex justify-between items-center">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-white">
+                📋 Pagos del Día ({payments.length})
+              </h3>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-slate-800 bg-[#071217] text-slate-400 font-bold uppercase tracking-wider">
+                    <th className="py-3 px-4">Fecha</th>
+                    <th className="py-3 px-4">Agencia</th>
+                    <th className="py-3 px-4">Cajero</th>
+                    <th className="py-3 px-4">Pagos Registrados</th>
+                    <th className="py-3 px-4">Moneda</th>
+                    <th className="py-3 px-4 text-right">Monto</th>
+                    <th className="py-3 px-4 text-center">Conf.</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 font-mono">
+                  {payments.map((p) => (
+                    <tr key={p.id} className="hover:bg-slate-800/30 transition-colors">
+                      <td className="py-2.5 px-4 text-slate-300 font-sans">{p.fecha}</td>
+                      <td className="py-2.5 px-4 text-slate-400 font-sans">{p.agencia}</td>
+                      <td className="py-2.5 px-4 text-slate-300 font-sans">{p.nombre_cajero || p.cajero || 'Taquilla'}</td>
+                      <td className="py-2.5 px-4 text-white font-sans font-medium">{p.tipo_pago}</td>
+                      <td className="py-2.5 px-4 text-slate-400">{p.moneda}</td>
+                      <td className="py-2.5 px-4 text-right font-bold text-emerald-400">
+                        {formatMoney(p.monto, p.moneda)}
+                      </td>
+                      <td className="py-2.5 px-4 text-center font-sans">
+                        {renderStatusBadge(p.confirmado, p.rechazado)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* KPI Total */}
-      <div className="bg-[#0D1B22] border border-slate-800 p-5 rounded-2xl flex items-center justify-between shadow-md">
-        <div>
-          <div className="text-xs text-slate-400 font-semibold mb-1">
-            Total Pagos y Entregas en Efectivo ({payments.length} operaciones)
-          </div>
-          <div className="text-2xl font-black text-emerald-400 font-mono">
-            {formatCurrency(totalEfectivo, moneda)}
-          </div>
-        </div>
-        <div className="p-3 bg-emerald-500/10 rounded-2xl text-emerald-400 border border-emerald-500/20">
-          <DollarSign className="w-6 h-6" />
-        </div>
-      </div>
-
-      {/* Form: Emit Ticket / Payout */}
+      {/* 5. Formulario: Registrar Nuevo Pago */}
       {(!isDayClosed || isSupervisor) ? (
-        <div className="bg-[#0D1B22] border border-slate-800 rounded-2xl p-5 shadow-lg">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-white flex items-center gap-2">
-              <Plus className="w-4 h-4 text-emerald-400" />
-              Registrar Entrega de Efectivo / Pago
+        <div className="bg-[#0D1B22] border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+          <div className="border-b border-slate-800 pb-2">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-white">
+              📝 Registrar Nuevo Pago
             </h3>
-            <span className="text-xs font-mono text-slate-400 bg-slate-900/60 px-2.5 py-1 rounded-lg border border-slate-800">
-              Ticket #: <strong className="text-emerald-400">{ticketNro}</strong>
-            </span>
           </div>
 
           {errorMsg && (
-            <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2">
+            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{errorMsg}</span>
             </div>
           )}
 
           {successMsg && (
-            <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs flex items-center gap-2">
+            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 shrink-0" />
               <span>{successMsg}</span>
             </div>
           )}
 
-          <form onSubmit={(e) => handleCreatePayment(e, true)} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-                Concepto / Tipo de Pago
-              </label>
-              <select
-                value={concepto}
-                onChange={(e) => setConcepto(e.target.value)}
-                className="w-full bg-[#071217] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-semibold"
-              >
-                {paymentTypeOptions.map((opt) => (
-                  <option key={opt} value={opt}>{opt}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-                Método de Entrega
-              </label>
-              <select
-                value={metodoPago}
-                onChange={(e) => setMetodoPago(e.target.value as any)}
-                className="w-full bg-[#071217] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
-              >
-                <option value="Efectivo">Efectivo Físico</option>
-                <option value="Transferencia">Transferencia / Pago Móvil</option>
-                <option value="Punto de Venta">Punto de Venta (POS)</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-                Monto y Moneda
-              </label>
-              <div className="flex gap-1.5">
+          <form onSubmit={handleGuardarPago} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* Col 1: Fecha */}
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                  Fecha
+                </label>
                 <input
-                  type="number"
-                  step="0.01"
-                  min="0.01"
+                  type="date"
+                  value={fechaPago}
+                  onChange={(e) => setFechaPago(e.target.value)}
                   required
-                  value={monto}
-                  onChange={(e) => setMonto(e.target.value === '' ? '' : parseFloat(e.target.value))}
-                  placeholder="0.00"
-                  className="w-full bg-[#071217] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
+                  className="w-full bg-[#071217] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono font-bold"
                 />
+              </div>
+
+              {/* Col 2: Moneda */}
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                  Moneda
+                </label>
                 <select
-                  value={moneda}
-                  onChange={(e) => setMoneda(e.target.value)}
-                  className="bg-[#071217] border border-slate-700 rounded-xl px-2 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-bold"
+                  value={monedaPago}
+                  onChange={(e) => setMonedaPago(e.target.value)}
+                  className="w-full bg-[#071217] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-bold cursor-pointer"
                 >
                   {assignedCurrencies.map((m) => (
                     <option key={m} value={m}>{m}</option>
                   ))}
                 </select>
               </div>
+
+              {/* Col 3: Monto */}
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                  Monto
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  required
+                  value={montoPago}
+                  onChange={(e) => setMontoPago(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                  placeholder="0.00"
+                  className="w-full bg-[#071217] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono font-bold"
+                />
+              </div>
+
+              {/* Col 4: Tipo Pago / Concepto */}
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                  Tipo Pago / Concepto
+                </label>
+                <select
+                  value={tipoPago}
+                  onChange={(e) => setTipoPago(e.target.value)}
+                  className="w-full bg-[#071217] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-semibold cursor-pointer"
+                >
+                  {paymentTypeOptions.map((opt) => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            <div className="lg:col-span-2 flex gap-2">
-              <button
-                type="submit"
-                disabled={submitting}
-                className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold py-2.5 px-4 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-lg shadow-emerald-500/20"
-              >
-                <Printer className="w-4 h-4" />
-                <span>{submitting ? 'Procesando...' : 'Emitir e Imprimir (58mm)'}</span>
-              </button>
-              <button
-                type="button"
-                disabled={submitting}
-                onClick={(e) => handleCreatePayment(e as any, false)}
-                className="px-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-xl text-xs transition-colors cursor-pointer"
-              >
-                Solo Guardar
-              </button>
-            </div>
+            {/* Botón Ancho Verde: GUARDAR PAGO */}
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-black py-3 px-4 rounded-xl text-xs sm:text-sm tracking-wider uppercase transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 cursor-pointer disabled:opacity-50"
+            >
+              <Save className="w-4 h-4" />
+              <span>{submitting ? 'GUARDANDO...' : '💾 GUARDAR PAGO'}</span>
+            </button>
           </form>
         </div>
       ) : (
-        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs">
-          🔒 La jornada de pagos está cerrada para esta fecha.
+        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>🔒 El día {fechaFiltro} está cerrado para este usuario. No se pueden registrar nuevos pagos.</span>
         </div>
       )}
-
-      {/* Payments Table */}
-      <div className="bg-[#0D1B22] border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
-        <div className="p-4 border-b border-slate-800 flex justify-between items-center">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">
-            Entregas y Pagos Registrados Hoy ({payments.length})
-          </h3>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="border-b border-slate-800/80 bg-slate-900/40 text-slate-400">
-                <th className="py-3 px-4 font-semibold">Hora</th>
-                <th className="py-3 px-4 font-semibold">Concepto / Destino</th>
-                <th className="py-3 px-4 font-semibold">Cajero</th>
-                <th className="py-3 px-4 font-semibold">PIN / QR</th>
-                <th className="py-3 px-4 font-semibold text-right">Monto</th>
-                <th className="py-3 px-4 font-semibold text-center">Acción</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/50">
-              {payments.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-500">
-                    No hay pagos registrados para este día.
-                  </td>
-                </tr>
-              ) : (
-                payments.map((p) => (
-                  <tr key={p.id} className="hover:bg-slate-800/30 transition-colors">
-                    <td className="py-3 px-4 font-mono text-slate-400">{formatTime(p.hora)}</td>
-                    <td className="py-3 px-4 font-medium text-white">{p.concepto || p.tipo_pago}</td>
-                    <td className="py-3 px-4 text-slate-400">{p.nombre_cajero || 'Taquilla'}</td>
-                    <td className="py-3 px-4 font-mono">
-                      {p.pin_6 ? (
-                        <span className="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded font-bold border border-emerald-500/30">
-                          PIN: {p.pin_6}
-                        </span>
-                      ) : p.qr_token ? (
-                        <span className="text-slate-400 text-[10px]">QR Activo</span>
-                      ) : (
-                        <span className="text-slate-500">—</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4 text-right font-mono font-bold text-emerald-400">
-                      {formatCurrency(p.monto, p.moneda)}
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <button
-                        onClick={() => handlePrintReceipt(p)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-semibold transition-colors cursor-pointer"
-                        title="Reimprimir comprobante"
-                      >
-                        <Printer className="w-3 h-3 text-emerald-400" />
-                        <span>Imprimir</span>
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
     </div>
   );
 };
