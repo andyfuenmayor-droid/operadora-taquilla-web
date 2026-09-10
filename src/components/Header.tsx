@@ -36,13 +36,15 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
         <div className="flex items-center justify-between h-16">
           {/* Brand & Agency Info */}
           <div className="flex items-center gap-3 shrink-0">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-black font-extrabold shadow-md shadow-emerald-500/20 text-xs">
-              POS
-            </div>
+            <img 
+              src="/logo.svg" 
+              alt="Multibanca Express" 
+              className="h-8 sm:h-9 w-auto filter drop-shadow-[0_0_8px_rgba(0,229,255,0.35)]" 
+            />
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-extrabold text-white tracking-tight text-sm sm:text-base">
-                  Taquilla Web
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  TAQUILLA POS
                 </span>
                 <span className={`text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded border ${
                   isSupervisor

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Lock, User, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
+import { Lock, User, ArrowRight, Zap } from 'lucide-react';
 
 export const Login: React.FC = () => {
   const { login } = useAuth();
@@ -34,9 +34,11 @@ export const Login: React.FC = () => {
 
       <div className="w-full max-w-md bg-[#0D1B22]/90 border border-slate-800/80 rounded-2xl p-8 shadow-2xl backdrop-blur-md relative z-10">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 mb-4 shadow-lg shadow-emerald-500/10">
-            <ShieldCheck className="w-8 h-8" />
-          </div>
+          <img 
+            src="/logo.svg" 
+            alt="Multibanca Express" 
+            className="h-12 w-auto mx-auto mb-4 filter drop-shadow-[0_0_15px_rgba(0,229,255,0.4)]" 
+          />
           <h1 className="text-2xl font-black tracking-tight text-white flex items-center justify-center gap-2">
             Taquilla Web POS
             <span className="text-xs uppercase px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">

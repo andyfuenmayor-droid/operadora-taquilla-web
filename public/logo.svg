@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 60" fill="none">
+  <defs>
+    <!-- Gradient for Neon M -->
+    <linearGradient id="neonMGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00e5ff" />
+      <stop offset="50%" stop-color="#00f2a9" />
+      <stop offset="100%" stop-color="#00e676" />
+    </linearGradient>
+    <!-- Glow filter -->
+    <filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3.5" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Stylized Neon M Icon -->
+  <g transform="translate(6, 6)" filter="url(#neonGlow)">
+    <path d="M8 40V18C8 11.5 13.5 6 20 6C25.5 6 30 10 32 15C34 10 38.5 6 44 6C50.5 6 56 11.5 56 18V40" 
+          stroke="url(#neonMGradient)" 
+          stroke-width="7" 
+          stroke-linecap="round" 
+          stroke-linejoin="round" 
+          fill="none" />
+  </g>
+
+  <!-- Typography: Multibanca Express -->
+  <text x="76" y="27" font-family="'Plus Jakarta Sans', 'Outfit', sans-serif" font-size="21" font-weight="800" fill="#ffffff" letter-spacing="-0.02em">Multibanca</text>
+  <text x="76" y="47" font-family="'Plus Jakarta Sans', 'Outfit', sans-serif" font-size="19" font-weight="800" fill="#00e676" letter-spacing="-0.01em">Express</text>
+</svg>
