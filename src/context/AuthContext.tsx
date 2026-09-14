@@ -101,9 +101,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!agName) return false;
 
     try {
+      // 1. Consultar saldo_taquilla (si existe registro con saldo_restante, el día está cerrado)
       let q = supabase
         .table('saldo_taquilla')
-        .select('cerrado')
+        .select('id, saldo_restante')
         .eq('fecha', targetDate)
         .ilike('nombre_agency', agName);
 
@@ -111,11 +112,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         q = q.eq('cajero_id', String(user.id));
       }
 
-      const { data } = await q.maybeSingle();
-      const closed = !!data?.cerrado;
+      const { data: saldoList } = await q.limit(1);
+      if (saldoList && saldoList.length > 0) {
+        setIsDayClosed(true);
+        return true;
+      }
+
+      // 2. Consultar cda_reportes_diarios donde cerrado = true
+      let qRep = supabase
+        .table('cda_reportes_diarios')
+        .select('id')
+        .eq('fecha', targetDate)
+        .ilike('nombre_agency', agName)
+        .eq('cerrado', true);
+
+      if (user?.rol === 'cajero' && user.id) {
+        qRep = qRep.eq('cajero_id', String(user.id));
+      }
+
+      const { data: repList } = await qRep.limit(1);
+      const closed = Boolean(repList && repList.length > 0);
       setIsDayClosed(closed);
       return closed;
-    } catch {
+    } catch (err) {
+      console.warn('Error checking day closed status:', err);
       return false;
     }
   }, [agency?.nombre_agencia, user?.rol, user?.id]);

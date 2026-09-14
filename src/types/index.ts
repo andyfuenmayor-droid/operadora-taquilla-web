@@ -26,6 +26,9 @@ export interface Agency {
   telefono_whatsapp?: string;
   user_id?: string | number;
   saldo_actual?: number;
+  saldo_inicial_bs?: number;
+  saldo_inicial_usd?: number;
+  saldo_inicial_cop?: number;
   activo?: boolean;
 }
 

@@ -150,7 +150,6 @@ export async function obtenerSaldoAnterior(
           .from('saldo_taquilla')
           .select('saldo_restante')
           .ilike('nombre_agency', agStr)
-          .ilike('moneda', mCode)
           .eq('cajero_id', cStr)
           .lt('fecha', fechaOperativa)
           .order('fecha', { ascending: false })
@@ -171,7 +170,6 @@ export async function obtenerSaldoAnterior(
       .from('saldo_taquilla')
       .select('fecha')
       .ilike('nombre_agency', agStr)
-      .ilike('moneda', mCode)
       .lt('fecha', fechaOperativa)
       .order('fecha', { ascending: false })
       .limit(1);
@@ -182,7 +180,6 @@ export async function obtenerSaldoAnterior(
         .from('saldo_taquilla')
         .select('saldo_restante')
         .ilike('nombre_agency', agStr)
-        .ilike('moneda', mCode)
         .eq('fecha', latestDate);
 
       if (resAll && resAll.length > 0) {

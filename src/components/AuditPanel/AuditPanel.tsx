@@ -33,7 +33,7 @@ export const AuditPanel: React.FC = () => {
         totalGastos: Number(c.total_gastos) || 0,
         totalBanco: Number(c.total_banco) || 0,
         saldoRestante: Number(c.saldo_restante) || 0,
-        cerrado: !!c.cerrado,
+        cerrado: c.saldo_restante !== undefined && c.saldo_restante !== null,
       }));
 
       setAuditRows(rows);

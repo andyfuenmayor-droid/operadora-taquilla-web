@@ -24,7 +24,7 @@ interface CashierUser {
 }
 
 export const CashClosureTab: React.FC = () => {
-  const { user, agency, assignedCurrencies } = useAuth();
+  const { user, agency, assignedCurrencies, checkDayClosedStatus } = useAuth();
   const [fecha, setFecha] = useState(getTodayDateString());
   const [selectedCurrency, setSelectedCurrency] = useState<string>(assignedCurrencies[0] || 'USD');
   const [loading, setLoading] = useState(false);
@@ -94,13 +94,13 @@ export const CashClosureTab: React.FC = () => {
         qClosure = qClosure.eq('cajero_id', String(targetCajeroId));
       }
 
-      const { data: closureDataList } = await qClosure;
+      const { data: closureDataList } = await qClosure.limit(1);
       const closureData = closureDataList && closureDataList.length > 0 ? closureDataList[0] : null;
 
       // 2. Also check cda_reportes_diarios cerrado status
       let qRepCerrado = supabase
         .table('cda_reportes_diarios')
-        .select('cerrado')
+        .select('id')
         .eq('fecha', fecha)
         .ilike('nombre_agency', agencyName)
         .eq('cerrado', true);
@@ -109,39 +109,41 @@ export const CashClosureTab: React.FC = () => {
         qRepCerrado = qRepCerrado.eq('cajero_id', String(targetCajeroId));
       }
       const { data: repCerradoList } = await qRepCerrado.limit(1);
-      const isDayClosed = (closureData && closureData.saldo_restante !== undefined) || (repCerradoList && repCerradoList.length > 0);
+      const isDayClosed = Boolean(
+        (closureData && closureData.saldo_restante !== undefined && closureData.saldo_restante !== null) ||
+        (repCerradoList && repCerradoList.length > 0)
+      );
 
-      setYaCerrado(Boolean(isDayClosed));
+      setYaCerrado(isDayClosed);
 
-      if (closureData && closureData.cerrado) {
-        setSaldoInicial(Number(closureData.saldo_inicial) || 0);
-        setTotalVentas(Number(closureData.total_ventas) || 0);
-        setTotalPremios(Number(closureData.total_premios) || 0);
-        setTotalGastos(Number(closureData.total_gastos) || 0);
-        setTotalBanco(Number(closureData.total_banco) || 0);
-        setEfectivoFisico(Number(closureData.total_efectivo || closureData.saldo_restante || 0));
-        setObservaciones(closureData.observaciones || '');
-        setLoading(false);
-        return;
+      if (closureData && closureData.saldo_restante !== undefined && closureData.saldo_restante !== null) {
+        setEfectivoFisico(Number(closureData.saldo_restante));
       }
 
-      // 3. Query yesterday's remaining balance
-      const yesterdayDate = new Date(fecha + 'T12:00:00');
-      yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-      const yStr = yesterdayDate.toISOString().slice(0, 10);
-
-      let qYesterday = supabase
+      // 3. Query latest previous closed balance (before fecha)
+      let qPrev = supabase
         .table('saldo_taquilla')
-        .select('saldo_restante')
-        .eq('fecha', yStr)
-        .ilike('nombre_agency', agencyName);
+        .select('saldo_restante, fecha')
+        .ilike('nombre_agency', agencyName)
+        .lt('fecha', fecha)
+        .order('fecha', { ascending: false })
+        .limit(1);
 
       if (targetCajeroId) {
-        qYesterday = qYesterday.eq('cajero_id', String(targetCajeroId));
+        qPrev = qPrev.eq('cajero_id', String(targetCajeroId));
       }
 
-      const { data: yData } = await qYesterday.maybeSingle();
-      const initialVal = yData?.saldo_restante ? Number(yData.saldo_restante) : 0;
+      const { data: prevList } = await qPrev;
+      let initialVal = 0;
+      if (prevList && prevList.length > 0 && prevList[0].saldo_restante !== null && prevList[0].saldo_restante !== undefined) {
+        initialVal = Number(prevList[0].saldo_restante) || 0;
+      } else {
+        // Fallback to agency initial balance
+        const curKey = selectedCurrency.toLowerCase();
+        if (curKey === 'cop') initialVal = Number(agency?.saldo_inicial_cop) || 0;
+        else if (curKey === 'usd') initialVal = Number(agency?.saldo_inicial_usd) || 0;
+        else if (curKey === 'bs' || curKey === 'ves') initialVal = Number(agency?.saldo_inicial_bs) || 0;
+      }
       setSaldoInicial(initialVal);
 
       // 4. Query Today Sales from cda_reportes_diarios
@@ -176,19 +178,16 @@ export const CashClosureTab: React.FC = () => {
       // 5. Query Today Awarded Tickets (cda_premios_tickets)
       let qTickets = supabase
         .table('cda_premios_tickets')
-        .select('monto, moneda, cajero_id')
+        .select('monto, user_id')
         .eq('fecha', fecha)
         .ilike('agencia', agencyName);
 
       if (targetCajeroId) {
-        qTickets = qTickets.eq('cajero_id', String(targetCajeroId));
+        qTickets = qTickets.eq('user_id', String(targetCajeroId));
       }
 
       const { data: tData } = await qTickets;
-      const ticketsFiltered = (tData || []).filter(
-        (r: any) => normalizarMoneda(r.moneda) === selectedCurrency
-      );
-      const sumPremiosTickets = ticketsFiltered.reduce(
+      const sumPremiosTickets = (tData || []).reduce(
         (acc: number, r: any) => acc + (Number(r.monto) || 0),
         0
       );
@@ -315,6 +314,9 @@ export const CashClosureTab: React.FC = () => {
       }
       await qUpdateRep;
 
+      // Update global context status
+      await checkDayClosedStatus(fecha);
+
       setYaCerrado(true);
       confetti({
         particleCount: 70,
@@ -363,6 +365,9 @@ export const CashClosureTab: React.FC = () => {
         qSaldo = qSaldo.eq('cajero_id', String(targetCajeroId));
       }
       await qSaldo;
+
+      // Update global context status
+      await checkDayClosedStatus(fecha);
 
       setYaCerrado(false);
       setEfectivoFisico('');
