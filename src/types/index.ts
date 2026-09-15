@@ -84,6 +84,8 @@ export interface DailyExpense {
   nombre_cajero?: string;
   user_id?: string | number;
   concepto: string;
+  descripcion?: string;
+  referencia?: string;
   categoria?: string;
   monto: number;
   moneda: string;
