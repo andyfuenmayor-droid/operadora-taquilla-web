@@ -49,9 +49,12 @@ export const PaymentsTab: React.FC = () => {
   const defaultFecha = systemCycle?.hasta || getTodayDateString();
   const [fechaFiltro, setFechaFiltro] = useState(defaultFecha);
 
-  // Supervisor cashier filter
+  // Supervisor cashier and collector filter
   const [cashiersList, setCashiersList] = useState<{ id: string; nombre: string }[]>([]);
   const [selectedCashier, setSelectedCashier] = useState<string>('all');
+  const [cobradoresList, setCobradoresList] = useState<{ id: number; nombre: string; usuario: string }[]>([]);
+  const [selectedCobradorId, setSelectedCobradorId] = useState<string>('');
+  const [processingId, setProcessingId] = useState<number | null>(null);
 
   // Estado de Deuda / Saldo Pendiente por Moneda
   const [metricsByCurrency, setMetricsByCurrency] = useState<Record<string, CurrencyOperationalMetrics>>({});
@@ -123,17 +126,28 @@ export const PaymentsTab: React.FC = () => {
             q = q.eq('agencia_id', agency.id);
           }
 
-          const { data } = await q;
-          const cajeros = (data || []).map((u: any) => ({
-            id: String(u.id),
-            nombre: u.nombre_cajero || u.usuario,
-          }));
-          setCashiersList(cajeros);
-        } catch (err) {
-          console.error('Error fetching cashiers in payments:', err);
+        const { data: cajs } = await q;
+        const cajeros = (cajs || []).map((u: any) => ({
+          id: String(u.id),
+          nombre: u.nombre_cajero || u.usuario,
+        }));
+        setCashiersList(cajeros);
+
+        // Cobradores
+        const { data: cobs } = await supabase
+          .table('cda_cobradores')
+          .select('id, nombre, usuario, activo')
+          .eq('activo', true)
+          .order('nombre');
+        if (cobs && cobs.length > 0) {
+          setCobradoresList(cobs);
+          setSelectedCobradorId(String(cobs[0].id));
         }
-      };
-      fetchCashiers();
+      } catch (err) {
+        console.error('Error fetching cashiers and cobradores in payments:', err);
+      }
+    };
+    fetchCashiers();
     }
   }, [isSupervisor, agency?.id]);
 
@@ -218,13 +232,23 @@ export const PaymentsTab: React.FC = () => {
 
     let pin6: string | undefined = undefined;
     let qrTokenVal: string | null = null;
+    let cobradorIdNum: number | null = null;
+    let cobradorNomStr: string | null = null;
 
-    if (tipoPago.includes('Cobrador')) {
+    const isEntregaCobrador = tipoPago.includes('Cobrador');
+
+    if (isEntregaCobrador) {
       pin6 = `${Math.floor(Math.random() * 900000 + 100000)}`;
       qrTokenVal = `QR-REC-${pin6}`;
+      if (selectedCobradorId) {
+        cobradorIdNum = Number(selectedCobradorId);
+        const foundCob = cobradoresList.find((c) => String(c.id) === String(selectedCobradorId));
+        cobradorNomStr = foundCob?.nombre || 'Cobrador Ruta';
+      }
     }
 
     try {
+      const supName = user?.nombre || user?.usuario || 'Supervisor';
       const newPayment = {
         fecha: fechaPago,
         agencia: agencyName,
@@ -235,16 +259,38 @@ export const PaymentsTab: React.FC = () => {
         monto: Math.round(parsedMonto * 100) / 100,
         moneda: monedaPago,
         qr_token: qrTokenVal,
-        confirmado: false,
-        confirmado_supervisor: false,
+        cobrador_id: cobradorIdNum,
+        cobrador_nombre: cobradorNomStr,
+        confirmado: isEntregaCobrador,
+        confirmado_supervisor: isEntregaCobrador,
+        supervisor_nombre: isEntregaCobrador ? supName : null,
+        comentario_supervisor: isEntregaCobrador ? `Entrega Supervisor (${supName}) a Cobrador (${cobradorNomStr || 'Cobrador'}) - (PIN: ${pin6})` : null,
         rechazado: false,
       };
 
-      const { error } = await supabase
+      const { data: insData, error } = await supabase
         .table('cda_pagos_diarios')
-        .insert(newPayment);
+        .insert(newPayment)
+        .select()
+        .single();
 
       if (error) throw error;
+
+      if (isEntregaCobrador) {
+        // También asentar en cda_caja_efectivo_supervisor como salida de custodia
+        await supabase
+          .table('cda_caja_efectivo_supervisor')
+          .insert({
+            user_id: user?.id,
+            agencia: agencyName,
+            supervisor_nombre: supName,
+            tipo_movimiento: 'ENTREGA_COBRADOR',
+            monto: Math.round(parsedMonto * 100) / 100,
+            moneda: monedaPago,
+            pago_id: insData?.id || null,
+            comentario: `Entrega de caja ${agencyName} a Cobrador (Cobrador: ${cobradorNomStr || 'Cobrador'} | PIN: ${pin6})`
+          });
+      }
 
       confetti({ particleCount: 35, spread: 60, origin: { y: 0.8 } });
       setSuccessMsg(`Pago registrado con éxito.`);
@@ -267,6 +313,89 @@ export const PaymentsTab: React.FC = () => {
       setErrorMsg(err instanceof Error ? err.message : 'Error al registrar el pago.');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // Confirmar efectivo entregado por cajero (Supervisor)
+  const handleConfirmPayment = async (p: PaymentRow) => {
+    setProcessingId(p.id);
+    try {
+      const nowIso = new Date().toISOString();
+      const supName = user?.nombre || user?.usuario || 'Supervisor';
+      const cName = p.nombre_cajero || p.cajero || 'Cajero';
+
+      const { error: errPag } = await supabase
+        .table('cda_pagos_diarios')
+        .update({
+          confirmado: true,
+          confirmado_supervisor: true,
+          supervisor_nombre: supName,
+          fecha_confirmacion_supervisor: nowIso,
+          rechazado: false,
+          motivo_rechazo: null
+        })
+        .eq('id', p.id);
+
+      if (errPag) throw errPag;
+
+      await supabase
+        .table('cda_caja_efectivo_supervisor')
+        .insert({
+          user_id: user?.id,
+          agencia: p.agencia || agencyName,
+          supervisor_nombre: supName,
+          tipo_movimiento: 'ENTRADA_CAJERO',
+          monto: Number(p.monto),
+          moneda: p.moneda,
+          pago_id: p.id,
+          comentario: `Recibido de cajero ${cName} (Confirmado por ${supName})`
+        });
+
+      confetti({ particleCount: 35, spread: 60, origin: { y: 0.7 } });
+      await fetchPayments();
+      await loadDebtMetrics(true);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Error al confirmar pago');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  // Rechazar efectivo de cajero (Supervisor)
+  const handleRejectPayment = async (p: PaymentRow) => {
+    const motivo = window.prompt(`Ingrese motivo de rechazo del pago #${p.id}:`);
+    if (!motivo) return;
+
+    setProcessingId(p.id);
+    try {
+      const supName = user?.nombre || user?.usuario || 'Supervisor';
+      const nowIso = new Date().toISOString();
+
+      const { error } = await supabase
+        .table('cda_pagos_diarios')
+        .update({
+          confirmado: false,
+          confirmado_supervisor: false,
+          rechazado: true,
+          rechazado_por: supName,
+          motivo_rechazo: motivo.trim(),
+          fecha_rechazo: nowIso
+        })
+        .eq('id', p.id);
+
+      if (error) throw error;
+
+      await supabase
+        .table('cda_caja_efectivo_supervisor')
+        .delete()
+        .eq('pago_id', p.id);
+
+      await fetchPayments();
+      await loadDebtMetrics(true);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Error al rechazar pago');
+    } finally {
+      setProcessingId(null);
     }
   };
 
@@ -519,6 +648,9 @@ export const PaymentsTab: React.FC = () => {
                     <th className="py-3 px-4">Moneda</th>
                     <th className="py-3 px-4 text-right">Monto</th>
                     <th className="py-3 px-4 text-center">Conf.</th>
+                    {isSupervisor && (
+                      <th className="py-3 px-4 text-center">Acción Supervisor</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60 font-mono">
@@ -535,6 +667,34 @@ export const PaymentsTab: React.FC = () => {
                       <td className="py-2.5 px-4 text-center font-sans">
                         {renderStatusBadge(p.confirmado, p.rechazado)}
                       </td>
+                      {isSupervisor && (
+                        <td className="py-2.5 px-4 text-center font-sans">
+                          {!p.confirmado && !p.rechazado ? (
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                disabled={processingId === p.id}
+                                onClick={() => handleConfirmPayment(p)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black text-[10px] font-bold cursor-pointer disabled:opacity-50"
+                              >
+                                <CheckCircle2 className="w-3 h-3" />
+                                <span>Confirmar</span>
+                              </button>
+                              <button
+                                disabled={processingId === p.id}
+                                onClick={() => handleRejectPayment(p)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[10px] font-bold cursor-pointer disabled:opacity-50"
+                              >
+                                <XCircle className="w-3 h-3" />
+                                <span>Rechazar</span>
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-slate-500">
+                              {p.confirmado ? '✅ Recibido' : 'Rechazado'}
+                            </span>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -631,6 +791,31 @@ export const PaymentsTab: React.FC = () => {
                   ))}
                 </select>
               </div>
+
+              {tipoPago.includes('Cobrador') && (
+                <div className="sm:col-span-2 lg:col-span-4 bg-slate-900/70 p-3 rounded-xl border border-sky-500/30 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-sky-400">🛵 Seleccione el Cobrador de Ruta:</span>
+                    <span className="text-[11px] text-slate-400">Se generará un PIN de 6 dígitos para validar la entrega en ruta</span>
+                  </div>
+                  <select
+                    value={selectedCobradorId}
+                    onChange={(e) => setSelectedCobradorId(e.target.value)}
+                    required
+                    className="bg-[#071217] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-semibold cursor-pointer min-w-[240px]"
+                  >
+                    {cobradoresList.length === 0 ? (
+                      <option value="">No hay cobradores activos</option>
+                    ) : (
+                      cobradoresList.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          🛵 {c.nombre} (@{c.usuario})
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
+              )}
             </div>
 
             {/* Botón Ancho Verde: GUARDAR PAGO */}
