@@ -5,7 +5,6 @@ import { Header } from './components/Header';
 import { CashierTerminal } from './components/CashierTerminal/CashierTerminal';
 import { SupervisorBoard } from './components/SupervisorBoard/SupervisorBoard';
 import { CollectorPortal } from './components/CollectorPortal/CollectorPortal';
-import { AuditPanel } from './components/AuditPanel/AuditPanel';
 
 const MainLayout: React.FC = () => {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -40,8 +39,6 @@ const MainLayout: React.FC = () => {
   const isCashierModule = [
     'inicio',
     'reporte',
-    'ventas',
-    'premios',
     'gastos',
     'pagos',
     'banco',
@@ -60,7 +57,6 @@ const MainLayout: React.FC = () => {
 
         {/* Supervisor Exclusive Views */}
         {currentTab === 'pizarra' && (user?.rol === 'supervisor' || user?.rol === 'admin') && <SupervisorBoard />}
-        {currentTab === 'auditoria' && (user?.rol === 'supervisor' || user?.rol === 'admin') && <AuditPanel />}
 
         {/* Route Collector Views */}
         {currentTab === 'escaner' && user?.rol === 'cobrador' && <CollectorPortal />}

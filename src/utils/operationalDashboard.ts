@@ -252,7 +252,7 @@ export async function fetchFullCycleMetrics(
   systemCycle: SystemCycle | null,
   assignedCurrencies: string[],
   assignedSystems: string[],
-  user: UserSession | null,
+  _user?: UserSession | null,
   agencyData?: Agency | null,
   options?: PeriodMetricsOptions
 ): Promise<Record<string, CurrencyOperationalMetrics>> {
@@ -264,12 +264,12 @@ export async function fetchFullCycleMetrics(
   const fHastaEfectivo = fHastaAdmin > todayStr ? fHastaAdmin : todayStr;
   const fDesdeCarga = fDesdeAdmin <= todayStr ? fDesdeAdmin : todayStr;
 
-  const isSupervisor = user?.rol === 'supervisor' || user?.rol === 'agencia' || user?.rol === 'admin';
+  // En el modelo unificado (sin auditoría híbrida), las ventas, premios y comisiones
+  // pertenecen a la agencia (carga_actual). El rol cajero visualiza las ventas oficiales
+  // de la agencia exactamente igual que el rol agencia.
   let cajeroId: string | undefined = undefined;
-  if (options?.filterCajeroId !== undefined) {
-    cajeroId = options.filterCajeroId && options.filterCajeroId !== 'all' ? String(options.filterCajeroId) : undefined;
-  } else {
-    cajeroId = !isSupervisor && user?.id ? String(user.id) : undefined;
+  if (options?.filterCajeroId !== undefined && options.filterCajeroId !== 'all') {
+    cajeroId = String(options.filterCajeroId);
   }
   const uIdAdmin = agencyData?.user_id ? String(agencyData.user_id) : undefined;
 
@@ -557,9 +557,7 @@ export async function fetchFullCycleMetrics(
     if (assignedSystems.length > 0) {
       vM = vM.filter((s) => assignedSystems.includes(String(s.sistema || '').toUpperCase()));
     }
-    if (cajeroId) {
-      vM = vM.filter((s) => String(s.cajero_id) === cajeroId);
-    }
+    // Las ventas de carga_actual corresponden al total oficial de la agencia y aplican a la taquilla completa
 
     // Filtrar gastos
     let gM = expensesRows.filter((g) => normalizarMoneda(g.moneda) === mCode);

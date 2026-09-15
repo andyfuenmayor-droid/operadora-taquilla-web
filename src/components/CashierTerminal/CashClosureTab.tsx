@@ -146,52 +146,42 @@ export const CashClosureTab: React.FC = () => {
       }
       setSaldoInicial(initialVal);
 
-      // 4. Query Today Sales from cda_reportes_diarios
-      let qSales = supabase
-        .table('cda_reportes_diarios')
-        .select('monto_venta, comision, monto_premios, moneda, cajero_id')
-        .eq('fecha', fecha)
-        .ilike('nombre_agency', agencyName);
+      // 4. Query Today Sales from carga_actual (Carga Oficial de la Agencia)
+      let sumVentas = 0;
+      let sumComisiones = 0;
+      let sumPremios = 0;
 
-      if (targetCajeroId) {
-        qSales = qSales.eq('cajero_id', String(targetCajeroId));
-      }
-
-      const { data: sData } = await qSales;
-      const salesFiltered = (sData || []).filter(
-        (r: any) => normalizarMoneda(r.moneda) === selectedCurrency
-      );
-
-      const sumVentas = salesFiltered.reduce(
-        (acc: number, r: any) => acc + (Number(r.monto_venta) || 0),
-        0
-      );
-      const sumComisiones = salesFiltered.reduce(
-        (acc: number, r: any) => acc + (Number(r.comision) || 0),
-        0
-      );
-      const sumPremiosRep = salesFiltered.reduce(
-        (acc: number, r: any) => acc + (Number(r.monto_premios) || 0),
-        0
-      );
-
-      // 5. Query Today Awarded Tickets (cda_premios_tickets)
-      let qTickets = supabase
-        .table('cda_premios_tickets')
-        .select('monto, user_id')
-        .eq('fecha', fecha)
+      const { data: cData } = await supabase
+        .from('carga_actual')
+        .select('venta, comision, premios, neto, moneda, fecha')
         .ilike('agencia', agencyName);
 
-      if (targetCajeroId) {
-        qTickets = qTickets.eq('user_id', String(targetCajeroId));
+      const cargaFiltered = (cData || []).filter(
+        (r: any) => normalizarMoneda(r.moneda) === selectedCurrency && (!r.fecha || String(r.fecha).slice(0, 10) === fecha)
+      );
+
+      if (cargaFiltered.length > 0) {
+        sumVentas = cargaFiltered.reduce((acc: number, r: any) => acc + (Number(r.venta) || 0), 0);
+        sumComisiones = cargaFiltered.reduce((acc: number, r: any) => acc + (Number(r.comision) || 0), 0);
+        sumPremios = cargaFiltered.reduce((acc: number, r: any) => acc + (Number(r.premios) || 0), 0);
+      } else {
+        // Fallback a cda_reportes_diarios si existieran
+        const { data: sData } = await supabase
+          .table('cda_reportes_diarios')
+          .select('monto_venta, comision, monto_premios, moneda')
+          .eq('fecha', fecha)
+          .ilike('nombre_agency', agencyName);
+
+        const salesFiltered = (sData || []).filter(
+          (r: any) => normalizarMoneda(r.moneda) === selectedCurrency
+        );
+
+        sumVentas = salesFiltered.reduce((acc: number, r: any) => acc + (Number(r.monto_venta) || 0), 0);
+        sumComisiones = salesFiltered.reduce((acc: number, r: any) => acc + (Number(r.comision) || 0), 0);
+        sumPremios = salesFiltered.reduce((acc: number, r: any) => acc + (Number(r.monto_premios) || 0), 0);
       }
 
-      const { data: tData } = await qTickets;
-      const sumPremiosTickets = (tData || []).reduce(
-        (acc: number, r: any) => acc + (Number(r.monto) || 0),
-        0
-      );
-      const finalPremios = Math.max(sumPremiosRep, sumPremiosTickets);
+      const finalPremios = sumPremios;
 
       // 6. Query Today Expenses
       let qExpenses = supabase

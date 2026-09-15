@@ -2,8 +2,6 @@ import React, { useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { HomeDashboard } from '../HomeDashboard/HomeDashboard';
 import { DateRangeReportTab } from '../DateRangeReport/DateRangeReportTab';
-import { DailySalesTab } from './DailySalesTab';
-import { AwardedTicketsTab } from '../AwardedTickets/AwardedTicketsTab';
 import { ExpensesTab } from './ExpensesTab';
 import { PaymentsTab } from './PaymentsTab';
 import { BankTransfersTab } from './BankTransfersTab';
@@ -18,9 +16,9 @@ export const CashierTerminal: React.FC<CashierTerminalProps> = ({ currentTab, on
   const { user } = useAuth();
   const role = (user?.rol || 'cajero').toLowerCase();
 
-  // Permisos de módulos por rol
+  // Permisos de módulos por rol (sin carga manual de ventas/premios)
   const allowedTabsByRole: Record<string, string[]> = {
-    cajero: ['inicio', 'reporte', 'ventas', 'premios', 'gastos', 'pagos', 'banco', 'cierre'],
+    cajero: ['inicio', 'reporte', 'gastos', 'pagos', 'banco', 'cierre'],
     supervisor: ['inicio', 'reporte', 'cierre'],
     admin: ['inicio', 'reporte', 'cierre'],
     agencia: ['inicio', 'reporte', 'pagos', 'banco'],
@@ -42,8 +40,6 @@ export const CashierTerminal: React.FC<CashierTerminalProps> = ({ currentTab, on
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       {activeTab === 'inicio' && <HomeDashboard onNavigate={onTabChange} />}
       {activeTab === 'reporte' && <DateRangeReportTab />}
-      {activeTab === 'ventas' && <DailySalesTab />}
-      {activeTab === 'premios' && <AwardedTicketsTab />}
       {activeTab === 'gastos' && <ExpensesTab />}
       {activeTab === 'pagos' && <PaymentsTab />}
       {activeTab === 'banco' && <BankTransfersTab />}
