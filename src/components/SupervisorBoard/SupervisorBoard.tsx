@@ -664,10 +664,8 @@ export const SupervisorBoard: React.FC = () => {
       const { error } = await supabase
         .table('cda_pagos_diarios')
         .update({
-          estado: 'cobrado',
-          cobrado_por: row.cobrador_nombre || `Validado por ${supervisorName}`,
-          fecha_cobro: nowIso,
           fecha_escaneo_cobrador: nowIso,
+          cobrador_nombre: row.cobrador_nombre || `Validado por ${supervisorName}`,
           confirmado: true,
           confirmado_supervisor: true,
         })
@@ -712,7 +710,6 @@ export const SupervisorBoard: React.FC = () => {
       const { error: errPago } = await supabase
         .table('cda_pagos_diarios')
         .update({
-          estado: 'anulado',
           confirmado: false,
           confirmado_supervisor: false,
           rechazado: true,
@@ -1226,8 +1223,9 @@ export const SupervisorBoard: React.FC = () => {
                   ) : (
                     entregasCobrador.map((row) => {
                       const pinOnly = row.qr_token ? row.qr_token.replace('QR-REC-', '') : 'N/A';
-                      const isAnulado = row.estado === 'anulado' || Boolean(row.rechazado);
-                      const isCobrado = !isAnulado && (row.estado === 'cobrado' || Boolean(row.cobrador_id && row.qr_token && !row.qr_token.includes('QR-REC-')));
+                      const isAnulado = Boolean(row.rechazado);
+                      const isLiquidado = Boolean(row.liquidado_admin);
+                      const isCobrado = !isAnulado && (Boolean(row.fecha_escaneo_cobrador) || isLiquidado);
                       const isPending = !isCobrado && !isAnulado;
                       const isProcessing = processingEntregaId === row.id;
 
