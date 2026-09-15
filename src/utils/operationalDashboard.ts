@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseUrl, supabaseAnonKey } from '../lib/supabase';
 import { normalizarMoneda } from './formatters';
 import type { Agency, SystemCycle, UserSession } from '../types';
 
@@ -142,13 +142,50 @@ export async function obtenerSaldoAnterior(
   const mCode = normalizarMoneda(moneda).toLowerCase();
 
   try {
-    const { data: resAg } = await supabase
-      .from('agencias')
-      .select('*')
-      .ilike('nombre_agencia', agStr)
-      .maybeSingle();
+    let agObj: any = null;
 
-    const agObj = resAg || agencyData;
+    // 1. Priorizar búsqueda por ID de agencia si existe
+    if (agencyData?.id) {
+      const { data: resById } = await supabase
+        .from('agencias')
+        .select('*')
+        .eq('id', agencyData.id)
+        .maybeSingle();
+      if (resById) agObj = resById;
+    }
+
+    // 2. Si no por ID, consultar por nombre_agencia
+    if (!agObj && agStr) {
+      const { data: resByName } = await supabase
+        .from('agencias')
+        .select('*')
+        .ilike('nombre_agencia', agStr)
+        .maybeSingle();
+      if (resByName) agObj = resByName;
+    }
+
+    // 3. Fallback directo HTTP nativo (inmune a cualquier problema de auth/sesión en el cliente)
+    if (!agObj) {
+      try {
+        const queryParam = agencyData?.id ? `id=eq.${agencyData.id}` : `nombre_agencia=ilike.${encodeURIComponent(agStr)}`;
+        const directRes = await fetch(`${supabaseUrl}/rest/v1/agencias?${queryParam}`, {
+          headers: {
+            apikey: supabaseAnonKey,
+            Authorization: `Bearer ${supabaseAnonKey}`,
+            Accept: 'application/vnd.pgrst.object+json'
+          }
+        });
+        if (directRes.ok) {
+          agObj = await directRes.json();
+        }
+      } catch (errDirect) {
+        console.warn('Direct fetch fallback failed in obtenerSaldoAnterior:', errDirect);
+      }
+    }
+
+    if (!agObj) {
+      agObj = agencyData;
+    }
 
     if (agObj) {
       const fieldName = `saldo_inicial_${mCode}` as keyof Agency;
@@ -395,6 +432,12 @@ export async function fetchFullCycleMetrics(
       const unified: any[] = [];
 
       dailyData.forEach((p: any) => {
+        const tipoP = String(p.tipo_pago || '').trim().toUpperCase();
+        // Entregas de custodia logística a cobrador / administración no son pagos definitivos de agencia (igual a CMS consolidations.ts)
+        if (['COBRADOR', 'ENTREGADO A ADMIN', 'ENTREGA_ADMIN'].some((k) => tipoP.includes(k))) {
+          return;
+        }
+
         unified.push({
           ...p,
           origen: 'cda_pagos_diarios',
@@ -479,13 +522,50 @@ export async function fetchFullCycleMetrics(
   const fetchAnteriorBalances = async (): Promise<Record<string, number>> => {
     const balances: Record<string, number> = {};
     try {
-      const { data: resAg } = await supabase
-        .from('agencias')
-        .select('*')
-        .ilike('nombre_agencia', agencyName)
-        .maybeSingle();
+      let agObj: any = null;
 
-      const agObj = resAg || agencyData;
+      // 1. Priorizar búsqueda por ID de agencia si existe
+      if (agencyData?.id) {
+        const { data: resById } = await supabase
+          .from('agencias')
+          .select('*')
+          .eq('id', agencyData.id)
+          .maybeSingle();
+        if (resById) agObj = resById;
+      }
+
+      // 2. Si no por ID, consultar por nombre_agencia
+      if (!agObj && agencyName) {
+        const { data: resByName } = await supabase
+          .from('agencias')
+          .select('*')
+          .ilike('nombre_agencia', agencyName.trim())
+          .maybeSingle();
+        if (resByName) agObj = resByName;
+      }
+
+      // 3. Fallback directo HTTP nativo (inmune a cualquier problema de auth/sesión en el cliente)
+      if (!agObj) {
+        try {
+          const queryParam = agencyData?.id ? `id=eq.${agencyData.id}` : `nombre_agencia=ilike.${encodeURIComponent(agencyName.trim())}`;
+          const directRes = await fetch(`${supabaseUrl}/rest/v1/agencias?${queryParam}`, {
+            headers: {
+              apikey: supabaseAnonKey,
+              Authorization: `Bearer ${supabaseAnonKey}`,
+              Accept: 'application/vnd.pgrst.object+json'
+            }
+          });
+          if (directRes.ok) {
+            agObj = await directRes.json();
+          }
+        } catch (errDirect) {
+          console.warn('Direct fetch fallback failed in fetchAnteriorBalances:', errDirect);
+        }
+      }
+
+      if (!agObj) {
+        agObj = agencyData;
+      }
 
       assignedCurrencies.forEach((mCode) => {
         const mKey = normalizarMoneda(mCode).toLowerCase();
@@ -499,7 +579,9 @@ export async function fetchFullCycleMetrics(
     } catch (err) {
       console.warn('Error fetching anterior balances:', err);
       assignedCurrencies.forEach((mCode) => {
-        balances[mCode] = 0;
+        const mKey = normalizarMoneda(mCode).toLowerCase();
+        const fieldName = `saldo_inicial_${mKey}` as keyof Agency;
+        balances[mCode] = Number(agencyData ? (agencyData as any)[fieldName] : 0) || 0;
       });
     }
     return balances;

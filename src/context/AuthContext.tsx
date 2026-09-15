@@ -151,7 +151,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         fetchSystemCycle(u.user_id);
       }
       if (storedAgency) {
-        setAgency(JSON.parse(storedAgency));
+        const ag = JSON.parse(storedAgency);
+        setAgency(ag);
+        const agId = ag?.id || (storedUser ? JSON.parse(storedUser).agencia_id : null);
+        if (agId) {
+          supabase
+            .table('agencias')
+            .select('*')
+            .eq('id', agId)
+            .maybeSingle()
+            .then(({ data }: any) => {
+              if (data) {
+                setAgency(data);
+                localStorage.setItem('taquilla_web_agency', JSON.stringify(data));
+              }
+            })
+            .catch((e: any) => console.warn('Could not auto-refresh agency on mount:', e));
+        }
       }
     } catch (err) {
       console.error('Failed to restore session:', err);
