@@ -133,87 +133,36 @@ export function clasificarPagoRegistro(r: Record<string, any>): 'PREMIO' | 'BANC
  */
 export async function obtenerSaldoAnterior(
   agencyName: string,
-  fechaOperativa: string,
+  _fechaOperativa: string,
   moneda: string,
-  cajeroId?: string | number,
+  _cajeroId?: string | number,
   agencyData?: Agency | null
 ): Promise<number> {
   const agStr = String(agencyName).trim();
   const mCode = normalizarMoneda(moneda).toLowerCase();
 
-  // 1. Buscar en saldo_taquilla por cajero si aplica
-  if (cajeroId) {
-    try {
-      const cStr = String(cajeroId).trim();
-      if (cStr && !['none', 'nan', ''].includes(cStr.toLowerCase())) {
-        const { data: resC } = await supabase
-          .from('saldo_taquilla')
-          .select('saldo_restante')
-          .ilike('nombre_agency', agStr)
-          .eq('cajero_id', cStr)
-          .lt('fecha', fechaOperativa)
-          .order('fecha', { ascending: false })
-          .limit(1);
-
-        if (resC && resC.length > 0 && resC[0].saldo_restante !== null && resC[0].saldo_restante !== undefined) {
-          return Number(resC[0].saldo_restante) || 0;
-        }
-      }
-    } catch (e) {
-      console.warn('Error fetching anterior cashier balance:', e);
-    }
-  }
-
-  // 2. Buscar último saldo general en saldo_taquilla
   try {
-    const { data: resDate } = await supabase
-      .from('saldo_taquilla')
-      .select('fecha')
-      .ilike('nombre_agency', agStr)
-      .lt('fecha', fechaOperativa)
-      .order('fecha', { ascending: false })
-      .limit(1);
+    const { data: resAg } = await supabase
+      .from('agencias')
+      .select('*')
+      .ilike('nombre_agencia', agStr)
+      .maybeSingle();
 
-    if (resDate && resDate.length > 0 && resDate[0].fecha) {
-      const latestDate = resDate[0].fecha;
-      const { data: resAll } = await supabase
-        .from('saldo_taquilla')
-        .select('saldo_restante')
-        .ilike('nombre_agency', agStr)
-        .eq('fecha', latestDate);
-
-      if (resAll && resAll.length > 0) {
-        return resAll.reduce((acc: number, r: any) => acc + (Number(r.saldo_restante) || 0), 0);
-      }
-    }
-  } catch (e) {
-    console.warn('Error fetching agency anterior date balance:', e);
-  }
-
-  // 3. Fallback: saldo inicial configurado en tabla agencias
-  try {
-    let agObj = agencyData;
-    if (!agObj || !agObj.nombre_agencia) {
-      const { data: resAg } = await supabase
-        .from('agencias')
-        .select('*')
-        .ilike('nombre_agencia', agStr)
-        .maybeSingle();
-      agObj = resAg as Agency;
-    }
+    const agObj = resAg || agencyData;
 
     if (agObj) {
       const fieldName = `saldo_inicial_${mCode}` as keyof Agency;
-      if (agObj[fieldName] !== undefined && agObj[fieldName] !== null) {
-        return Number(agObj[fieldName]) || 0;
+      const val = agObj[fieldName];
+      if (val !== undefined && val !== null) {
+        return Number(val) || 0;
       }
       if (mCode === 'bs') {
         const alt1 = (agObj as any).saldo_inicial_bs;
         const alt2 = (agObj as any).saldo_inicial;
         const alt3 = (agObj as any).saldo_arrastre;
-        const val = alt1 ?? alt2 ?? alt3;
-        if (val !== undefined && val !== null) {
-          return Number(val) || 0;
+        const fallbackBs = alt1 ?? alt2 ?? alt3;
+        if (fallbackBs !== undefined && fallbackBs !== null) {
+          return Number(fallbackBs) || 0;
         }
       }
     }
@@ -529,11 +478,30 @@ export async function fetchFullCycleMetrics(
   // 5. Subtarea: Saldos anteriores de todas las monedas en paralelo
   const fetchAnteriorBalances = async (): Promise<Record<string, number>> => {
     const balances: Record<string, number> = {};
-    await Promise.all(
-      assignedCurrencies.map(async (mCode) => {
-        balances[mCode] = await obtenerSaldoAnterior(agencyName, todayStr, mCode, cajeroId, agencyData);
-      })
-    );
+    try {
+      const { data: resAg } = await supabase
+        .from('agencias')
+        .select('*')
+        .ilike('nombre_agencia', agencyName)
+        .maybeSingle();
+
+      const agObj = resAg || agencyData;
+
+      assignedCurrencies.forEach((mCode) => {
+        const mKey = normalizarMoneda(mCode).toLowerCase();
+        const fieldName = `saldo_inicial_${mKey}` as keyof Agency;
+        let val = agObj ? (agObj as any)[fieldName] : undefined;
+        if (mKey === 'bs' && (val === undefined || val === null)) {
+          val = (agObj as any)?.saldo_inicial_bs ?? (agObj as any)?.saldo_inicial ?? (agObj as any)?.saldo_arrastre;
+        }
+        balances[mCode] = Number(val) || 0;
+      });
+    } catch (err) {
+      console.warn('Error fetching anterior balances:', err);
+      assignedCurrencies.forEach((mCode) => {
+        balances[mCode] = 0;
+      });
+    }
     return balances;
   };
 
