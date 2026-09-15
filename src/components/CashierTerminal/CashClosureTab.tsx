@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { formatCurrency, getTodayDateString, normalizarMoneda } from '../../utils/formatters';
+import { obtenerSaldoAnterior } from '../../utils/operationalDashboard';
 import { printThermalReceipt } from '../../lib/thermalPrinter';
 import { 
   Calculator, 
@@ -120,30 +121,14 @@ export const CashClosureTab: React.FC = () => {
         setEfectivoFisico(Number(closureData.saldo_restante));
       }
 
-      // 3. Query latest previous closed balance (before fecha)
-      let qPrev = supabase
-        .table('saldo_taquilla')
-        .select('saldo_restante, fecha')
-        .ilike('nombre_agency', agencyName)
-        .lt('fecha', fecha)
-        .order('fecha', { ascending: false })
-        .limit(1);
-
-      if (targetCajeroId) {
-        qPrev = qPrev.eq('cajero_id', String(targetCajeroId));
-      }
-
-      const { data: prevList } = await qPrev;
-      let initialVal = 0;
-      if (prevList && prevList.length > 0 && prevList[0].saldo_restante !== null && prevList[0].saldo_restante !== undefined) {
-        initialVal = Number(prevList[0].saldo_restante) || 0;
-      } else {
-        // Fallback to agency initial balance
-        const curKey = selectedCurrency.toLowerCase();
-        if (curKey === 'cop') initialVal = Number(agency?.saldo_inicial_cop) || 0;
-        else if (curKey === 'usd') initialVal = Number(agency?.saldo_inicial_usd) || 0;
-        else if (curKey === 'bs' || curKey === 'ves') initialVal = Number(agency?.saldo_inicial_bs) || 0;
-      }
+      // 3. Query initial balance from agency official cycle balance
+      const initialVal = await obtenerSaldoAnterior(
+        agencyName,
+        fecha,
+        selectedCurrency,
+        targetCajeroId ? String(targetCajeroId) : undefined,
+        agency
+      );
       setSaldoInicial(initialVal);
 
       // 4. Query Today Sales from carga_actual (Carga Oficial de la Agencia)
