@@ -17,7 +17,9 @@ import {
   Copy,
   Check,
   X,
-  CreditCard
+  CreditCard,
+  Trash2,
+  Ban
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -112,6 +114,7 @@ export const SupervisorBoard: React.FC = () => {
     agencia: string;
   } | null>(null);
   const [copiedPin, setCopiedPin] = useState(false);
+  const [processingEntregaId, setProcessingEntregaId] = useState<number | null>(null);
 
   // 5. Transferencias Bancarias
   const [pendingTransfers, setPendingTransfers] = useState<BankPayment[]>([]);
@@ -645,6 +648,108 @@ export const SupervisorBoard: React.FC = () => {
   };
 
   // -------------------------------------------------------------
+  // ACCIÓN 3.1: VALIDAR MANUALMENTE ENTREGA A COBRADOR
+  // -------------------------------------------------------------
+  const handleManualValidateEntrega = async (row: CajeroPaymentRow) => {
+    const cobradorName = row.cobrador_nombre || 'el cobrador';
+    const montoFormatted = formatMoney(row.monto, row.moneda);
+    const ok = window.confirm(
+      `¿Confirmar que ${cobradorName} recibió la entrega de ${montoFormatted}?\n\nEsta acción marcará el registro como "Validado por Cobrador" en el sistema.`
+    );
+    if (!ok) return;
+
+    setProcessingEntregaId(row.id);
+    try {
+      const nowIso = new Date().toISOString();
+      const { error } = await supabase
+        .table('cda_pagos_diarios')
+        .update({
+          estado: 'cobrado',
+          cobrado_por: row.cobrador_nombre || `Validado por ${supervisorName}`,
+          fecha_cobro: nowIso,
+          fecha_escaneo_cobrador: nowIso,
+          confirmado: true,
+          confirmado_supervisor: true,
+        })
+        .eq('id', row.id);
+
+      if (error) throw error;
+
+      confetti({
+        particleCount: 40,
+        spread: 60,
+        origin: { y: 0.7 },
+        colors: ['#00C853', '#38BDF8'],
+      });
+
+      await fetchSupervisorData();
+    } catch (err: unknown) {
+      console.error('Error al validar entrega manualmente:', err);
+      alert(err instanceof Error ? err.message : 'Error al validar entrega.');
+    } finally {
+      setProcessingEntregaId(null);
+    }
+  };
+
+  // -------------------------------------------------------------
+  // ACCIÓN 3.2: ANULAR / REVERSAR ENTREGA A COBRADOR
+  // -------------------------------------------------------------
+  const handleCancelEntrega = async (row: CajeroPaymentRow) => {
+    const cobradorName = row.cobrador_nombre || 'el cobrador';
+    const montoFormatted = formatMoney(row.monto, row.moneda);
+    const motivo = window.prompt(
+      `¿Desea anular la entrega de ${montoFormatted} a ${cobradorName}?\n\nEl dinero será reintegrado inmediatamente a la caja de custodia del supervisor.\n\nIndique el motivo de la anulación:`,
+      'Entrega no realizada / Error de registro'
+    );
+    if (motivo === null) return;
+
+    setProcessingEntregaId(row.id);
+    try {
+      const nowIso = new Date().toISOString();
+      const pinOnly = row.qr_token ? row.qr_token.replace('QR-REC-', '') : '';
+
+      // 1. Actualizar en cda_pagos_diarios como anulado/rechazado
+      const { error: errPago } = await supabase
+        .table('cda_pagos_diarios')
+        .update({
+          estado: 'anulado',
+          confirmado: false,
+          confirmado_supervisor: false,
+          rechazado: true,
+          rechazado_por: supervisorName,
+          motivo_rechazo: (motivo || 'Anulado desde panel de supervisor').trim(),
+          fecha_rechazo: nowIso,
+        })
+        .eq('id', row.id);
+
+      if (errPago) throw errPago;
+
+      // 2. Eliminar el egreso de cda_caja_efectivo_supervisor para reintegrar el saldo a la custodia
+      let qDeleteCaja = supabase
+        .table('cda_caja_efectivo_supervisor')
+        .delete();
+
+      if (pinOnly) {
+        qDeleteCaja = qDeleteCaja.or(`pago_id.eq.${row.id},comentario.ilike.%${pinOnly}%`);
+      } else {
+        qDeleteCaja = qDeleteCaja.eq('pago_id', row.id);
+      }
+
+      const { error: errCaja } = await qDeleteCaja;
+      if (errCaja) {
+        console.warn('Advertencia al eliminar de cda_caja_efectivo_supervisor:', errCaja.message);
+      }
+
+      await fetchSupervisorData();
+    } catch (err: unknown) {
+      console.error('Error al anular entrega a cobrador:', err);
+      alert(err instanceof Error ? err.message : 'Error al anular entrega.');
+    } finally {
+      setProcessingEntregaId(null);
+    }
+  };
+
+  // -------------------------------------------------------------
   // ACCIÓN 4: CONFIRMAR / RECHAZAR TRANSFERENCIAS BANCARIAS
   // -------------------------------------------------------------
   const handleConfirmTransfer = async (id?: number) => {
@@ -1108,7 +1213,7 @@ export const SupervisorBoard: React.FC = () => {
                     <th className="py-3 px-4">PIN / Token</th>
                     <th className="py-3 px-4 text-right">Monto</th>
                     <th className="py-3 px-4 text-center">Estado Cobranza</th>
-                    <th className="py-3 px-4 text-center">Acción</th>
+                    <th className="py-3 px-4 text-center">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60 font-mono">
@@ -1121,7 +1226,11 @@ export const SupervisorBoard: React.FC = () => {
                   ) : (
                     entregasCobrador.map((row) => {
                       const pinOnly = row.qr_token ? row.qr_token.replace('QR-REC-', '') : 'N/A';
-                      const isCobrado = row.estado === 'cobrado' || Boolean(row.cobrador_id && row.qr_token && !row.qr_token.includes('QR-REC-'));
+                      const isAnulado = row.estado === 'anulado' || Boolean(row.rechazado);
+                      const isCobrado = !isAnulado && (row.estado === 'cobrado' || Boolean(row.cobrador_id && row.qr_token && !row.qr_token.includes('QR-REC-')));
+                      const isPending = !isCobrado && !isAnulado;
+                      const isProcessing = processingEntregaId === row.id;
+
                       return (
                         <tr key={row.id} className="hover:bg-slate-800/30 transition-colors">
                           <td className="py-3 px-4 text-slate-300 font-sans">{row.fecha}</td>
@@ -1137,7 +1246,15 @@ export const SupervisorBoard: React.FC = () => {
                             {formatMoney(row.monto, row.moneda)}
                           </td>
                           <td className="py-3 px-4 text-center font-sans">
-                            {isCobrado ? (
+                            {isAnulado ? (
+                              <span 
+                                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-400 border border-rose-500/30"
+                                title={row.motivo_rechazo || 'Entrega anulada'}
+                              >
+                                <Ban className="w-3 h-3" />
+                                Anulado / Reversado
+                              </span>
+                            ) : isCobrado ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                                 <CheckCircle2 className="w-3 h-3" />
                                 Validado por Cobrador
@@ -1150,21 +1267,48 @@ export const SupervisorBoard: React.FC = () => {
                             )}
                           </td>
                           <td className="py-3 px-4 text-center font-sans">
-                            <button
-                              onClick={() => {
-                                setActivePinVoucher({
-                                  pin: pinOnly,
-                                  cobradorNombre: row.cobrador_nombre || 'Cobrador',
-                                  monto: Number(row.monto),
-                                  moneda: row.moneda,
-                                  fecha: row.fecha,
-                                  agencia: row.agencia || agencyName,
-                                });
-                              }}
-                              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-bold text-slate-200 transition-colors cursor-pointer"
-                            >
-                              Ver PIN
-                            </button>
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                onClick={() => {
+                                  setActivePinVoucher({
+                                    pin: pinOnly,
+                                    cobradorNombre: row.cobrador_nombre || 'Cobrador',
+                                    monto: Number(row.monto),
+                                    moneda: row.moneda,
+                                    fecha: row.fecha,
+                                    agencia: row.agencia || agencyName,
+                                  });
+                                }}
+                                title="Ver comprobante y PIN"
+                                className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-bold text-slate-200 transition-colors cursor-pointer"
+                              >
+                                Ver PIN
+                              </button>
+
+                              {isPending && (
+                                <>
+                                  <button
+                                    onClick={() => handleManualValidateEntrega(row)}
+                                    disabled={isProcessing}
+                                    title="Validar recepción manualmente (si el cobrador ya tiene el dinero)"
+                                    className="px-2 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 border border-emerald-500/30 text-[11px] font-bold transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1"
+                                  >
+                                    <Check className="w-3 h-3" />
+                                    <span>Validar</span>
+                                  </button>
+
+                                  <button
+                                    onClick={() => handleCancelEntrega(row)}
+                                    disabled={isProcessing}
+                                    title="Anular entrega y reintegrar saldo a custodia"
+                                    className="px-2 py-1 rounded-lg bg-rose-600/20 hover:bg-rose-600/40 text-rose-400 border border-rose-500/30 text-[11px] font-bold transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                    <span>Anular</span>
+                                  </button>
+                                </>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );

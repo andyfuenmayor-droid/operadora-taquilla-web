@@ -87,9 +87,9 @@ export const CollectorPortal: React.FC = () => {
         .order('id', { ascending: false })
         .limit(50);
 
-      // Filter for those with qr_token or metodo_pago containing cobrador/efectivo
+      // Filter for those with qr_token or metodo_pago containing cobrador/efectivo, excluding rejected or annulled
       const filteredPends = (pends || []).filter(
-        (p: any) => p.qr_token || (p.metodo_pago && p.metodo_pago.toUpperCase().includes('COBRADOR'))
+        (p: any) => !p.rechazado && p.estado !== 'anulado' && (p.qr_token || (p.metodo_pago && p.metodo_pago.toUpperCase().includes('COBRADOR')))
       );
       setPendingCollections(filteredPends);
 
