@@ -20,7 +20,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
-  const { user, agency, logout, systemCycle } = useAuth();
+  const { user, agency, logout } = useAuth();
 
   const role = (user?.rol || 'cajero').toLowerCase();
   const isCajero = role === 'cajero';
@@ -41,31 +41,15 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
             />
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <span className="text-[10px] uppercase font-black tracking-wider px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                   TAQUILLA POS
                 </span>
-                <span className={`text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded border ${
-                  isSupervisor
-                    ? 'bg-purple-500/20 text-purple-400 border-purple-500/30'
-                    : isAgencia
-                    ? 'bg-sky-500/20 text-sky-400 border-sky-500/30'
-                    : isCobrador
-                    ? 'bg-amber-500/20 text-amber-400 border-amber-500/30'
-                    : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-                }`}>
-                  {user?.rol || 'cajero'}
-                </span>
               </div>
-              <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                <Building2 className="w-3.5 h-3.5 text-slate-500" />
-                <span className="font-medium text-slate-300 truncate max-w-[150px] sm:max-w-[220px]">
+              <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-0.5">
+                <Building2 className="w-3.5 h-3.5 text-emerald-400/80 shrink-0" />
+                <span className="font-semibold text-slate-200 truncate max-w-[170px] sm:max-w-[260px]">
                   {agency?.nombre_agencia || 'Agencia General'}
                 </span>
-                {systemCycle?.desde && systemCycle?.hasta && (
-                  <span className="hidden lg:inline-flex items-center gap-1 text-[11px] text-slate-400 font-mono pl-2 border-l border-slate-700">
-                    📅 Ciclo: {systemCycle.desde} al {systemCycle.hasta}
-                  </span>
-                )}
               </div>
             </div>
           </div>
@@ -284,17 +268,40 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
           </nav>
 
           {/* User profile & Logout */}
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#071217] border border-slate-800">
-              <div className="w-7 h-7 rounded-lg bg-slate-800 flex items-center justify-center text-slate-300">
+          <div className="flex items-center gap-2.5 shrink-0">
+            <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-[#071217] border border-slate-800 shadow-sm">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${
+                isSupervisor
+                  ? 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
+                  : isAgencia
+                  ? 'bg-sky-500/15 text-sky-400 border border-sky-500/30'
+                  : isCobrador
+                  ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                  : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+              }`}>
                 <UserIcon className="w-4 h-4" />
               </div>
               <div className="text-left hidden sm:block">
-                <div className="text-xs font-bold text-slate-200 leading-tight">
+                <div className="text-xs font-black text-white leading-tight">
                   {user?.nombre || user?.usuario}
                 </div>
-                <div className="text-[10px] text-slate-500 font-mono">
-                  {user?.usuario}
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className={`text-[9px] uppercase font-black tracking-wider px-1.5 py-0.2 rounded border ${
+                    isSupervisor
+                      ? 'bg-purple-500/20 text-purple-300 border-purple-500/30'
+                      : isAgencia
+                      ? 'bg-sky-500/20 text-sky-300 border-sky-500/30'
+                      : isCobrador
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                      : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                  }`}>
+                    {user?.rol || 'cajero'}
+                  </span>
+                  {user?.nombre && user?.usuario && user.nombre.toLowerCase().trim() !== user.usuario.toLowerCase().trim() && (
+                    <span className="text-[10px] text-slate-500 font-mono">
+                      @{user.usuario}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>

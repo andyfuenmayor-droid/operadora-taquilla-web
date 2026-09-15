@@ -6,7 +6,6 @@ import {
   type CurrencyOperationalMetrics 
 } from '../../utils/operationalDashboard';
 import { 
-  Building2, 
   Calendar, 
   Phone, 
   DollarSign, 
@@ -108,16 +107,11 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = () => {
 
         <div className="flex flex-wrap items-center justify-between gap-4 relative z-10">
           <div>
-            <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-2.5">
-              <span>👋 ¡Bienvenido, {user?.nombre || user?.usuario}!</span>
+            <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2">
+              <span>👋 ¡Hola, {user?.nombre || user?.usuario}!</span>
             </h2>
-            <div className="flex flex-wrap items-center gap-2 mt-2 text-xs text-slate-400">
-              <span className="flex items-center gap-1 font-semibold text-slate-200">
-                <Building2 className="w-4 h-4 text-emerald-400" />
-                {agencyName}
-              </span>
-              <span>&bull;</span>
-              <span>Rol: <strong className="text-emerald-400 uppercase">{user?.rol || 'cajero'}</strong></span>
+            <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-slate-400">
+              <span className="font-medium text-slate-300">Terminal de Cierre y Liquidación en Tiempo Real</span>
               {waNumber && (
                 <>
                   <span>&bull;</span>
@@ -128,7 +122,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = () => {
                     className="inline-flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 transition-colors"
                   >
                     <Phone className="w-3 h-3" />
-                    WhatsApp: {waNumber}
+                    Soporte: {waNumber}
                   </a>
                 </>
               )}
