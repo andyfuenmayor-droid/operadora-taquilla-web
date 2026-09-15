@@ -115,6 +115,7 @@ export const SupervisorBoard: React.FC = () => {
 
   // 5. Transferencias Bancarias
   const [pendingTransfers, setPendingTransfers] = useState<BankPayment[]>([]);
+  const [filtroRangoBancos, setFiltroRangoBancos] = useState<'fecha' | 'ciclo'>('ciclo');
   const [processingId, setProcessingId] = useState<number | null>(null);
 
   // 6. Resumen de Agencias
@@ -159,6 +160,14 @@ export const SupervisorBoard: React.FC = () => {
           id: String(c.id),
           nombre: c.nombre_cajero || c.usuario,
         }));
+
+        if (list.length === 0 && agency?.usuario_taquilla) {
+          list.push({
+            id: 'taquilla',
+            nombre: agency.usuario_taquilla,
+          });
+        }
+
         setCashiersList(list);
       } catch (err) {
         console.error('Error fetching auxiliary supervisor data:', err);
@@ -166,9 +175,28 @@ export const SupervisorBoard: React.FC = () => {
     };
 
     fetchAuxData();
-  }, [agency?.id]);
+  }, [agency?.id, agency?.usuario_taquilla]);
 
-  // Cargar todos los datos del panel de supervisión
+  // Helper para resolver el nombre del cajero asignado
+  const resolveCajeroName = useCallback(
+    (cajeroId?: string | number | null, fallbackName?: string | null) => {
+      if (cajeroId !== undefined && cajeroId !== null) {
+        const found = cashiersList.find((c) => String(c.id) === String(cajeroId));
+        if (found?.nombre) return found.nombre;
+      }
+      if (
+        fallbackName &&
+        fallbackName.toLowerCase() !== 'cajero' &&
+        fallbackName.toLowerCase() !== 'taquilla'
+      ) {
+        return fallbackName;
+      }
+      return agency?.usuario_taquilla || 'Cajero';
+    },
+    [cashiersList, agency?.usuario_taquilla]
+  );
+
+  // Cargar todos los datos del panel de supervisión (estrictamente acotado a la agencia y cajeros asignados)
   const fetchSupervisorData = useCallback(async () => {
     setLoading(true);
     setEntregaMsg(null);
@@ -179,7 +207,7 @@ export const SupervisorBoard: React.FC = () => {
         .select('*');
       
       if (agencyName) {
-        qCaja = qCaja.ilike('agencia', agencyName);
+        qCaja = qCaja.ilike('agencia', agencyName.trim());
       }
       const { data: cajaData } = await qCaja;
 
@@ -190,21 +218,31 @@ export const SupervisorBoard: React.FC = () => {
         .order('id', { ascending: false });
 
       if (agencyName) {
-        qPagos = qPagos.or(`agencia.ilike.${agencyName},nombre_agency.ilike.${agencyName}`);
+        qPagos = qPagos.or(`agencia.ilike.${agencyName.trim()},nombre_agency.ilike.${agencyName.trim()}`);
       }
       const { data: pagosData } = await qPagos;
 
-      // 3. Separar entregas a cobrador vs entregas de cajeros
-      const rawPagos: CajeroPaymentRow[] = (pagosData || []) as CajeroPaymentRow[];
+      // 3. Separar entregas a cobrador vs entregas de efectivo de cajeros asignados
+      const rawPagos: CajeroPaymentRow[] = ((pagosData || []) as CajeroPaymentRow[]).filter((p) => {
+        if (!agencyName) return true;
+        const matchAg = (p.agencia || '').trim().toUpperCase() === agencyName.trim().toUpperCase() ||
+                        (p.nombre_agency || '').trim().toUpperCase() === agencyName.trim().toUpperCase();
+        const matchCaj = Boolean(p.cajero_id && cashiersList.some((c) => String(c.id) === String(p.cajero_id)));
+        return matchAg || matchCaj;
+      });
       
       const cobradorRows = rawPagos.filter((p) => 
         (p.tipo_pago && p.tipo_pago.toUpperCase().includes('COBRADOR')) || Boolean(p.qr_token)
       );
       setEntregasCobrador(cobradorRows);
 
-      const cajeroRows = rawPagos.filter((p) => 
-        !p.tipo_pago?.toUpperCase().includes('COBRADOR') && !p.qr_token
-      );
+      // Solo entregas de efectivo de cajeros a supervisor (excluyendo transferencias bancarias y cobrador)
+      const cajeroRows = rawPagos.filter((p) => {
+        const isCobrador = (p.tipo_pago && p.tipo_pago.toUpperCase().includes('COBRADOR')) || Boolean(p.qr_token);
+        if (isCobrador) return false;
+        const tipoP = (p.tipo_pago || '').toUpperCase();
+        return tipoP.includes('SUPERVISOR') || tipoP.includes('EFECTIVO');
+      });
       setCajeroPayments(cajeroRows);
 
       // 4. Calcular métricas de custodia por moneda
@@ -240,30 +278,58 @@ export const SupervisorBoard: React.FC = () => {
 
       setCustodiaMetrics(metrics);
 
-      // 5. Fetch transferencias bancarias
-      const { data: bData } = await supabase
+      // 5. Fetch transferencias bancarias (filtradas estrictamente por la agencia y cajeros asignados al supervisor)
+      let qBancos = supabase
         .table('cda_pagos_bancarios')
         .select('*')
-        .eq('fecha', fecha)
         .order('id', { ascending: false });
 
-      setPendingTransfers(bData || []);
+      if (agencyName) {
+        qBancos = qBancos.ilike('agencia', agencyName.trim());
+      }
 
-      // 6. Fetch datos de agencias y cierres para la pestaña de auditoría
-      const { data: sData } = await supabase
+      if (filtroRangoBancos === 'fecha' && fecha) {
+        qBancos = qBancos.eq('fecha', fecha);
+      } else if (filtroRangoBancos === 'ciclo' && systemCycle?.desde && systemCycle?.hasta) {
+        qBancos = qBancos.gte('fecha', systemCycle.desde).lte('fecha', systemCycle.hasta);
+      }
+
+      const { data: bData } = await qBancos;
+
+      // Doble filtro en memoria para garantizar aislamiento total
+      const scopedTransfers = ((bData || []) as BankPayment[]).filter((t) => {
+        if (!agencyName) return true;
+        const matchAg = (t.agencia || '').trim().toUpperCase() === agencyName.trim().toUpperCase();
+        const matchCaj = Boolean(t.cajero_id && cashiersList.some((c) => String(c.id) === String(t.cajero_id)));
+        return matchAg || matchCaj;
+      });
+      setPendingTransfers(scopedTransfers);
+
+      // 6. Fetch datos de agencias y cierres (si es supervisor, exclusivamente su agencia asignada)
+      let qSales = supabase
         .table('cda_reportes_diarios')
         .select('nombre_agency, monto_venta, comision, monto_premios, cerrado')
         .eq('fecha', fecha);
 
-      const { data: gData } = await supabase
+      let qGastos = supabase
         .table('cda_gastos_diarios')
         .select('agencia, nombre_agency, monto')
         .eq('fecha', fecha);
 
-      const { data: saldoData } = await supabase
+      let qSaldo = supabase
         .table('saldo_taquilla')
         .select('nombre_agency, saldo_restante')
         .eq('fecha', fecha);
+
+      if (user?.rol === 'supervisor' && agencyName) {
+        qSales = qSales.ilike('nombre_agency', agencyName.trim());
+        qGastos = qGastos.or(`agencia.ilike.${agencyName.trim()},nombre_agency.ilike.${agencyName.trim()}`);
+        qSaldo = qSaldo.ilike('nombre_agency', agencyName.trim());
+      }
+
+      const { data: sData } = await qSales;
+      const { data: gData } = await qGastos;
+      const { data: saldoData } = await qSaldo;
 
       const mapAgencies: Record<string, AgencySummary> = {};
 
@@ -288,7 +354,7 @@ export const SupervisorBoard: React.FC = () => {
       });
 
       (gData || []).forEach((row: any) => {
-        const ag = row.agencia || 'Sin Agencia';
+        const ag = row.agencia || row.nombre_agency || 'Sin Agencia';
         if (!mapAgencies[ag]) {
           mapAgencies[ag] = {
             agencia: ag,
@@ -303,7 +369,7 @@ export const SupervisorBoard: React.FC = () => {
         mapAgencies[ag].totalGastos += Number(row.monto) || 0;
       });
 
-      (bData || []).forEach((row: any) => {
+      (scopedTransfers || []).forEach((row: any) => {
         const ag = row.agencia || 'Sin Agencia';
         if (!mapAgencies[ag]) {
           mapAgencies[ag] = {
@@ -337,13 +403,20 @@ export const SupervisorBoard: React.FC = () => {
         }
       });
 
-      setAgencySummaries(Object.values(mapAgencies));
+      const scopedAgencies = Object.values(mapAgencies).filter((summary) => {
+        if (user?.rol === 'supervisor' && agencyName) {
+          return summary.agencia.trim().toUpperCase() === agencyName.trim().toUpperCase();
+        }
+        return true;
+      });
+
+      setAgencySummaries(scopedAgencies);
     } catch (err) {
       console.error('Error fetching supervisor data:', err);
     } finally {
       setLoading(false);
     }
-  }, [agencyName, assignedCurrencies, fecha]);
+  }, [agencyName, assignedCurrencies, fecha, filtroRangoBancos, systemCycle, user?.rol, cashiersList]);
 
   useEffect(() => {
     fetchSupervisorData();
@@ -585,7 +658,8 @@ export const SupervisorBoard: React.FC = () => {
           rechazado: false,
           confirmado_supervisor: true,
           supervisor_nombre: supervisorName,
-          fecha_confirmacion: new Date().toISOString(),
+          confirmado_por: supervisorName,
+          fecha_confirmacion_supervisor: new Date().toISOString(),
         })
         .eq('id', id);
 
@@ -619,8 +693,11 @@ export const SupervisorBoard: React.FC = () => {
         .table('cda_pagos_bancarios')
         .update({
           confirmado: false,
+          confirmado_supervisor: false,
           rechazado: true,
+          rechazado_por: supervisorName,
           motivo_rechazo: motivo,
+          fecha_rechazo: new Date().toISOString(),
         })
         .eq('id', id);
 
@@ -1202,7 +1279,7 @@ export const SupervisorBoard: React.FC = () => {
                         <tr key={p.id} className="hover:bg-slate-800/30 transition-colors">
                           <td className="py-3 px-4 text-slate-300 font-sans">{p.fecha}</td>
                           <td className="py-3 px-4 font-bold text-white font-sans">
-                            👤 {p.nombre_cajero || p.cajero || 'Cajero'}
+                            👤 {resolveCajeroName(p.cajero_id, p.nombre_cajero || p.cajero)}
                           </td>
                           <td className="py-3 px-4 text-slate-300 font-sans">{p.tipo_pago}</td>
                           <td className="py-3 px-4 text-right font-bold text-emerald-400">
@@ -1269,13 +1346,38 @@ export const SupervisorBoard: React.FC = () => {
       {activeTab === 'bancos' && (
         <div className="space-y-6 animate-fadeIn">
           <div className="bg-[#0D1B22] border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-            <div className="p-4 border-b border-slate-800 flex items-center justify-between">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
-                <CreditCard className="w-4 h-4 text-sky-400" />
-                Transferencias y Pagos Bancarios ({pendingTransfers.length})
-              </h3>
+            <div className="p-4 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-sky-400" />
+                  Transferencias y Pagos Bancarios ({pendingTransfers.length})
+                </h3>
+                {/* Selector de Rango: Ciclo vs Fecha */}
+                <div className="flex items-center gap-1 bg-[#071217] p-1 rounded-xl border border-slate-700 text-xs">
+                  <button
+                    onClick={() => setFiltroRangoBancos('ciclo')}
+                    className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                      filtroRangoBancos === 'ciclo'
+                        ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    🗓️ Todo el Ciclo
+                  </button>
+                  <button
+                    onClick={() => setFiltroRangoBancos('fecha')}
+                    className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                      filtroRangoBancos === 'fecha'
+                        ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    📅 Solo Fecha ({fecha})
+                  </button>
+                </div>
+              </div>
               <span className="text-[11px] text-slate-400">
-                Confirmación o rechazo en 1 clic
+                Solo transferencias de tu agencia y cajeros asignados
               </span>
             </div>
 
@@ -1285,7 +1387,7 @@ export const SupervisorBoard: React.FC = () => {
                   <tr className="border-b border-slate-800/80 bg-slate-900/40 text-slate-400">
                     <th className="py-3 px-4 font-semibold">Hora</th>
                     <th className="py-3 px-4 font-semibold">Agencia</th>
-                    <th className="py-3 px-4 font-semibold">Cajero</th>
+                    <th className="py-3 px-4 font-semibold">Cajero Asignado</th>
                     <th className="py-3 px-4 font-semibold">Banco / Método</th>
                     <th className="py-3 px-4 font-semibold">Referencia</th>
                     <th className="py-3 px-4 font-semibold text-right">Monto</th>
@@ -1297,7 +1399,9 @@ export const SupervisorBoard: React.FC = () => {
                   {pendingTransfers.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="py-8 text-center text-slate-500">
-                        No hay transferencias registradas en esta fecha.
+                        {filtroRangoBancos === 'ciclo'
+                          ? 'No hay transferencias registradas para esta agencia en el ciclo operativo.'
+                          : `No hay transferencias registradas para esta agencia en la fecha ${fecha}.`}
                       </td>
                     </tr>
                   ) : (
@@ -1309,8 +1413,8 @@ export const SupervisorBoard: React.FC = () => {
                         <td className="py-3 px-4 font-bold text-white">
                           {t.agencia}
                         </td>
-                        <td className="py-3 px-4 text-slate-400">
-                          {t.nombre_cajero || 'Cajero'}
+                        <td className="py-3 px-4 font-bold text-slate-200">
+                          👤 {resolveCajeroName(t.cajero_id, t.nombre_cajero)}
                         </td>
                         <td className="py-3 px-4 text-slate-300">
                           {t.banco_origen} &rarr; {t.banco_destino}

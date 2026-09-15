@@ -22,6 +22,7 @@ interface PaymentRow {
   id: number;
   fecha: string;
   agencia: string;
+  cajero_id?: string | null;
   nombre_cajero?: string;
   cajero?: string;
   tipo_pago: string;
@@ -658,7 +659,9 @@ export const PaymentsTab: React.FC = () => {
                     <tr key={p.id} className="hover:bg-slate-800/30 transition-colors">
                       <td className="py-2.5 px-4 text-slate-300 font-sans">{p.fecha}</td>
                       <td className="py-2.5 px-4 text-slate-400 font-sans">{p.agencia}</td>
-                      <td className="py-2.5 px-4 text-slate-300 font-sans">{p.nombre_cajero || p.cajero || 'Taquilla'}</td>
+                      <td className="py-2.5 px-4 text-slate-300 font-sans">
+                        👤 {cashiersList.find((c) => String(c.id) === String(p.cajero_id))?.nombre || p.nombre_cajero || p.cajero || agency?.usuario_taquilla || 'Taquilla'}
+                      </td>
                       <td className="py-2.5 px-4 text-white font-sans font-medium">{p.tipo_pago}</td>
                       <td className="py-2.5 px-4 text-slate-400">{p.moneda}</td>
                       <td className="py-2.5 px-4 text-right font-bold text-emerald-400">
