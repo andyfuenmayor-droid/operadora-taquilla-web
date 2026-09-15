@@ -79,17 +79,17 @@ export const CollectorPortal: React.FC = () => {
       }
       setAssignedAgencies(agList);
 
-      // 2. Load pending handoffs (payments of type COBRADOR or with qr_token that have not been collected)
+      // 2. Load pending handoffs (payments of type COBRADOR or with qr_token that have not been scanned)
       const { data: pends } = await supabase
         .table('cda_pagos_diarios')
         .select('*')
-        .neq('estado', 'cobrado')
+        .is('fecha_escaneo_cobrador', null)
         .order('id', { ascending: false })
         .limit(50);
 
-      // Filter for those with qr_token or metodo_pago containing cobrador/efectivo, excluding rejected or annulled
+      // Filter for those with qr_token or metodo_pago containing cobrador/efectivo, excluding rejected
       const filteredPends = (pends || []).filter(
-        (p: any) => !p.rechazado && p.estado !== 'anulado' && (p.qr_token || (p.metodo_pago && p.metodo_pago.toUpperCase().includes('COBRADOR')))
+        (p: any) => !p.rechazado && (p.qr_token || (p.metodo_pago && p.metodo_pago.toUpperCase().includes('COBRADOR')) || (p.tipo_pago && p.tipo_pago.toUpperCase().includes('COBRADOR')))
       );
       setPendingCollections(filteredPends);
 
@@ -97,7 +97,7 @@ export const CollectorPortal: React.FC = () => {
       const { data: history } = await supabase
         .table('cda_pagos_diarios')
         .select('*')
-        .eq('estado', 'cobrado')
+        .not('fecha_escaneo_cobrador', 'is', null)
         .order('id', { ascending: false })
         .limit(100);
 
@@ -212,12 +212,9 @@ export const CollectorPortal: React.FC = () => {
       const { error } = await supabase
         .table('cda_pagos_diarios')
         .update({
-          estado: 'cobrado',
-          cobrado_por: collectorName,
-          cobrador_id: collectorId ? String(collectorId) : null,
-          cobrador_nombre: collectorName,
-          fecha_cobro: now.toISOString(),
           fecha_escaneo_cobrador: now.toISOString(),
+          cobrador_id: collectorId ? (Number(collectorId) || null) : null,
+          cobrador_nombre: collectorName,
           confirmado: true,
           confirmado_supervisor: true,
         })
@@ -234,8 +231,8 @@ export const CollectorPortal: React.FC = () => {
 
       const updated = {
         ...ticket,
-        estado: 'cobrado' as const,
-        cobrado_por: collectorName,
+        fecha_escaneo_cobrador: now.toISOString(),
+        cobrador_nombre: collectorName,
       };
 
       setVerifiedTicket(updated);
@@ -244,7 +241,8 @@ export const CollectorPortal: React.FC = () => {
       alert('¡Cobro registrado y validado con éxito!');
     } catch (err: unknown) {
       console.error('Error confirming collection:', err);
-      alert(err instanceof Error ? err.message : 'Error al liquidar cobro.');
+      const errMsg = (err as any)?.message || (err instanceof Error ? err.message : 'Error al liquidar cobro.');
+      alert(`Error al registrar cobro: ${errMsg}`);
     } finally {
       setLoadingConfirm(false);
     }
@@ -456,10 +454,10 @@ export const CollectorPortal: React.FC = () => {
                 <div>
                   <div className="text-xs text-slate-400">Estado:</div>
                   <div className="text-sm font-bold mt-0.5">
-                    {verifiedTicket.estado === 'cobrado' ? (
+                    {verifiedTicket.fecha_escaneo_cobrador ? (
                       <span className="text-amber-400 flex items-center gap-1.5">
                         <CheckCircle2 className="w-4 h-4" />
-                        Ya cobrado por: {verifiedTicket.cobrado_por || collectorName}
+                        Ya cobrado y recibido ({verifiedTicket.cobrador_nombre || collectorName})
                       </span>
                     ) : (
                       <span className="text-emerald-400 flex items-center gap-1.5">
@@ -470,7 +468,7 @@ export const CollectorPortal: React.FC = () => {
                   </div>
                 </div>
 
-                {verifiedTicket.estado !== 'cobrado' && (
+                {!verifiedTicket.fecha_escaneo_cobrador && (
                   <button
                     onClick={() => handleConfirmCollection(verifiedTicket)}
                     disabled={loadingConfirm}
