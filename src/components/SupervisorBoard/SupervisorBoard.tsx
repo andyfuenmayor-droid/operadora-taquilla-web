@@ -62,6 +62,9 @@ interface CajeroPaymentRow {
   cobrador_id?: number;
   cobrador_nombre?: string;
   estado?: string;
+  fecha_escaneo_cobrador?: string;
+  liquidado_admin?: boolean;
+  fecha_liquidacion_admin?: string;
   created_at?: string;
 }
 

@@ -120,6 +120,11 @@ export interface DailyPayment {
   estado?: 'pagado' | 'anulado' | 'cobrado';
   cobrado_por?: string;
   fecha_cobro?: string;
+  cobrador_id?: number | string | null;
+  cobrador_nombre?: string;
+  fecha_escaneo_cobrador?: string;
+  liquidado_admin?: boolean;
+  fecha_liquidacion_admin?: string;
   created_at?: string;
 }
 
