@@ -33,6 +33,7 @@ interface PaymentRow {
   motivo_rechazo?: string;
   qr_token?: string;
   pin_6?: string;
+  supervisor_nombre?: string;
 }
 
 const FLAG_MAP: Record<string, string> = {
@@ -60,6 +61,9 @@ export const PaymentsTab: React.FC = () => {
   // Estado de Deuda / Saldo Pendiente por Moneda
   const [metricsByCurrency, setMetricsByCurrency] = useState<Record<string, CurrencyOperationalMetrics>>({});
   const [loadingMetrics, setLoadingMetrics] = useState(false);
+
+  // Estado de Efectivo Físico en Custodia / Gaveta por Moneda
+  const [custodiaMetrics, setCustodiaMetrics] = useState<Record<string, { balance: number; entradas: number; entregas: number }>>({});
 
   // Pagos del día
   const [payments, setPayments] = useState<PaymentRow[]>([]);
@@ -160,6 +164,51 @@ export const PaymentsTab: React.FC = () => {
     }
   }, [systemCycle?.hasta]);
 
+  // 1.1 Cargar Efectivo Físico en Custodia / Gaveta (Cajeros + Supervisor)
+  const fetchCustodiaMetrics = useCallback(async () => {
+    if (!agencyName) return;
+    try {
+      const cycleDesde = systemCycle?.desde || '';
+      const cycleHasta = systemCycle?.hasta || '';
+
+      const { data, error } = await supabase
+        .table('cda_pagos_diarios')
+        .select('*')
+        .or(`agencia.ilike.${agencyName},nombre_agency.ilike.${agencyName}`)
+        .order('id', { ascending: false });
+
+      if (error) throw error;
+
+      const rows = data || [];
+      const metrics: Record<string, { balance: number; entradas: number; entregas: number }> = {};
+      assignedCurrencies.forEach((m) => {
+        metrics[m] = { balance: 0, entradas: 0, entregas: 0 };
+      });
+
+      rows.forEach((p: any) => {
+        const fStr = String(p.fecha || p.created_at || '').slice(0, 10);
+        const inCycle = !cycleDesde || (fStr >= cycleDesde && fStr <= (cycleHasta || fStr));
+        if (!inCycle || p.rechazado) return;
+
+        const mon = (p.moneda || 'COP').toUpperCase();
+        if (!metrics[mon]) metrics[mon] = { balance: 0, entradas: 0, entregas: 0 };
+        const mto = Number(p.monto) || 0;
+
+        const isCobrador = String(p.tipo_pago || '').includes('Cobrador') || p.qr_token != null;
+
+        if (isCobrador) {
+          metrics[mon].entregas += mto;
+        } else if (p.confirmado_supervisor || p.confirmado) {
+          metrics[mon].entradas += mto;
+        }
+      });
+
+      setCustodiaMetrics(metrics);
+    } catch (err) {
+      console.error('Error fetching custodia metrics in payments tab:', err);
+    }
+  }, [agencyName, systemCycle?.desde, systemCycle?.hasta, assignedCurrencies]);
+
   // 1. Cargar Estado de Deuda / Saldo Pendiente por Moneda
   const loadDebtMetrics = useCallback(async (force = false) => {
     if (!agencyName) return;
@@ -167,25 +216,28 @@ export const PaymentsTab: React.FC = () => {
     setLoadingMetrics(true);
     try {
       const filterCajero = isSupervisor ? selectedCashier : (isAgencia ? null : (user?.id ? String(user.id) : null));
-      const data = await fetchFullCycleMetrics(
-        agencyName,
-        systemCycle,
-        assignedCurrencies,
-        assignedSystems,
-        user,
-        agency,
-        {
-          filterCajeroId: filterCajero,
-          forceRefresh: force
-        }
-      );
+      const [data] = await Promise.all([
+        fetchFullCycleMetrics(
+          agencyName,
+          systemCycle,
+          assignedCurrencies,
+          assignedSystems,
+          user,
+          agency,
+          {
+            filterCajeroId: filterCajero,
+            forceRefresh: force
+          }
+        ),
+        fetchCustodiaMetrics()
+      ]);
       setMetricsByCurrency(data);
     } catch (err) {
       console.error('Error fetching debt metrics in payments:', err);
     } finally {
       setLoadingMetrics(false);
     }
-  }, [agencyName, systemCycle?.desde, systemCycle?.hasta, assignedCurrencies, assignedSystems, user, agency, isSupervisor, isAgencia, selectedCashier]);
+  }, [agencyName, systemCycle?.desde, systemCycle?.hasta, assignedCurrencies, assignedSystems, user, agency, isSupervisor, isAgencia, selectedCashier, fetchCustodiaMetrics]);
 
   // 2. Cargar Pagos del Día filtrado
   const fetchPayments = useCallback(async () => {
@@ -227,6 +279,7 @@ export const PaymentsTab: React.FC = () => {
   const handleRefreshAll = () => {
     loadDebtMetrics(true);
     fetchPayments();
+    fetchCustodiaMetrics();
   };
 
   // 3. Registrar Nuevo Pago
@@ -249,6 +302,14 @@ export const PaymentsTab: React.FC = () => {
 
     const isEntregaCobrador = tipoPago.includes('Cobrador');
 
+    const currentSaldoEnCaja = Math.max(0, (custodiaMetrics[monedaPago]?.entradas || 0) - (custodiaMetrics[monedaPago]?.entregas || 0));
+    if ((isEntregaCobrador || tipoPago.includes('Premios') || tipoPago.includes('Comercializador')) && currentSaldoEnCaja > 0 && parsedMonto > currentSaldoEnCaja) {
+      const proceed = window.confirm(
+        `Atención: El monto ingresado (${formatMoney(parsedMonto, monedaPago)}) excede el efectivo disponible en caja (${formatMoney(currentSaldoEnCaja, monedaPago)}).\n\n¿Desea continuar con el registro de todas formas?`
+      );
+      if (!proceed) return;
+    }
+
     if (isEntregaCobrador) {
       pin6 = `${Math.floor(Math.random() * 900000 + 100000)}`;
       qrTokenVal = `QR-REC-${pin6}`;
@@ -265,7 +326,7 @@ export const PaymentsTab: React.FC = () => {
         fecha: fechaPago,
         agencia: agencyName,
         nombre_agency: agencyName,
-        cajero_id: user?.id ? String(user.id) : null,
+        cajero_id: isEntregaCobrador ? null : (user?.id ? String(user.id) : null),
         user_id: user?.user_id || user?.id,
         tipo_pago: tipoPago,
         monto: Math.round(parsedMonto * 100) / 100,
@@ -512,6 +573,9 @@ export const PaymentsTab: React.FC = () => {
             const isDebt = saldoAct > 0.005;
             const isFavor = saldoAct < -0.005;
 
+            const metCustodia = custodiaMetrics[mCode] || { balance: 0, entradas: 0, entregas: 0 };
+            const saldoEnCaja = Math.max(0, metCustodia.entradas - metCustodia.entregas);
+
             return (
               <div 
                 key={mCode}
@@ -546,7 +610,7 @@ export const PaymentsTab: React.FC = () => {
                 {/* Monto que debes pagar */}
                 <div className="my-2">
                   <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                    {isDebt ? 'Monto que debes pagar' : (isFavor ? 'Saldo a favor de la Taquilla' : 'Sin deuda pendiente')}
+                    {isDebt ? 'Monto que debes pagar (Deuda con Operadora)' : (isFavor ? 'Saldo a favor de la Taquilla' : 'Sin deuda pendiente')}
                   </div>
                   <div className={`text-2xl sm:text-3xl font-black font-mono tracking-tight mt-0.5 ${
                     isDebt ? 'text-rose-500' : (isFavor ? 'text-emerald-400' : 'text-slate-300')
@@ -573,6 +637,29 @@ export const PaymentsTab: React.FC = () => {
                     <span className="text-slate-400">Pagos Abonados:</span>
                     <b className="text-slate-200 font-mono">{sym} {pagosAbonados.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b>
                   </div>
+                </div>
+
+                {/* 🏦 Bloque Destacado: Efectivo Físico en Caja */}
+                <div className="mt-3 bg-[#0B221A] border border-emerald-500/30 rounded-xl p-3 flex items-center justify-between shadow-inner">
+                  <div>
+                    <div className="text-[10px] font-extrabold uppercase text-emerald-300 tracking-wider flex items-center gap-1">
+                      <span>🏦</span>
+                      <span>Efectivo Disponible en Caja</span>
+                    </div>
+                    <div className="text-lg font-black font-mono text-emerald-400 mt-0.5">
+                      {sym} {saldoEnCaja.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div className="text-[9px] text-emerald-300/70 font-sans">
+                      {saldoEnCaja > 0 ? 'Para pago de premios a clientes, gastos y entregas' : 'Sin efectivo en custodia / Caja al día'}
+                    </div>
+                  </div>
+                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded-md border font-mono ${
+                    saldoEnCaja > 0 
+                      ? 'text-emerald-300 bg-emerald-500/20 border-emerald-500/40' 
+                      : 'text-slate-400 bg-slate-800 border-slate-700'
+                  }`}>
+                    {saldoEnCaja > 0 ? '🟢 En Caja' : '⚪ $0.00'}
+                  </span>
                 </div>
               </div>
             );
@@ -671,7 +758,11 @@ export const PaymentsTab: React.FC = () => {
                       <td className="py-2.5 px-4 text-slate-300 font-sans">{p.fecha}</td>
                       <td className="py-2.5 px-4 text-slate-400 font-sans">{p.agencia}</td>
                       <td className="py-2.5 px-4 text-slate-300 font-sans">
-                        👤 {cashiersList.find((c) => String(c.id) === String(p.cajero_id))?.nombre || p.nombre_cajero || p.cajero || agency?.usuario_taquilla || 'Taquilla'}
+                        👤 {p.cajero_id 
+                          ? (cashiersList.find((c) => String(c.id) === String(p.cajero_id))?.nombre || p.nombre_cajero || p.cajero || 'Cajero')
+                          : (p.tipo_pago?.includes('Cobrador') 
+                              ? (p.supervisor_nombre ? `${p.supervisor_nombre} (Supervisor)` : 'Supervisor') 
+                              : (p.supervisor_nombre || agency?.usuario_taquilla || 'Taquilla'))}
                       </td>
                       <td className="py-2.5 px-4 text-white font-sans font-medium">{p.tipo_pago}</td>
                       <td className="py-2.5 px-4 text-slate-400">{p.moneda}</td>
@@ -775,9 +866,24 @@ export const PaymentsTab: React.FC = () => {
 
               {/* Col 3: Monto */}
               <div>
-                <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-                  Monto
-                </label>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-[11px] font-semibold text-slate-400">
+                    Monto
+                  </label>
+                  {(() => {
+                    const currentSaldoEnCaja = Math.max(0, (custodiaMetrics[monedaPago]?.entradas || 0) - (custodiaMetrics[monedaPago]?.entregas || 0));
+                    if (currentSaldoEnCaja <= 0) return null;
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => setMontoPago(currentSaldoEnCaja)}
+                        className="text-[10px] text-emerald-400 hover:underline font-bold cursor-pointer"
+                      >
+                        Llenar en Caja: {formatMoney(currentSaldoEnCaja, monedaPago)}
+                      </button>
+                    );
+                  })()}
+                </div>
                 <input
                   type="number"
                   step="0.01"

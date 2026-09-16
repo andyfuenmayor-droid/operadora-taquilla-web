@@ -562,6 +562,15 @@ export const SupervisorBoard: React.FC = () => {
     const cobradorSeleccionado = cobradoresList.find((c) => String(c.id) === String(selectedCobradorId));
     const cobradorNombre = cobradorSeleccionado?.nombre || 'Cobrador Ruta';
 
+    const met = custodiaMetrics[monedaEntrega] || { balance: 0, entradas: 0, entregas: 0, pendientes: 0 };
+    const saldoEnCaja = Math.max(0, met.entradas - met.entregas);
+    if (saldoEnCaja > 0 && parsedMonto > saldoEnCaja) {
+      const ok = window.confirm(
+        `Atención: El monto a entregar (${formatMoney(parsedMonto, monedaEntrega)}) excede el efectivo disponible en caja (${formatMoney(saldoEnCaja, monedaEntrega)}).\n\n¿Desea continuar con el registro de todas formas?`
+      );
+      if (!ok) return;
+    }
+
     setSubmittingEntrega(true);
     setEntregaMsg(null);
 
@@ -1142,15 +1151,20 @@ export const SupervisorBoard: React.FC = () => {
                     <label className="text-[11px] font-semibold text-slate-400">
                       Monto a Entregar *
                     </label>
-                    {custodiaMetrics[monedaEntrega]?.entradas > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setMontoEntrega(custodiaMetrics[monedaEntrega].entradas)}
-                        className="text-[10px] text-emerald-400 hover:underline font-bold cursor-pointer"
-                      >
-                        Llenar: {formatMoney(custodiaMetrics[monedaEntrega].entradas, monedaEntrega)}
-                      </button>
-                    )}
+                    {(() => {
+                      const met = custodiaMetrics[monedaEntrega] || { balance: 0, entradas: 0, entregas: 0, pendientes: 0 };
+                      const saldoEnCaja = Math.max(0, met.entradas - met.entregas);
+                      if (saldoEnCaja <= 0) return null;
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => setMontoEntrega(saldoEnCaja)}
+                          className="text-[10px] text-emerald-400 hover:underline font-bold cursor-pointer"
+                        >
+                          Llenar Disponible: {formatMoney(saldoEnCaja, monedaEntrega)}
+                        </button>
+                      );
+                    })()}
                   </div>
                   <input
                     type="number"
