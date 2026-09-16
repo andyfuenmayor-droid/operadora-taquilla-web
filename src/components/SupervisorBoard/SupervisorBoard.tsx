@@ -37,6 +37,7 @@ interface Cobrador {
   id: number;
   nombre: string;
   usuario: string;
+  user_id?: string;
   activo?: boolean;
 }
 
@@ -571,6 +572,9 @@ export const SupervisorBoard: React.FC = () => {
     const comentarioSupervisor = `Entrega Supervisor (${supervisorName}) a Cobrador (${cobradorNombre}) - (PIN: ${pin6})`;
 
     try {
+      const tenantUserId = agency?.user_id || user?.user_id || user?.id;
+      const targetUserId = cobradorSeleccionado?.user_id || tenantUserId;
+
       // 1. Insertar en cda_pagos_diarios
       const { data: insPago, error: errPago } = await supabase
         .table('cda_pagos_diarios')
@@ -581,7 +585,7 @@ export const SupervisorBoard: React.FC = () => {
           tipo_pago: 'Entregado a Cobrador',
           monto: Math.round(parsedMonto * 100) / 100,
           moneda: monedaEntrega,
-          user_id: user?.id,
+          user_id: targetUserId,
           cajero_id: null,
           confirmado: true,
           confirmado_supervisor: true,
@@ -601,7 +605,7 @@ export const SupervisorBoard: React.FC = () => {
       const { error: errCaja } = await supabase
         .table('cda_caja_efectivo_supervisor')
         .insert({
-          user_id: user?.id,
+          user_id: targetUserId,
           agencia: agencyName,
           supervisor_nombre: supervisorName,
           tipo_movimiento: 'ENTREGA_COBRADOR',
