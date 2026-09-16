@@ -241,7 +241,7 @@ export const SupervisorBoard: React.FC = () => {
       });
       setCajeroPayments(cajeroRows);
 
-      // 4. Calcular métricas de custodia por moneda estrictamente dentro del ciclo activo
+      // 4. Calcular métricas operativas por moneda estrictamente dentro del ciclo activo
       const metrics: Record<string, CustodiaMetrics> = {};
       const monedasToCheck = Array.from(new Set([...assignedCurrencies, 'COP', 'USD', 'BS']));
       
@@ -252,7 +252,7 @@ export const SupervisorBoard: React.FC = () => {
       const cycleDesde = systemCycle?.desde || '';
       const cycleHasta = systemCycle?.hasta || '';
 
-      // Entradas confirmadas de cajeros en el ciclo
+      // Entradas de cajeros en el ciclo (confirmadas vs pendientes)
       cajeroRows.forEach((p) => {
         const fStr = String(p.fecha || p.created_at || '').slice(0, 10);
         const inCycle = !cycleDesde || (fStr >= cycleDesde && fStr <= (cycleHasta || fStr));
@@ -270,7 +270,7 @@ export const SupervisorBoard: React.FC = () => {
         }
       });
 
-      // Entregas físicas a cobradores con PIN en el ciclo
+      // Entregas físicas a cobradores con PIN en el ciclo (movimientos independientes)
       cobradorRows.forEach((p) => {
         const fStr = String(p.fecha || p.created_at || '').slice(0, 10);
         const inCycle = !cycleDesde || (fStr >= cycleDesde && fStr <= (cycleHasta || fStr));
@@ -281,7 +281,6 @@ export const SupervisorBoard: React.FC = () => {
         const mto = Number(p.monto) || 0;
 
         metrics[mon].entregas += mto;
-        metrics[mon].balance -= mto;
       });
 
       setCustodiaMetrics(metrics);
@@ -1026,45 +1025,83 @@ export const SupervisorBoard: React.FC = () => {
             </div>
           )}
 
-          {/* Tarjetas de Balance de Custodia por Moneda */}
-          <div className="space-y-2">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-              <Wallet className="w-4 h-4 text-emerald-400" />
-              Saldo en Custodia de Caja (Efectivo Disponible)
-            </h3>
+          {/* Tarjetas de Resumen Operativo de Efectivo por Moneda */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                  <Wallet className="w-4 h-4 text-emerald-400" />
+                  Control de Efectivo en Caja y Entregas a Cobrador
+                </h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Movimientos independientes de efectivo recibido de cajeros y despachos a cobrador
+                </p>
+              </div>
+            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {assignedCurrencies.map((mon) => {
                 const met = custodiaMetrics[mon] || { balance: 0, entradas: 0, entregas: 0, pendientes: 0 };
-                const isPos = met.balance > 0;
                 return (
                   <div
                     key={mon}
-                    className="bg-[#0D1B22] border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden"
+                    className="bg-[#0D1B22] border border-slate-800 rounded-2xl p-5 shadow-lg space-y-3 relative overflow-hidden"
                   >
-                    <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
-                      <span className="font-bold text-slate-200">Efectivo {mon}</span>
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        isPos ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 text-slate-400'
-                      }`}>
-                        {isPos ? 'En Caja' : 'Sin Fondos'}
+                    <div className="flex items-center justify-between text-slate-400 text-xs border-b border-slate-800/80 pb-2">
+                      <span className="font-extrabold text-white flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                        Efectivo {mon}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700 font-mono">
+                        {agencyName}
                       </span>
                     </div>
-                    <div className={`text-2xl sm:text-3xl font-black font-mono mt-1 ${
-                      isPos ? 'text-emerald-400' : 'text-slate-300'
-                    }`}>
-                      {formatMoney(met.balance, mon)}
-                    </div>
-                    <div className="border-t border-slate-800/80 pt-2.5 mt-3 grid grid-cols-2 gap-1 text-[11px] text-slate-400">
-                      <div>
-                        Recibido Cajeros: <b className="text-slate-200 font-mono">+{formatMoney(met.entradas, mon)}</b>
+
+                    <div className="grid grid-cols-1 gap-2.5">
+                      {/* 1. Recibido de Cajeros (Confirmado) */}
+                      <div className="bg-[#071217] p-3 rounded-xl border border-emerald-500/20 flex items-center justify-between">
+                        <div>
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                            💵 Recibido Cajeros (Confirmado)
+                          </div>
+                          <div className="text-xl font-black font-mono text-emerald-400 mt-0.5">
+                            {formatMoney(met.entradas, mon)}
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
+                          🟢 Confirmado
+                        </span>
                       </div>
-                      <div className="text-right">
-                        Entregado Cobrador: <b className="text-rose-400 font-mono">-{formatMoney(met.entregas, mon)}</b>
+
+                      {/* 2. Entregado a Cobrador */}
+                      <div className="bg-[#071217] p-3 rounded-xl border border-sky-500/20 flex items-center justify-between">
+                        <div>
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                            🛵 Entregado a Cobrador (con PIN)
+                          </div>
+                          <div className="text-xl font-black font-mono text-sky-400 mt-0.5">
+                            {formatMoney(met.entregas, mon)}
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-bold text-sky-400 bg-sky-500/10 px-2.5 py-1 rounded-lg border border-sky-500/20">
+                          🛵 En Ruta
+                        </span>
                       </div>
+
+                      {/* 3. Pendiente por Confirmar (si tiene) */}
                       {met.pendientes > 0 && (
-                        <div className="col-span-2 text-amber-400 font-semibold pt-1">
-                          ⏳ Pendiente por confirmar: {formatMoney(met.pendientes, mon)}
+                        <div className="bg-[#071217] p-2.5 rounded-xl border border-amber-500/20 flex items-center justify-between">
+                          <div>
+                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                              ⏳ Pendiente por Confirmar
+                            </div>
+                            <div className="text-sm font-black font-mono text-amber-400 mt-0.5">
+                              {formatMoney(met.pendientes, mon)}
+                            </div>
+                          </div>
+                          <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
+                            Por Validar
+                          </span>
                         </div>
                       )}
                     </div>
@@ -1146,13 +1183,13 @@ export const SupervisorBoard: React.FC = () => {
                     <label className="text-[11px] font-semibold text-slate-400">
                       Monto a Entregar *
                     </label>
-                    {custodiaMetrics[monedaEntrega]?.balance > 0 && (
+                    {custodiaMetrics[monedaEntrega]?.entradas > 0 && (
                       <button
                         type="button"
-                        onClick={() => setMontoEntrega(custodiaMetrics[monedaEntrega].balance)}
+                        onClick={() => setMontoEntrega(custodiaMetrics[monedaEntrega].entradas)}
                         className="text-[10px] text-emerald-400 hover:underline font-bold cursor-pointer"
                       >
-                        Máximo: {formatMoney(custodiaMetrics[monedaEntrega].balance, monedaEntrega)}
+                        Llenar: {formatMoney(custodiaMetrics[monedaEntrega].entradas, monedaEntrega)}
                       </button>
                     )}
                   </div>
