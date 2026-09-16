@@ -254,7 +254,7 @@ export async function fetchFullCycleMetrics(
   // pertenecen a la agencia (carga_actual). El rol cajero visualiza las ventas oficiales
   // de la agencia exactamente igual que el rol agencia.
   let cajeroId: string | undefined = undefined;
-  if (options?.filterCajeroId !== undefined && options.filterCajeroId !== 'all') {
+  if (options?.filterCajeroId !== undefined && options?.filterCajeroId !== null && options.filterCajeroId !== 'all') {
     cajeroId = String(options.filterCajeroId);
   }
   const uIdAdmin = agencyData?.user_id ? String(agencyData.user_id) : undefined;
@@ -348,57 +348,59 @@ export async function fetchFullCycleMetrics(
     return [];
   };
 
-  // 2. Subtarea: Gastos (con sus fallbacks)
+  // 2. Subtarea: Gastos consolidados del ciclo (gastos + cda_gastos_diarios)
   const fetchExpenses = async (): Promise<any[]> => {
     try {
-      const { data: dataGastos } = await supabase
-        .from('gastos')
-        .select('*')
-        .ilike('agencia', agencyName)
-        .gte('fecha', fDesdeAdmin)
-        .lte('fecha', fHastaEfectivo);
+      const [gRes, cdaGRes] = await Promise.all([
+        supabase
+          .from('gastos')
+          .select('*')
+          .ilike('agencia', agencyName)
+          .gte('fecha', fDesdeAdmin)
+          .lte('fecha', fHastaEfectivo),
+        supabase
+          .from('cda_gastos_diarios')
+          .select('*')
+          .ilike('agencia', agencyName)
+          .gte('fecha', fDesdeCarga)
+          .lte('fecha', fHastaEfectivo)
+      ]);
 
-      if (dataGastos && dataGastos.length > 0) {
-        return dataGastos.map((g: any) => ({
+      const allGastos: any[] = [];
+      const seenG = new Set<string>();
+
+      (gRes.data || []).forEach((g: any) => {
+        const isRech = Boolean(g.rechazado);
+        const isConf = g.confirmado === undefined || g.confirmado === null || Boolean(g.confirmado);
+        if (isRech || !isConf) return;
+        seenG.add(`g_${g.id}`);
+        allGastos.push({
           ...g,
           concepto: g.concepto || g.descripcion || 'Gasto General',
           moneda: normalizarMoneda(g.moneda),
           monto: Number(g.monto ?? 0)
-        }));
-      }
+        });
+      });
 
-      const { data: dataGastosAny } = await supabase
-        .from('gastos')
-        .select('*')
-        .ilike('agencia', agencyName);
-
-      if (dataGastosAny && dataGastosAny.length > 0) {
-        return dataGastosAny.map((g: any) => ({
+      (cdaGRes.data || []).forEach((g: any) => {
+        const isRech = Boolean(g.rechazado);
+        const isConf = Boolean(g.confirmado) || Boolean(g.confirmado_supervisor);
+        if (isRech || !isConf) return;
+        if (seenG.has(`cdag_${g.id}`)) return;
+        seenG.add(`cdag_${g.id}`);
+        allGastos.push({
           ...g,
-          concepto: g.concepto || g.descripcion || 'Gasto General',
+          concepto: g.concepto || g.descripcion || 'Gasto Operativo',
           moneda: normalizarMoneda(g.moneda),
           monto: Number(g.monto ?? 0)
-        }));
-      }
+        });
+      });
 
-      const { data: dataCdaGastos } = await supabase
-        .from('cda_gastos_diarios')
-        .select('*')
-        .ilike('agencia', agencyName)
-        .gte('fecha', fDesdeCarga)
-        .lte('fecha', fHastaEfectivo);
-
-      if (dataCdaGastos && dataCdaGastos.length > 0) {
-        return dataCdaGastos.map((g: any) => ({
-          ...g,
-          moneda: normalizarMoneda(g.moneda),
-          monto: Number(g.monto ?? 0)
-        }));
-      }
+      return allGastos;
     } catch (err) {
       console.error('Error querying expenses data:', err);
+      return [];
     }
-    return [];
   };
 
   // 3. Subtarea: Pagos Unificados (bancos, diarios, semanales) en paralelo
@@ -431,26 +433,64 @@ export async function fetchFullCycleMetrics(
 
       const unified: any[] = [];
 
-      dailyData.forEach((p: any) => {
-        const tipoP = String(p.tipo_pago || '').trim().toUpperCase();
-        // Entregas de custodia logística a cobrador / administración no son pagos definitivos de agencia (igual a CMS consolidations.ts)
-        if (['COBRADOR', 'ENTREGADO A ADMIN', 'ENTREGA_ADMIN'].some((k) => tipoP.includes(k))) {
-          return;
-        }
-
-        unified.push({
-          ...p,
-          origen: 'cda_pagos_diarios',
-          tabla: 'cda_pagos_diarios',
-          metodo: p.metodo || 'EFECTIVO',
-          metodo_pago: p.metodo_pago || 'EFECTIVO',
-          referencia: p.referencia || 'Efectivo',
-          moneda: normalizarMoneda(p.moneda),
-          monto: Number(p.monto ?? 0)
-        });
+      // Procesar pagos diarios (efectivo y cobradores confirmados)
+      const confirmedDaily = dailyData.filter((p: any) => {
+        const isRech = Boolean(p.rechazado);
+        const isConf = Boolean(p.confirmado) || Boolean(p.confirmado_supervisor) || Boolean(p.fecha_escaneo_cobrador);
+        return isConf && !isRech;
       });
 
+      const cobradorRows = confirmedDaily.filter((p: any) => Boolean(p.qr_token) || String(p.tipo_pago || '').toUpperCase().includes('COBRADOR'));
+      const supervisorRows = confirmedDaily.filter((p: any) => !Boolean(p.qr_token) && !String(p.tipo_pago || '').toUpperCase().includes('COBRADOR'));
+      const cobradorSum = cobradorRows.reduce((acc: number, p: any) => acc + (Number(p.monto) || 0), 0);
+      const supervisorSum = supervisorRows.reduce((acc: number, p: any) => acc + (Number(p.monto) || 0), 0);
+
+      // Priorizar entregas a supervisor (que tienen cajero_id); si cobradores superan, agregar excedente
+      if (supervisorRows.length > 0) {
+        supervisorRows.forEach((p: any) => {
+          unified.push({
+            ...p,
+            origen: 'cda_pagos_diarios',
+            tabla: 'cda_pagos_diarios',
+            metodo: p.metodo || 'EFECTIVO',
+            metodo_pago: p.metodo_pago || 'EFECTIVO',
+            referencia: p.referencia || 'Efectivo Taquilla',
+            moneda: normalizarMoneda(p.moneda),
+            monto: Number(p.monto ?? 0)
+          });
+        });
+        if (cobradorSum > supervisorSum) {
+          const excess = cobradorSum - supervisorSum;
+          unified.push({
+            id: 'cob_excess',
+            agencia: agencyName,
+            origen: 'cda_pagos_diarios',
+            tabla: 'cda_pagos_diarios',
+            metodo: 'COBRADOR',
+            metodo_pago: 'COBRADOR',
+            referencia: 'Cobrador de Ruta (Excedente)',
+            moneda: supervisorRows[0]?.moneda ? normalizarMoneda(supervisorRows[0].moneda) : 'COP',
+            monto: excess,
+            confirmado: true
+          });
+        }
+      } else {
+        cobradorRows.forEach((p: any) => {
+          unified.push({
+            ...p,
+            origen: 'cda_pagos_diarios',
+            tabla: 'cda_pagos_diarios',
+            metodo: p.metodo || 'COBRADOR',
+            metodo_pago: p.metodo_pago || 'COBRADOR',
+            referencia: p.referencia || 'Cobrador de Ruta',
+            moneda: normalizarMoneda(p.moneda),
+            monto: Number(p.monto ?? 0)
+          });
+        });
+      }
+
       bankData.forEach((b: any) => {
+        if (b.rechazado || !b.confirmado) return;
         const ref = String(b.referencia || '').trim();
         const metodo = String(b.metodo_pago || 'Pago Bancario').trim();
         const concepto = String(b.concepto || '').trim();
