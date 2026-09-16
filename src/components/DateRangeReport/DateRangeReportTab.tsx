@@ -93,8 +93,16 @@ export const DateRangeReportTab: React.FC = () => {
     }
   }, [isSupervisor, agency?.id]);
 
+  // Sincronizar fechas iniciales con el ciclo administrativo
+  useEffect(() => {
+    if (systemCycle?.desde && systemCycle?.hasta) {
+      setDesde(systemCycle.desde);
+      setHasta(systemCycle.hasta);
+    }
+  }, [systemCycle?.desde, systemCycle?.hasta]);
+
   const fetchReportData = useCallback(async (force = false) => {
-    if (!agencyName) return;
+    if (!agencyName || !desde || !hasta) return;
     setLoading(true);
 
     try {
@@ -122,8 +130,10 @@ export const DateRangeReportTab: React.FC = () => {
   }, [agencyName, desde, hasta, isSupervisor, isCajero, selectedCashier, user, agency, systemCycle, assignedCurrencies, assignedSystems]);
 
   useEffect(() => {
-    fetchReportData();
-  }, [fetchReportData]);
+    if (agencyName && desde && hasta) {
+      fetchReportData();
+    }
+  }, [fetchReportData, agencyName, desde, hasta]);
 
   const activeMetrics = metricsByCurrency[selectedCurrency];
 

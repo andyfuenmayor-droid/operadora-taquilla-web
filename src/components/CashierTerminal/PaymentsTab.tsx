@@ -152,9 +152,18 @@ export const PaymentsTab: React.FC = () => {
     }
   }, [isSupervisor, agency?.id]);
 
+  // Sincronizar fechas por defecto si cambia el ciclo
+  useEffect(() => {
+    if (systemCycle?.hasta) {
+      setFechaFiltro(systemCycle.hasta);
+      setFechaPago(systemCycle.hasta);
+    }
+  }, [systemCycle?.hasta]);
+
   // 1. Cargar Estado de Deuda / Saldo Pendiente por Moneda
   const loadDebtMetrics = useCallback(async (force = false) => {
     if (!agencyName) return;
+    if (!systemCycle || !systemCycle.desde || !systemCycle.hasta) return;
     setLoadingMetrics(true);
     try {
       const filterCajero = isSupervisor ? selectedCashier : (isAgencia ? null : (user?.id ? String(user.id) : null));
@@ -176,7 +185,7 @@ export const PaymentsTab: React.FC = () => {
     } finally {
       setLoadingMetrics(false);
     }
-  }, [agencyName, systemCycle, assignedCurrencies, assignedSystems, user, agency, isSupervisor, isAgencia, selectedCashier]);
+  }, [agencyName, systemCycle?.desde, systemCycle?.hasta, assignedCurrencies, assignedSystems, user, agency, isSupervisor, isAgencia, selectedCashier]);
 
   // 2. Cargar Pagos del Día filtrado
   const fetchPayments = useCallback(async () => {
@@ -206,8 +215,10 @@ export const PaymentsTab: React.FC = () => {
   }, [agencyName, fechaFiltro, isSupervisor, isAgencia, selectedCashier, user?.id]);
 
   useEffect(() => {
-    loadDebtMetrics();
-  }, [loadDebtMetrics]);
+    if (agencyName && systemCycle?.desde) {
+      loadDebtMetrics();
+    }
+  }, [loadDebtMetrics, agencyName, systemCycle?.desde]);
 
   useEffect(() => {
     fetchPayments();

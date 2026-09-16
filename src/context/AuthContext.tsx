@@ -21,9 +21,21 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const getInitialSystemCycle = (): SystemCycle | null => {
+    try {
+      const stored = localStorage.getItem('taquilla_web_system_cycle');
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (e) {
+      console.warn('Could not read cached systemCycle:', e);
+    }
+    return null;
+  };
+
   const [user, setUser] = useState<UserSession | null>(null);
   const [agency, setAgency] = useState<Agency | null>(null);
-  const [systemCycle, setSystemCycle] = useState<SystemCycle | null>(null);
+  const [systemCycle, setSystemCycle] = useState<SystemCycle | null>(getInitialSystemCycle);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isDayClosed, setIsDayClosed] = useState<boolean>(false);
 
@@ -48,7 +60,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [agency?.monedas]);
 
   // Fetch active working cycle from config_sistema
-  const fetchSystemCycle = useCallback(async (userId?: string | number) => {
+  const fetchSystemCycle = useCallback(async (userId?: string | number): Promise<SystemCycle> => {
     const today = new Date();
     const dayOfWeek = today.getDay(); // 0 is Sunday, 1 is Monday...
     const diffToMonday = (dayOfWeek === 0 ? -6 : 1) - dayOfWeek;
@@ -81,18 +93,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         });
 
-        setSystemCycle({
+        const activeCycle: SystemCycle = {
           desde: confMap['fecha_desde'] || defaultCycle.desde,
           hasta: confMap['fecha_hasta'] || defaultCycle.hasta,
           tipo: confMap['tipo_cierre'] || defaultCycle.tipo,
           semana: confMap['semana_no'] || defaultCycle.semana,
-        });
-        return;
+        };
+
+        setSystemCycle(activeCycle);
+        try {
+          localStorage.setItem('taquilla_web_system_cycle', JSON.stringify(activeCycle));
+        } catch (e) {}
+        return activeCycle;
       }
     } catch (e) {
       console.warn('Could not fetch config_sistema:', e);
     }
     setSystemCycle(defaultCycle);
+    try {
+      localStorage.setItem('taquilla_web_system_cycle', JSON.stringify(defaultCycle));
+    } catch (e) {}
+    return defaultCycle;
   }, []);
 
   const checkDayClosedStatus = useCallback(async (dateStr?: string): Promise<boolean> => {
@@ -140,40 +161,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [agency?.nombre_agencia, user?.rol, user?.id]);
 
-  // Restore session from localStorage on mount
+  // Restore session from localStorage on mount (fully awaited before releasing loading)
   useEffect(() => {
-    try {
-      const storedUser = localStorage.getItem('taquilla_web_user');
-      const storedAgency = localStorage.getItem('taquilla_web_agency');
-      if (storedUser) {
-        const u = JSON.parse(storedUser);
-        setUser(u);
-        fetchSystemCycle(u.user_id);
-      }
-      if (storedAgency) {
-        const ag = JSON.parse(storedAgency);
-        setAgency(ag);
-        const agId = ag?.id || (storedUser ? JSON.parse(storedUser).agencia_id : null);
-        if (agId) {
+    let isMounted = true;
+    const restoreSession = async () => {
+      try {
+        const storedUser = localStorage.getItem('taquilla_web_user');
+        const storedAgency = localStorage.getItem('taquilla_web_agency');
+        let parsedUser: UserSession | null = null;
+        let parsedAgency: Agency | null = null;
+
+        if (storedUser) {
+          parsedUser = JSON.parse(storedUser);
+          if (isMounted) setUser(parsedUser);
+        }
+        if (storedAgency) {
+          parsedAgency = JSON.parse(storedAgency);
+          if (isMounted) setAgency(parsedAgency);
+        }
+
+        // Fetch and await systemCycle so child views have accurate date boundaries immediately
+        if (parsedUser) {
+          await fetchSystemCycle(parsedUser.user_id || parsedAgency?.user_id);
+        } else {
+          await fetchSystemCycle();
+        }
+
+        // Auto-refresh agency profile in background
+        const agId = parsedAgency?.id || (parsedUser ? parsedUser.agencia_id : null);
+        if (agId && isMounted) {
           supabase
             .table('agencias')
             .select('*')
             .eq('id', agId)
             .maybeSingle()
             .then(({ data }: any) => {
-              if (data) {
+              if (data && isMounted) {
                 setAgency(data);
                 localStorage.setItem('taquilla_web_agency', JSON.stringify(data));
               }
             })
             .catch((e: any) => console.warn('Could not auto-refresh agency on mount:', e));
         }
+      } catch (err) {
+        console.error('Failed to restore session:', err);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
-    } catch (err) {
-      console.error('Failed to restore session:', err);
-    } finally {
-      setIsLoading(false);
-    }
+    };
+
+    restoreSession();
+    return () => {
+      isMounted = false;
+    };
   }, [fetchSystemCycle]);
 
   useEffect(() => {
@@ -360,6 +402,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSystemCycle(null);
     localStorage.removeItem('taquilla_web_user');
     localStorage.removeItem('taquilla_web_agency');
+    localStorage.removeItem('taquilla_web_system_cycle');
   };
 
   return (

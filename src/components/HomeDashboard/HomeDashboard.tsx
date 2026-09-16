@@ -43,6 +43,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = () => {
 
   const loadData = useCallback(async (force = false) => {
     if (!agencyName) return;
+    if (!systemCycle || !systemCycle.desde) return;
     setLoading(true);
     try {
       const data = await fetchFullCycleMetrics(
@@ -60,11 +61,24 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = () => {
     } finally {
       setLoading(false);
     }
-  }, [agencyName, systemCycle, assignedCurrencies, assignedSystems, user, agency]);
+  }, [agencyName, systemCycle?.desde, systemCycle?.hasta, assignedCurrencies, assignedSystems, user, agency]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (agencyName && systemCycle?.desde) {
+      loadData();
+    }
+  }, [loadData, agencyName, systemCycle?.desde]);
+
+  // Refrescar al volver a la ventana/pestaña
+  useEffect(() => {
+    const handleFocus = () => {
+      if (agencyName && systemCycle?.desde) {
+        loadData();
+      }
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [loadData, agencyName, systemCycle?.desde]);
 
   const todayStr = getTodayDateString();
   const cycleDesde = systemCycle?.desde || todayStr;
