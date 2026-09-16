@@ -504,8 +504,24 @@ export const CollectorPortal: React.FC = () => {
             </div>
 
             {pendingCollections.length === 0 ? (
-              <div className="p-6 text-center text-slate-500 text-xs bg-[#071217] rounded-xl border border-slate-800">
-                ✅ ¡Al día! No hay entregas pendientes de confirmación en tus agencias asignadas.
+              <div className="p-6 text-center text-slate-400 text-xs bg-[#071217] rounded-xl border border-slate-800 space-y-2">
+                <div className="text-sm font-bold text-emerald-400">
+                  ✅ ¡Al día! No hay entregas pendientes de confirmación en tus agencias asignadas.
+                </div>
+                <p className="text-[11px] text-slate-500 max-w-md mx-auto">
+                  Si un supervisor genera una entrega de efectivo con PIN en taquilla, aparecerá aquí inmediatamente para que la valides.
+                </p>
+                {collectedHistory.length > 0 && (
+                  <div className="pt-2">
+                    <button
+                      onClick={() => setActiveTab('custody')}
+                      className="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer border border-slate-700"
+                    >
+                      <Receipt className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Ver historial de recaudaciones ({collectedHistory.length} registros)</span>
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="space-y-3">

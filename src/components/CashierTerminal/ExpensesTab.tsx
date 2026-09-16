@@ -624,19 +624,19 @@ export const ExpensesTab: React.FC = () => {
                       </td>
                       <td className="py-3 px-4 text-center whitespace-nowrap">
                         {expense.rechazado ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-400 border border-rose-500/30">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-400 border border-rose-500/30" title={expense.motivo_rechazo || 'Rechazado por administración'}>
                             <XCircle className="w-3 h-3" />
                             Rechazado
                           </span>
                         ) : expense.confirmado ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30" title="Gasto formalmente confirmado por el Administrador en Operadora CMS">
                             <CheckCircle2 className="w-3 h-3" />
-                            Confirmado
+                            Confirmado Admin
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30" title="Pendiente de aprobación por el Administrador en Operadora CMS">
                             <Clock className="w-3 h-3" />
-                            Pendiente
+                            Pendiente Admin
                           </span>
                         )}
                       </td>

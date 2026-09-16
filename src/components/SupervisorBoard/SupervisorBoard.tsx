@@ -207,17 +207,7 @@ export const SupervisorBoard: React.FC = () => {
     setLoading(true);
     setEntregaMsg(null);
     try {
-      // 1. Fetch movimientos de custodia de caja del supervisor
-      let qCaja = supabase
-        .table('cda_caja_efectivo_supervisor')
-        .select('*');
-      
-      if (agencyName) {
-        qCaja = qCaja.ilike('agencia', agencyName.trim());
-      }
-      const { data: cajaData } = await qCaja;
-
-      // 2. Fetch pagos diarios de taquilla (entregas de cajeros y entregas a cobrador)
+      // 1. Fetch pagos diarios de taquilla (entregas de cajeros y entregas a cobrador)
       let qPagos = supabase
         .table('cda_pagos_diarios')
         .select('*')
@@ -251,7 +241,7 @@ export const SupervisorBoard: React.FC = () => {
       });
       setCajeroPayments(cajeroRows);
 
-      // 4. Calcular métricas de custodia por moneda
+      // 4. Calcular métricas de custodia por moneda estrictamente dentro del ciclo activo
       const metrics: Record<string, CustodiaMetrics> = {};
       const monedasToCheck = Array.from(new Set([...assignedCurrencies, 'COP', 'USD', 'BS']));
       
@@ -259,27 +249,39 @@ export const SupervisorBoard: React.FC = () => {
         metrics[m] = { balance: 0, entradas: 0, entregas: 0, pendientes: 0 };
       });
 
-      // Sumar de cda_caja_efectivo_supervisor
-      (cajaData || []).forEach((r: any) => {
-        const mon = (r.moneda || 'COP').toUpperCase();
+      const cycleDesde = systemCycle?.desde || '';
+      const cycleHasta = systemCycle?.hasta || '';
+
+      // Entradas confirmadas de cajeros en el ciclo
+      cajeroRows.forEach((p) => {
+        const fStr = String(p.fecha || p.created_at || '').slice(0, 10);
+        const inCycle = !cycleDesde || (fStr >= cycleDesde && fStr <= (cycleHasta || fStr));
+        if (!inCycle || p.rechazado) return;
+
+        const mon = (p.moneda || 'COP').toUpperCase();
         if (!metrics[mon]) metrics[mon] = { balance: 0, entradas: 0, entregas: 0, pendientes: 0 };
-        const mto = Number(r.monto) || 0;
-        if (r.tipo_movimiento === 'ENTRADA_CAJERO') {
+        const mto = Number(p.monto) || 0;
+
+        if (p.confirmado_supervisor || p.confirmado) {
           metrics[mon].entradas += mto;
           metrics[mon].balance += mto;
         } else {
-          metrics[mon].entregas += mto;
-          metrics[mon].balance -= mto;
+          metrics[mon].pendientes += mto;
         }
       });
 
-      // Calcular montos pendientes por confirmar de cajeros
-      cajeroRows.forEach((p) => {
-        if (!p.confirmado_supervisor && !p.confirmado && !p.rechazado) {
-          const mon = (p.moneda || 'COP').toUpperCase();
-          if (!metrics[mon]) metrics[mon] = { balance: 0, entradas: 0, entregas: 0, pendientes: 0 };
-          metrics[mon].pendientes += Number(p.monto) || 0;
-        }
+      // Entregas físicas a cobradores con PIN en el ciclo
+      cobradorRows.forEach((p) => {
+        const fStr = String(p.fecha || p.created_at || '').slice(0, 10);
+        const inCycle = !cycleDesde || (fStr >= cycleDesde && fStr <= (cycleHasta || fStr));
+        if (!inCycle || p.rechazado) return;
+
+        const mon = (p.moneda || 'COP').toUpperCase();
+        if (!metrics[mon]) metrics[mon] = { balance: 0, entradas: 0, entregas: 0, pendientes: 0 };
+        const mto = Number(p.monto) || 0;
+
+        metrics[mon].entregas += mto;
+        metrics[mon].balance -= mto;
       });
 
       setCustodiaMetrics(metrics);
