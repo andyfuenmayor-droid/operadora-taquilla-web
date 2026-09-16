@@ -248,16 +248,18 @@ export const CollectorPortal: React.FC = () => {
     }
   };
 
-  // Compute active custody metrics per currency
-  const custodyBS = collectedHistory
+  // Compute active custody metrics per currency (only payments not yet settled/liquidated to admin)
+  const activeCustodyHistory = collectedHistory.filter((h) => !h.liquidado_admin);
+
+  const custodyBS = activeCustodyHistory
     .filter((h) => normalizarMoneda(h.moneda) === 'BS')
     .reduce((acc, h) => acc + (Number(h.monto) || 0), 0);
 
-  const custodyUSD = collectedHistory
+  const custodyUSD = activeCustodyHistory
     .filter((h) => normalizarMoneda(h.moneda) === 'USD')
     .reduce((acc, h) => acc + (Number(h.monto) || 0), 0);
 
-  const custodyCOP = collectedHistory
+  const custodyCOP = activeCustodyHistory
     .filter((h) => normalizarMoneda(h.moneda) === 'COP')
     .reduce((acc, h) => acc + (Number(h.monto) || 0), 0);
 
@@ -322,7 +324,7 @@ export const CollectorPortal: React.FC = () => {
             }`}
           >
             <Coins className="w-4 h-4" />
-            <span>Fondos en Custodia ({collectedHistory.length})</span>
+            <span>Fondos en Custodia ({activeCustodyHistory.length})</span>
           </button>
         </div>
       </div>
@@ -454,10 +456,15 @@ export const CollectorPortal: React.FC = () => {
                 <div>
                   <div className="text-xs text-slate-400">Estado:</div>
                   <div className="text-sm font-bold mt-0.5">
-                    {verifiedTicket.fecha_escaneo_cobrador ? (
+                    {verifiedTicket.liquidado_admin ? (
+                      <span className="text-emerald-400 flex items-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4" />
+                        🏛️ Entregado y liquidado a Administración
+                      </span>
+                    ) : verifiedTicket.fecha_escaneo_cobrador ? (
                       <span className="text-amber-400 flex items-center gap-1.5">
                         <CheckCircle2 className="w-4 h-4" />
-                        Ya cobrado y recibido ({verifiedTicket.cobrador_nombre || collectorName})
+                        🛵 En Custodia Activa ({verifiedTicket.cobrador_nombre || collectorName})
                       </span>
                     ) : (
                       <span className="text-emerald-400 flex items-center gap-1.5">
@@ -644,8 +651,11 @@ export const CollectorPortal: React.FC = () => {
             <div className="p-4 border-b border-slate-800 flex justify-between items-center">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
                 <Receipt className="w-4 h-4 text-emerald-400" />
-                Historial de Recaudaciones Liquidadas ({collectedHistory.length})
+                Historial de Recaudaciones & Custodia ({collectedHistory.length})
               </h3>
+              <span className="text-[11px] font-bold text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
+                🛵 {activeCustodyHistory.length} en custodia activa
+              </span>
             </div>
 
             <div className="overflow-x-auto">
@@ -663,7 +673,7 @@ export const CollectorPortal: React.FC = () => {
                   {collectedHistory.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="py-6 text-center text-slate-500">
-                        Aún no se han registrado cobros liquidados.
+                        Aún no se han registrado cobros recaudados.
                       </td>
                     </tr>
                   ) : (
@@ -682,9 +692,15 @@ export const CollectorPortal: React.FC = () => {
                           {formatCurrency(h.monto, h.moneda)}
                         </td>
                         <td className="py-3 px-4 text-center">
-                          <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                            Liquidado
-                          </span>
+                          {h.liquidado_admin ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                              🏛️ Entregado a Admin
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-sky-500/20 text-sky-400 border border-sky-500/30">
+                              🛵 En Custodia (En Ruta)
+                            </span>
+                          )}
                         </td>
                       </tr>
                     ))
