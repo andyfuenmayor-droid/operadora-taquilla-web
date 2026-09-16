@@ -754,74 +754,7 @@ export const SupervisorBoard: React.FC = () => {
     }
   };
 
-  // -------------------------------------------------------------
-  // ACCIÓN 4: CONFIRMAR / RECHAZAR TRANSFERENCIAS BANCARIAS
-  // -------------------------------------------------------------
-  const handleConfirmTransfer = async (id?: number) => {
-    if (!id) return;
-    setProcessingId(id);
-    try {
-      const { error } = await supabase
-        .table('cda_pagos_bancarios')
-        .update({
-          confirmado: true,
-          rechazado: false,
-          confirmado_supervisor: true,
-          supervisor_nombre: supervisorName,
-          confirmado_por: supervisorName,
-          fecha_confirmacion_supervisor: new Date().toISOString(),
-        })
-        .eq('id', id);
 
-      if (error) throw error;
-
-      setPendingTransfers((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, confirmado: true, rechazado: false } : t))
-      );
-
-      confetti({
-        particleCount: 35,
-        spread: 60,
-        origin: { y: 0.7 },
-        colors: ['#00C853', '#38BDF8'],
-      });
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Error al confirmar transferencia');
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  const handleRejectTransfer = async (id?: number) => {
-    if (!id) return;
-    const motivo = window.prompt('Ingrese el motivo del rechazo de esta transferencia:');
-    if (!motivo) return;
-
-    setProcessingId(id);
-    try {
-      const { error } = await supabase
-        .table('cda_pagos_bancarios')
-        .update({
-          confirmado: false,
-          confirmado_supervisor: false,
-          rechazado: true,
-          rechazado_por: supervisorName,
-          motivo_rechazo: motivo,
-          fecha_rechazo: new Date().toISOString(),
-        })
-        .eq('id', id);
-
-      if (error) throw error;
-
-      setPendingTransfers((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, confirmado: false, rechazado: true, motivo_rechazo: motivo } : t))
-      );
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Error al rechazar');
-    } finally {
-      setProcessingId(null);
-    }
-  };
 
   const handleCopyPin = (pin: string) => {
     navigator.clipboard.writeText(pin);
@@ -1046,6 +979,9 @@ export const SupervisorBoard: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {assignedCurrencies.map((mon) => {
                 const met = custodiaMetrics[mon] || { balance: 0, entradas: 0, entregas: 0, pendientes: 0 };
+                const saldoEnCaja = Math.max(0, met.entradas - met.entregas);
+                const hasCashInBox = saldoEnCaja > 0;
+
                 return (
                   <div
                     key={mon}
@@ -1053,7 +989,7 @@ export const SupervisorBoard: React.FC = () => {
                   >
                     <div className="flex items-center justify-between text-slate-400 text-xs border-b border-slate-800/80 pb-2">
                       <span className="font-extrabold text-white flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                        <span className={`w-2.5 h-2.5 rounded-full ${hasCashInBox ? 'bg-emerald-400' : 'bg-slate-500'}`} />
                         Efectivo {mon}
                       </span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700 font-mono">
@@ -1062,13 +998,32 @@ export const SupervisorBoard: React.FC = () => {
                     </div>
 
                     <div className="grid grid-cols-1 gap-2.5">
+                      {/* 0. TARJETA PRINCIPAL: EFECTIVO DISPONIBLE EN CAJA */}
+                      <div className="bg-gradient-to-br from-[#0B221A] to-[#071714] p-3.5 rounded-xl border border-emerald-500/40 shadow-inner flex items-center justify-between">
+                        <div>
+                          <div className="text-[10px] font-extrabold text-emerald-300/80 uppercase tracking-wider flex items-center gap-1">
+                            <span>🏦</span>
+                            <span>Efectivo Disponible en Caja</span>
+                          </div>
+                          <div className="text-2xl font-black font-mono text-emerald-400 mt-0.5 tracking-tight">
+                            {formatMoney(saldoEnCaja, mon)}
+                          </div>
+                          <div className="text-[10px] text-emerald-300/60 font-sans mt-0.5">
+                            {hasCashInBox ? 'Disponible para despacho a cobrador' : 'Caja al día / Sin efectivo en custodia'}
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-bold text-emerald-300 bg-emerald-500/20 px-2.5 py-1 rounded-lg border border-emerald-500/40 font-mono">
+                          🟢 En Caja
+                        </span>
+                      </div>
+
                       {/* 1. Recibido de Cajeros (Confirmado) */}
-                      <div className="bg-[#071217] p-3 rounded-xl border border-emerald-500/20 flex items-center justify-between">
+                      <div className="bg-[#071217] p-3 rounded-xl border border-slate-800 flex items-center justify-between">
                         <div>
                           <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                             💵 Recibido Cajeros (Confirmado)
                           </div>
-                          <div className="text-xl font-black font-mono text-emerald-400 mt-0.5">
+                          <div className="text-lg font-black font-mono text-slate-200 mt-0.5">
                             {formatMoney(met.entradas, mon)}
                           </div>
                         </div>
@@ -1078,12 +1033,12 @@ export const SupervisorBoard: React.FC = () => {
                       </div>
 
                       {/* 2. Entregado a Cobrador */}
-                      <div className="bg-[#071217] p-3 rounded-xl border border-sky-500/20 flex items-center justify-between">
+                      <div className="bg-[#071217] p-3 rounded-xl border border-slate-800 flex items-center justify-between">
                         <div>
                           <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                             🛵 Entregado a Cobrador (con PIN)
                           </div>
-                          <div className="text-xl font-black font-mono text-sky-400 mt-0.5">
+                          <div className="text-lg font-black font-mono text-sky-400 mt-0.5">
                             {formatMoney(met.entregas, mon)}
                           </div>
                         </div>
@@ -1097,7 +1052,7 @@ export const SupervisorBoard: React.FC = () => {
                         <div className="bg-[#071217] p-2.5 rounded-xl border border-amber-500/20 flex items-center justify-between">
                           <div>
                             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                              ⏳ Pendiente por Confirmar
+                              ⏳ Pendiente por Confirmar (Cajeros)
                             </div>
                             <div className="text-sm font-black font-mono text-amber-400 mt-0.5">
                               {formatMoney(met.pendientes, mon)}
@@ -1529,16 +1484,36 @@ export const SupervisorBoard: React.FC = () => {
       )}
 
       {/* ------------------------------------------------------------- */}
-      {/* PESTAÑA 3: TRANSFERENCIAS BANCARIAS                            */}
+      {/* PESTAÑA 3: TRANSFERENCIAS BANCARIAS (SOLO VISTA)               */}
       {/* ------------------------------------------------------------- */}
       {activeTab === 'bancos' && (
         <div className="space-y-6 animate-fadeIn">
+          {/* Banner Informativo */}
+          <div className="bg-[#0D1B22] border border-sky-500/20 rounded-2xl p-4 shadow-lg flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center shrink-0">
+                <CreditCard className="w-5 h-5 text-sky-400" />
+              </div>
+              <div>
+                <h4 className="text-xs font-black uppercase tracking-wider text-white">
+                  Transferencias y Pagos Bancarios (Solo Vista Informativa)
+                </h4>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  La validación y confirmación oficial de transferencias bancarias y puntos de venta es realizada por el <strong className="text-slate-200">Administrador en el CMS</strong>.
+                </p>
+              </div>
+            </div>
+            <span className="text-[10px] font-bold uppercase px-3 py-1 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20 hidden sm:inline-block">
+              Gestión Admin
+            </span>
+          </div>
+
           <div className="bg-[#0D1B22] border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
             <div className="p-4 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-3">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
                   <CreditCard className="w-4 h-4 text-sky-400" />
-                  Transferencias y Pagos Bancarios ({pendingTransfers.length})
+                  Historial de Transferencias ({pendingTransfers.length})
                 </h3>
                 {/* Selector de Rango: Ciclo vs Fecha */}
                 <div className="flex items-center gap-1 bg-[#071217] p-1 rounded-xl border border-slate-700 text-xs">
@@ -1565,7 +1540,7 @@ export const SupervisorBoard: React.FC = () => {
                 </div>
               </div>
               <span className="text-[11px] text-slate-400">
-                Solo transferencias de tu agencia y cajeros asignados
+                Agencia: <strong className="text-slate-200">{agencyName}</strong>
               </span>
             </div>
 
@@ -1573,20 +1548,19 @@ export const SupervisorBoard: React.FC = () => {
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="border-b border-slate-800/80 bg-slate-900/40 text-slate-400">
-                    <th className="py-3 px-4 font-semibold">Hora</th>
+                    <th className="py-3 px-4 font-semibold">Fecha / Hora</th>
                     <th className="py-3 px-4 font-semibold">Agencia</th>
                     <th className="py-3 px-4 font-semibold">Cajero Asignado</th>
                     <th className="py-3 px-4 font-semibold">Banco / Método</th>
                     <th className="py-3 px-4 font-semibold">Referencia</th>
                     <th className="py-3 px-4 font-semibold text-right">Monto</th>
-                    <th className="py-3 px-4 font-semibold text-center">Estado</th>
-                    <th className="py-3 px-4 font-semibold text-center">Acción Supervisor</th>
+                    <th className="py-3 px-4 font-semibold text-center">Estado (Validación Admin)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/50">
                   {pendingTransfers.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-8 text-center text-slate-500">
+                      <td colSpan={7} className="py-8 text-center text-slate-500">
                         {filtroRangoBancos === 'ciclo'
                           ? 'No hay transferencias registradas para esta agencia en el ciclo operativo.'
                           : `No hay transferencias registradas para esta agencia en la fecha ${fecha}.`}
@@ -1595,8 +1569,8 @@ export const SupervisorBoard: React.FC = () => {
                   ) : (
                     pendingTransfers.map((t) => (
                       <tr key={t.id} className="hover:bg-slate-800/30 transition-colors">
-                        <td className="py-3 px-4 font-mono text-slate-400">
-                          {formatTime(t.hora)}
+                        <td className="py-3 px-4 font-mono text-slate-300">
+                          {t.fecha} <span className="text-slate-500 text-[10px]">{formatTime(t.hora)}</span>
                         </td>
                         <td className="py-3 px-4 font-bold text-white">
                           {t.agencia}
@@ -1605,7 +1579,7 @@ export const SupervisorBoard: React.FC = () => {
                           👤 {resolveCajeroName(t.cajero_id, t.nombre_cajero)}
                         </td>
                         <td className="py-3 px-4 text-slate-300">
-                          {t.banco_origen} &rarr; {t.banco_destino}
+                          {t.banco_origen ? `${t.banco_origen} → ${t.banco_destino}` : (t.metodo_pago || 'Transferencia Bancaria')}
                         </td>
                         <td className="py-3 px-4 font-mono font-bold text-sky-400">
                           {t.referencia}
@@ -1617,7 +1591,7 @@ export const SupervisorBoard: React.FC = () => {
                           {t.confirmado ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                               <CheckCircle2 className="w-3 h-3" />
-                              Confirmado
+                              Confirmado Admin
                             </span>
                           ) : t.rechazado ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-rose-500/20 text-rose-400 border border-rose-500/30">
@@ -1627,32 +1601,8 @@ export const SupervisorBoard: React.FC = () => {
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-500/20 text-amber-400 border border-amber-500/30">
                               <Clock className="w-3 h-3" />
-                              Pendiente
+                              Pendiente Admin
                             </span>
-                          )}
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          {!t.confirmado && !t.rechazado ? (
-                            <div className="flex items-center justify-center gap-1.5">
-                              <button
-                                disabled={processingId === t.id}
-                                onClick={() => handleConfirmTransfer(t.id)}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black text-[11px] font-bold transition-all cursor-pointer shadow-sm disabled:opacity-50"
-                              >
-                                <CheckCircle2 className="w-3 h-3" />
-                                <span>Confirmar</span>
-                              </button>
-                              <button
-                                disabled={processingId === t.id}
-                                onClick={() => handleRejectTransfer(t.id)}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[11px] font-bold transition-all cursor-pointer disabled:opacity-50"
-                              >
-                                <XCircle className="w-3 h-3" />
-                                <span>Rechazar</span>
-                              </button>
-                            </div>
-                          ) : (
-                            <span className="text-[11px] text-slate-500">Procesado</span>
                           )}
                         </td>
                       </tr>
