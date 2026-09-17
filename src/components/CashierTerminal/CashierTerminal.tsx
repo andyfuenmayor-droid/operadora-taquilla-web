@@ -6,6 +6,7 @@ import { ExpensesTab } from './ExpensesTab';
 import { PaymentsTab } from './PaymentsTab';
 import { BankTransfersTab } from './BankTransfersTab';
 import { CashClosureTab } from './CashClosureTab';
+import { AgencyCycleHistoryTab } from './AgencyCycleHistoryTab';
 
 interface CashierTerminalProps {
   currentTab: string;
@@ -16,12 +17,12 @@ export const CashierTerminal: React.FC<CashierTerminalProps> = ({ currentTab, on
   const { user } = useAuth();
   const role = (user?.rol || 'cajero').toLowerCase();
 
-  // Permisos de módulos por rol (sin carga manual de ventas/premios)
+  // Permisos de módulos por rol
   const allowedTabsByRole: Record<string, string[]> = {
-    cajero: ['inicio', 'reporte', 'gastos', 'pagos', 'banco', 'cierre'],
-    supervisor: ['inicio', 'reporte', 'gastos', 'pagos', 'cierre'],
-    admin: ['inicio', 'reporte', 'gastos', 'pagos', 'cierre'],
-    agencia: ['inicio', 'reporte', 'pagos', 'banco'],
+    cajero: ['inicio', 'reporte', 'historial', 'gastos', 'pagos', 'banco', 'cierre'],
+    supervisor: ['inicio', 'reporte', 'historial', 'gastos', 'pagos', 'cierre'],
+    admin: ['inicio', 'reporte', 'historial', 'gastos', 'pagos', 'banco', 'cierre'],
+    agencia: ['inicio', 'reporte', 'historial', 'pagos', 'banco'],
     cobrador: ['inicio']
   };
 
@@ -40,6 +41,7 @@ export const CashierTerminal: React.FC<CashierTerminalProps> = ({ currentTab, on
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       {activeTab === 'inicio' && <HomeDashboard onNavigate={onTabChange} />}
       {activeTab === 'reporte' && <DateRangeReportTab />}
+      {activeTab === 'historial' && <AgencyCycleHistoryTab />}
       {activeTab === 'gastos' && <ExpensesTab />}
       {activeTab === 'pagos' && <PaymentsTab />}
       {activeTab === 'banco' && <BankTransfersTab />}

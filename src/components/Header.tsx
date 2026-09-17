@@ -11,7 +11,8 @@ import {
   QrCode, 
   ShieldCheck,
   Home,
-  BarChart3
+  BarChart3,
+  History
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -81,6 +82,18 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                 >
                   <BarChart3 className="w-3.5 h-3.5" />
                   <span>Reporte</span>
+                </button>
+
+                <button
+                  onClick={() => onTabChange('historial')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    currentTab === 'historial'
+                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  }`}
+                >
+                  <History className="w-3.5 h-3.5" />
+                  <span>Historial</span>
                 </button>
 
                 <button
@@ -161,6 +174,18 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                 </button>
 
                 <button
+                  onClick={() => onTabChange('historial')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    currentTab === 'historial'
+                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  }`}
+                >
+                  <History className="w-3.5 h-3.5" />
+                  <span>Historial</span>
+                </button>
+
+                <button
                   onClick={() => onTabChange('pagos')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     currentTab === 'pagos'
@@ -223,6 +248,18 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                 >
                   <BarChart3 className="w-3.5 h-3.5" />
                   <span>Reporte</span>
+                </button>
+
+                <button
+                  onClick={() => onTabChange('historial')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    currentTab === 'historial'
+                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  }`}
+                >
+                  <History className="w-3.5 h-3.5" />
+                  <span>Historial</span>
                 </button>
 
                 <button
@@ -338,6 +375,14 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                 Reporte
               </button>
               <button
+                onClick={() => onTabChange('historial')}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                  currentTab === 'historial' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Historial
+              </button>
+              <button
                 onClick={() => onTabChange('gastos')}
                 className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
                   currentTab === 'gastos' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
@@ -392,6 +437,14 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                 Pizarra
               </button>
               <button
+                onClick={() => onTabChange('historial')}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                  currentTab === 'historial' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Historial
+              </button>
+              <button
                 onClick={() => onTabChange('pagos')}
                 className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
                   currentTab === 'pagos' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
@@ -436,6 +489,14 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                 }`}
               >
                 Reporte
+              </button>
+              <button
+                onClick={() => onTabChange('historial')}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                  currentTab === 'historial' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Historial
               </button>
               <button
                 onClick={() => onTabChange('pagos')}

@@ -39,6 +39,7 @@ const MainLayout: React.FC = () => {
   const isCashierModule = [
     'inicio',
     'reporte',
+    'historial',
     'gastos',
     'pagos',
     'banco',
