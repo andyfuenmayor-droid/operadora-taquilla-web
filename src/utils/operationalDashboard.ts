@@ -223,7 +223,7 @@ interface CacheEntry {
 }
 
 const metricsCache = new Map<string, CacheEntry>();
-const CACHE_TTL_MS = 60 * 1000; // 60 segundos de vigencia
+const CACHE_TTL_MS = 10 * 1000; // 10 segundos de vigencia máxima (o invalidación explícita)
 
 export function clearMetricsCache() {
   metricsCache.clear();
@@ -410,13 +410,13 @@ export async function fetchFullCycleMetrics(
         supabase
           .from('cda_pagos_bancarios')
           .select('*')
-          .ilike('agencia', agencyName)
+          .or(`agencia.ilike.${agencyName},nombre_agency.ilike.${agencyName}`)
           .gte('fecha', fDesdeCarga)
           .lte('fecha', fHastaEfectivo),
         supabase
           .from('cda_pagos_diarios')
           .select('*')
-          .ilike('agencia', agencyName)
+          .or(`agencia.ilike.${agencyName},nombre_agency.ilike.${agencyName}`)
           .gte('fecha', fDesdeCarga)
           .lte('fecha', fHastaEfectivo),
         supabase

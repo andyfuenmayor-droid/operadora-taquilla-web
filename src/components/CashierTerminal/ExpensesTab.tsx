@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import type { DailyExpense } from '../../types';
 import { formatCurrency, formatDate, getTodayDateString, normalizarMoneda } from '../../utils/formatters';
+import { clearMetricsCache } from '../../utils/operationalDashboard';
 import {
   Plus,
   Trash2,
@@ -276,6 +277,7 @@ export const ExpensesTab: React.FC = () => {
       confetti({ particleCount: 40, spread: 60 });
       setSuccessMsg(`¡Gasto de ${cleanConcepto} por ${formatCurrency(parsedMonto, moneda)} registrado con éxito!`);
 
+      clearMetricsCache();
       // Limpiar formulario
       setConcepto('');
       setReferencia('');
@@ -295,6 +297,7 @@ export const ExpensesTab: React.FC = () => {
     try {
       const { error } = await supabase.table('cda_gastos_diarios').delete().eq('id', id);
       if (error) throw error;
+      clearMetricsCache();
       setExpenses((prev) => prev.filter((g) => g.id !== id));
       setSuccessMsg('Gasto eliminado exitosamente.');
     } catch (err) {

@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { formatMoney, formatDate, getTodayDateString } from '../../utils/formatters';
+import { supabase } from '../../lib/supabase';
 import { 
   fetchFullCycleMetrics, 
+  clearMetricsCache,
   type CurrencyOperationalMetrics 
 } from '../../utils/operationalDashboard';
 import { 
@@ -41,7 +43,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = () => {
     }
   }, [assignedCurrencies, selectedCurrency]);
 
-  const loadData = useCallback(async (force = false) => {
+  const loadData = useCallback(async (force = true) => {
     if (!agencyName) return;
     if (!systemCycle || !systemCycle.desde) return;
     setLoading(true);
@@ -65,7 +67,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = () => {
 
   useEffect(() => {
     if (agencyName && systemCycle?.desde) {
-      loadData();
+      loadData(true);
     }
   }, [loadData, agencyName, systemCycle?.desde]);
 
@@ -73,12 +75,49 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = () => {
   useEffect(() => {
     const handleFocus = () => {
       if (agencyName && systemCycle?.desde) {
-        loadData();
+        clearMetricsCache();
+        loadData(true);
       }
     };
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
   }, [loadData, agencyName, systemCycle?.desde]);
+
+  // Suscripción Realtime para actualizar métricas operativas al instante ante pagos, gastos o ventas
+  useEffect(() => {
+    if (!agencyName) return;
+    const channel = supabase
+      .channel(`realtime_homedashboard_${agencyName}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cda_pagos_diarios' }, () => {
+        clearMetricsCache();
+        loadData(true);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cda_pagos_bancarios' }, () => {
+        clearMetricsCache();
+        loadData(true);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pagos_semana' }, () => {
+        clearMetricsCache();
+        loadData(true);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cda_gastos_diarios' }, () => {
+        clearMetricsCache();
+        loadData(true);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'gastos' }, () => {
+        clearMetricsCache();
+        loadData(true);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'carga_actual' }, () => {
+        clearMetricsCache();
+        loadData(true);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [agencyName, loadData]);
 
   const todayStr = getTodayDateString();
   const cycleDesde = systemCycle?.desde || todayStr;
@@ -222,7 +261,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = () => {
                   </div>
                   <div className="text-[10px] text-slate-500 mt-1 flex items-center gap-1">
                     <span className={`w-1.5 h-1.5 rounded-full ${isPositive ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                    {isPositive ? 'Saldo a favor / en caja' : 'Deuda pendiente'}
+                    {isPositive ? ((user?.rol === 'supervisor' || user?.rol === 'admin') ? 'Saldo a favor / en caja' : 'Saldo a favor') : 'Deuda pendiente'}
                   </div>
                 </div>
                 <div className={`p-3 rounded-xl border transition-all ${

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { supabase } from '../lib/supabase';
 import type { UserSession, Agency, UserRole, SystemCycle } from '../types';
 import { normalizarMoneda, getTodayDateString } from '../utils/formatters';
+import { clearMetricsCache } from '../utils/operationalDashboard';
 
 interface AuthContextType {
   user: UserSession | null;
@@ -380,12 +381,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
+      clearMetricsCache();
+      const activeCycle = await fetchSystemCycle(matchedUser.user_id || matchedAgency.user_id);
+      setSystemCycle(activeCycle);
       setUser(matchedUser);
       setAgency(matchedAgency);
       localStorage.setItem('taquilla_web_user', JSON.stringify(matchedUser));
       localStorage.setItem('taquilla_web_agency', JSON.stringify(matchedAgency));
 
-      fetchSystemCycle(matchedUser.user_id || matchedAgency.user_id);
       return { success: true };
     } catch (err: unknown) {
       console.error('Login error:', err);
@@ -397,6 +400,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
+    clearMetricsCache();
     setUser(null);
     setAgency(null);
     setSystemCycle(null);

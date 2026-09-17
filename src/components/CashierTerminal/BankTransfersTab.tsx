@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
-import { fetchFullCycleMetrics, type CurrencyOperationalMetrics } from '../../utils/operationalDashboard';
+import { fetchFullCycleMetrics, clearMetricsCache, type CurrencyOperationalMetrics } from '../../utils/operationalDashboard';
 import { formatCurrency, getTodayDateString, normalizarMoneda } from '../../utils/formatters';
 import { 
   Building2, 
@@ -299,7 +299,7 @@ export const BankTransfersTab: React.FC = () => {
   // -------------------------------------------------------------
   // 3. CARGAR ESTADO DE DEUDA POR MONEDA (PARA REGISTRAR PAGO)
   // -------------------------------------------------------------
-  const loadDebtMetrics = useCallback(async (force = false) => {
+  const loadDebtMetrics = useCallback(async (force = true) => {
     if (!agencyName) return;
     setLoadingMetrics(true);
     try {
@@ -325,7 +325,7 @@ export const BankTransfersTab: React.FC = () => {
 
   useEffect(() => {
     if (subTab === 'registrar') {
-      loadDebtMetrics();
+      loadDebtMetrics(true);
     }
   }, [subTab, loadDebtMetrics]);
 
@@ -468,6 +468,7 @@ export const BankTransfersTab: React.FC = () => {
       setDatosPagador('');
 
       // Recargar deudas, pagos del día e historial
+      clearMetricsCache();
       loadDebtMetrics(true);
       fetchDailyTransfers();
       fetchHistorial();

@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { 
   fetchFullCycleMetrics, 
+  clearMetricsCache,
   type CurrencyOperationalMetrics 
 } from '../../utils/operationalDashboard';
 import { formatMoney, getTodayDateString } from '../../utils/formatters';
@@ -164,9 +165,9 @@ export const PaymentsTab: React.FC = () => {
     }
   }, [systemCycle?.hasta]);
 
-  // 1.1 Cargar Efectivo Físico en Custodia / Gaveta (Cajeros + Supervisor)
+  // 1.1 Cargar Efectivo Físico en Custodia / Gaveta (SOLO Supervisor)
   const fetchCustodiaMetrics = useCallback(async () => {
-    if (!agencyName) return;
+    if (!agencyName || !isSupervisor) return;
     try {
       const cycleDesde = systemCycle?.desde || '';
       const cycleHasta = systemCycle?.hasta || '';
@@ -207,15 +208,14 @@ export const PaymentsTab: React.FC = () => {
     } catch (err) {
       console.error('Error fetching custodia metrics in payments tab:', err);
     }
-  }, [agencyName, systemCycle?.desde, systemCycle?.hasta, assignedCurrencies]);
+  }, [agencyName, isSupervisor, systemCycle?.desde, systemCycle?.hasta, assignedCurrencies]);
 
-  // 1. Cargar Estado de Deuda / Saldo Pendiente por Moneda
-  const loadDebtMetrics = useCallback(async (force = false) => {
+  // 1. Cargar Estado de Deuda / Saldo Pendiente por Moneda (Unificado por Agencia)
+  const loadDebtMetrics = useCallback(async (force = true) => {
     if (!agencyName) return;
     if (!systemCycle || !systemCycle.desde || !systemCycle.hasta) return;
     setLoadingMetrics(true);
     try {
-      const filterCajero = isSupervisor ? selectedCashier : (isAgencia ? null : (user?.id ? String(user.id) : null));
       const [data] = await Promise.all([
         fetchFullCycleMetrics(
           agencyName,
@@ -225,11 +225,11 @@ export const PaymentsTab: React.FC = () => {
           user,
           agency,
           {
-            filterCajeroId: filterCajero,
+            filterCajeroId: null,
             forceRefresh: force
           }
         ),
-        fetchCustodiaMetrics()
+        isSupervisor ? fetchCustodiaMetrics() : Promise.resolve()
       ]);
       setMetricsByCurrency(data);
     } catch (err) {
@@ -237,7 +237,7 @@ export const PaymentsTab: React.FC = () => {
     } finally {
       setLoadingMetrics(false);
     }
-  }, [agencyName, systemCycle?.desde, systemCycle?.hasta, assignedCurrencies, assignedSystems, user, agency, isSupervisor, isAgencia, selectedCashier, fetchCustodiaMetrics]);
+  }, [agencyName, systemCycle?.desde, systemCycle?.hasta, assignedCurrencies, assignedSystems, user, agency, isSupervisor, fetchCustodiaMetrics]);
 
   // 2. Cargar Pagos del Día filtrado
   const fetchPayments = useCallback(async () => {
@@ -268,7 +268,7 @@ export const PaymentsTab: React.FC = () => {
 
   useEffect(() => {
     if (agencyName && systemCycle?.desde) {
-      loadDebtMetrics();
+      loadDebtMetrics(true);
     }
   }, [loadDebtMetrics, agencyName, systemCycle?.desde]);
 
@@ -276,10 +276,37 @@ export const PaymentsTab: React.FC = () => {
     fetchPayments();
   }, [fetchPayments]);
 
+  // Suscripción Realtime para actualizar estado de pagos y deudas al instante
+  useEffect(() => {
+    if (!agencyName) return;
+    const channel = supabase
+      .channel(`realtime_paymentstab_${agencyName}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cda_pagos_diarios' }, () => {
+        clearMetricsCache();
+        loadDebtMetrics(true);
+        fetchPayments();
+        if (isSupervisor) fetchCustodiaMetrics();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cda_pagos_bancarios' }, () => {
+        clearMetricsCache();
+        loadDebtMetrics(true);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pagos_semana' }, () => {
+        clearMetricsCache();
+        loadDebtMetrics(true);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [agencyName, isSupervisor, loadDebtMetrics, fetchPayments, fetchCustodiaMetrics]);
+
   const handleRefreshAll = () => {
+    clearMetricsCache();
     loadDebtMetrics(true);
     fetchPayments();
-    fetchCustodiaMetrics();
+    if (isSupervisor) fetchCustodiaMetrics();
   };
 
   // 3. Registrar Nuevo Pago
@@ -303,7 +330,7 @@ export const PaymentsTab: React.FC = () => {
     const isEntregaCobrador = tipoPago.includes('Cobrador');
 
     const currentSaldoEnCaja = Math.max(0, (custodiaMetrics[monedaPago]?.entradas || 0) - (custodiaMetrics[monedaPago]?.entregas || 0));
-    if ((isEntregaCobrador || tipoPago.includes('Premios') || tipoPago.includes('Comercializador')) && currentSaldoEnCaja > 0 && parsedMonto > currentSaldoEnCaja) {
+    if (isSupervisor && (isEntregaCobrador || tipoPago.includes('Premios') || tipoPago.includes('Comercializador')) && currentSaldoEnCaja > 0 && parsedMonto > currentSaldoEnCaja) {
       const proceed = window.confirm(
         `Atención: El monto ingresado (${formatMoney(parsedMonto, monedaPago)}) excede el efectivo disponible en caja (${formatMoney(currentSaldoEnCaja, monedaPago)}).\n\n¿Desea continuar con el registro de todas formas?`
       );
@@ -378,6 +405,7 @@ export const PaymentsTab: React.FC = () => {
         });
       }
 
+      clearMetricsCache();
       setMontoPago('');
       fetchPayments();
       loadDebtMetrics(true);
@@ -424,6 +452,7 @@ export const PaymentsTab: React.FC = () => {
           comentario: `Recibido de cajero ${cName} (Confirmado por ${supName})`
         });
 
+      clearMetricsCache();
       confetti({ particleCount: 35, spread: 60, origin: { y: 0.7 } });
       await fetchPayments();
       await loadDebtMetrics(true);
@@ -463,6 +492,7 @@ export const PaymentsTab: React.FC = () => {
         .delete()
         .eq('pago_id', p.id);
 
+      clearMetricsCache();
       await fetchPayments();
       await loadDebtMetrics(true);
     } catch (err: unknown) {
@@ -639,28 +669,30 @@ export const PaymentsTab: React.FC = () => {
                   </div>
                 </div>
 
-                {/* 🏦 Bloque Destacado: Efectivo Físico en Caja */}
-                <div className="mt-3 bg-[#0B221A] border border-emerald-500/30 rounded-xl p-3 flex items-center justify-between shadow-inner">
-                  <div>
-                    <div className="text-[10px] font-extrabold uppercase text-emerald-300 tracking-wider flex items-center gap-1">
-                      <span>🏦</span>
-                      <span>Efectivo Disponible en Caja</span>
+                {/* 🏦 Bloque Destacado: Efectivo Físico en Caja (Exclusivo Rol Supervisor) */}
+                {isSupervisor && (
+                  <div className="mt-3 bg-[#0B221A] border border-emerald-500/30 rounded-xl p-3 flex items-center justify-between shadow-inner">
+                    <div>
+                      <div className="text-[10px] font-extrabold uppercase text-emerald-300 tracking-wider flex items-center gap-1">
+                        <span>🏦</span>
+                        <span>Efectivo Disponible en Caja</span>
+                      </div>
+                      <div className="text-lg font-black font-mono text-emerald-400 mt-0.5">
+                        {sym} {saldoEnCaja.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                      <div className="text-[9px] text-emerald-300/70 font-sans">
+                        {saldoEnCaja > 0 ? 'Para pago de premios a clientes, gastos y entregas' : 'Sin efectivo en custodia / Caja al día'}
+                      </div>
                     </div>
-                    <div className="text-lg font-black font-mono text-emerald-400 mt-0.5">
-                      {sym} {saldoEnCaja.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
-                    <div className="text-[9px] text-emerald-300/70 font-sans">
-                      {saldoEnCaja > 0 ? 'Para pago de premios a clientes, gastos y entregas' : 'Sin efectivo en custodia / Caja al día'}
-                    </div>
+                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-md border font-mono ${
+                      saldoEnCaja > 0 
+                        ? 'text-emerald-300 bg-emerald-500/20 border-emerald-500/40' 
+                        : 'text-slate-400 bg-slate-800 border-slate-700'
+                    }`}>
+                      {saldoEnCaja > 0 ? '🟢 En Caja' : '⚪ $0.00'}
+                    </span>
                   </div>
-                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded-md border font-mono ${
-                    saldoEnCaja > 0 
-                      ? 'text-emerald-300 bg-emerald-500/20 border-emerald-500/40' 
-                      : 'text-slate-400 bg-slate-800 border-slate-700'
-                  }`}>
-                    {saldoEnCaja > 0 ? '🟢 En Caja' : '⚪ $0.00'}
-                  </span>
-                </div>
+                )}
               </div>
             );
           })}
@@ -872,7 +904,7 @@ export const PaymentsTab: React.FC = () => {
                   </label>
                   {(() => {
                     const currentSaldoEnCaja = Math.max(0, (custodiaMetrics[monedaPago]?.entradas || 0) - (custodiaMetrics[monedaPago]?.entregas || 0));
-                    if (currentSaldoEnCaja <= 0) return null;
+                    if (!isSupervisor || currentSaldoEnCaja <= 0) return null;
                     return (
                       <button
                         type="button"
