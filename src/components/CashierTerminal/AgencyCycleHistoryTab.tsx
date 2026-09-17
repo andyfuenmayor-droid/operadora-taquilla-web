@@ -17,13 +17,15 @@ import {
   ArrowUpRight,
   Eye,
   Hash,
-  BarChart3
+  BarChart3,
+  ArrowUpDown
 } from 'lucide-react';
 
 export interface DetailedMovement {
   id: string | number;
   id_display: string;
   fecha: string;
+  created_at?: string;
   tipo_categoria: 'EFECTIVO' | 'COBRADOR' | 'BANCO' | 'GASTO' | 'PREMIO' | 'VENTA';
   categoria_label: string;
   concepto: string;
@@ -31,6 +33,11 @@ export interface DetailedMovement {
   cajero: string;
   monto: number;
   es_abono: boolean;
+  tipo_impacto: 'SUMA' | 'RESTA';
+  signo: '+' | '-';
+  delta: number;
+  saldo_anterior: number;
+  saldo_resultante: number;
   confirmado: boolean;
   rechazado: boolean;
   origen_tabla: string;
@@ -71,9 +78,10 @@ export const AgencyCycleHistoryTab: React.FC = () => {
   const [periodicity, setPeriodicity] = useState<'semanal' | 'mensual'>('semanal');
   const [viewMode, setViewMode] = useState<'resumen' | 'movimientos'>('resumen');
 
-  // Filtros para la vista de movimientos detallados
+  // Filtros y ordenamiento para la vista de movimientos detallados
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [movementSortOrder, setMovementSortOrder] = useState<'desc' | 'asc'>('desc');
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
 
   // Filtro dentro del modal drilldown
@@ -91,6 +99,7 @@ export const AgencyCycleHistoryTab: React.FC = () => {
   const [rawBankPayments, setRawBankPayments] = useState<any[]>([]);
   const [rawDailyExpenses, setRawDailyExpenses] = useState<any[]>([]);
   const [rawManualPayments, setRawManualPayments] = useState<any[]>([]);
+  const [usersMap, setUsersMap] = useState<Record<string, string>>({});
 
   // Selected drilldown row
   const [selectedDrilldownRow, setSelectedDrilldownRow] = useState<CycleHistoryRow | null>(null);
@@ -107,7 +116,8 @@ export const AgencyCycleHistoryTab: React.FC = () => {
         pdRes,
         pbRes,
         gdRes,
-        psRes
+        psRes,
+        usrRes
       ] = await Promise.all([
         supabase.from('agencias').select('*').ilike('nombre_agencia', targetAgencyName).limit(1),
         supabase.from('cierres_semanales').select('*').ilike('entidad', targetAgencyName).order('fecha_cierre', { ascending: false }),
@@ -116,6 +126,7 @@ export const AgencyCycleHistoryTab: React.FC = () => {
         supabase.from('cda_pagos_bancarios').select('*').or(`agencia.ilike.${targetAgencyName},nombre_agency.ilike.${targetAgencyName}`),
         supabase.from('cda_gastos_diarios').select('*').or(`agencia.ilike.${targetAgencyName},nombre_agency.ilike.${targetAgencyName}`),
         supabase.from('pagos_semana').select('*').ilike('agencia', targetAgencyName),
+        supabase.from('taquilla_usuarios').select('id, usuario, nombre_cajero'),
       ]);
 
       const agObj = agRes.data && agRes.data.length > 0 ? agRes.data[0] : null;
@@ -126,6 +137,14 @@ export const AgencyCycleHistoryTab: React.FC = () => {
       setRawBankPayments(pbRes.data || []);
       setRawDailyExpenses(gdRes.data || []);
       setRawManualPayments(psRes.data || []);
+
+      const uMap: Record<string, string> = {};
+      (usrRes.data || []).forEach((u: any) => {
+        const display = (u.nombre_cajero || u.usuario || '').trim();
+        if (u.id) uMap[String(u.id).toLowerCase()] = display;
+        if (u.usuario) uMap[String(u.usuario).toLowerCase()] = display;
+      });
+      setUsersMap(uMap);
     } catch (err) {
       console.error('Error loading agency history data:', err);
     } finally {
@@ -146,12 +165,50 @@ export const AgencyCycleHistoryTab: React.FC = () => {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'cda_gastos_diarios' }, () => loadData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pagos_semana' }, () => loadData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'agencias' }, () => loadData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'taquilla_usuarios' }, () => loadData())
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
   }, [targetAgencyName]);
+
+  // Helper para resolver el nombre legible del cajero (eliminando UUIDs crudos)
+  const resolveCashierName = (rawCajero: any, cajeroId: any, supervisorNombre: any): string => {
+    const isUuid = (val: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+
+    // 1. Si viene un cajero como texto legible y no es UUID
+    if (rawCajero && typeof rawCajero === 'string') {
+      const trimmed = rawCajero.trim();
+      if (!isUuid(trimmed) && trimmed !== '' && trimmed !== '-' && trimmed !== 'null' && trimmed !== 'undefined') {
+        return trimmed;
+      }
+      if (isUuid(trimmed) && usersMap[trimmed.toLowerCase()]) {
+        return usersMap[trimmed.toLowerCase()];
+      }
+    }
+
+    // 2. Si viene cajero_id y existe en el mapa de usuarios
+    if (cajeroId && typeof cajeroId === 'string') {
+      const trimmedId = cajeroId.trim().toLowerCase();
+      if (usersMap[trimmedId]) {
+        return usersMap[trimmedId];
+      }
+    }
+
+    // 3. Si viene supervisor_nombre
+    if (supervisorNombre && typeof supervisorNombre === 'string') {
+      const trimmedSup = supervisorNombre.trim();
+      if (!isUuid(trimmedSup) && trimmedSup !== '' && trimmedSup !== 'null') {
+        return trimmedSup;
+      }
+      if (usersMap[trimmedSup.toLowerCase()]) {
+        return usersMap[trimmedSup.toLowerCase()];
+      }
+    }
+
+    return 'Cajero';
+  };
 
   // Helper para clases de badge por categoría
   const getCategoryBadgeClass = (tipo: DetailedMovement['tipo_categoria']) => {
@@ -247,9 +304,9 @@ export const AgencyCycleHistoryTab: React.FC = () => {
     else activeStatus = 'favor';
 
     // Construcción de Movimientos Detallados (1 movimiento = 1 ID)
-    const activeMovements: DetailedMovement[] = [];
+    const rawActiveMovements: DetailedMovement[] = [];
 
-    // Pagos diarios (efectivo y cobradores)
+    // 1. Pagos diarios (efectivo y cobradores)
     const allActiveDaily = rawDailyPayments.filter((p) => {
       const matchMon = normalizarMoneda(p.moneda) === mon;
       const fStr = String(p.fecha || p.created_at || '').slice(0, 10);
@@ -260,104 +317,153 @@ export const AgencyCycleHistoryTab: React.FC = () => {
     allActiveDaily.forEach((p) => {
       const isCob = Boolean(p.qr_token) || String(p.tipo_pago || '').toUpperCase().includes('COBRADOR');
       const isConf = Boolean(p.confirmado) || Boolean(p.confirmado_supervisor) || Boolean(p.fecha_escaneo_cobrador);
-      activeMovements.push({
+      const monto = Number(p.monto || 0);
+      rawActiveMovements.push({
         id: p.id,
         id_display: `#${p.id}`,
         fecha: String(p.fecha || p.created_at || '').slice(0, 10),
+        created_at: p.created_at || p.fecha,
         tipo_categoria: isCob ? 'COBRADOR' : 'EFECTIVO',
         categoria_label: isCob ? '🛵 Cobrador Ruta (QR)' : '💵 Efectivo Taquilla',
         concepto: p.tipo_pago || (isCob ? 'Entrega a Cobrador' : 'Entregado a Supervisor'),
         referencia: p.qr_token ? `QR: ${p.qr_token}` : (p.referencia || (p.supervisor_nombre ? `Sup: ${p.supervisor_nombre}` : 'Efectivo')),
-        cajero: p.cajero || p.nombre_cajero || p.cajero_id || 'Cajero',
-        monto: Number(p.monto || 0),
+        cajero: resolveCashierName(p.cajero || p.nombre_cajero, p.cajero_id, p.supervisor_nombre),
+        monto,
         es_abono: true,
+        tipo_impacto: 'RESTA',
+        signo: '-',
+        delta: -monto,
+        saldo_anterior: 0,
+        saldo_resultante: 0,
         confirmado: isConf,
         rechazado: Boolean(p.rechazado),
         origen_tabla: 'cda_pagos_diarios'
       });
     });
 
-    // Pagos bancarios
+    // 2. Pagos bancarios
     agBankList.forEach((b) => {
-      activeMovements.push({
+      const monto = Number(b.monto || 0);
+      rawActiveMovements.push({
         id: b.id,
         id_display: `#${b.id}`,
         fecha: String(b.fecha || b.created_at || '').slice(0, 10),
+        created_at: b.created_at || b.fecha,
         tipo_categoria: 'BANCO',
         categoria_label: '🏛️ Pago Bancario',
         concepto: b.metodo_pago || b.concepto || 'Transferencia Bancaria',
         referencia: b.referencia ? `REF: ${b.referencia} ${b.pos_o_cuenta ? `(${b.pos_o_cuenta})` : ''}` : (b.pos_o_cuenta || 'Banco'),
-        cajero: b.datos_pagador || b.cajero || '-',
-        monto: Number(b.monto || 0),
+        cajero: resolveCashierName(b.datos_pagador || b.cajero, b.cajero_id, null),
+        monto,
         es_abono: true,
+        tipo_impacto: 'RESTA',
+        signo: '-',
+        delta: -monto,
+        saldo_anterior: 0,
+        saldo_resultante: 0,
         confirmado: Boolean(b.confirmado),
         rechazado: Boolean(b.rechazado),
         origen_tabla: 'cda_pagos_bancarios'
       });
     });
 
-    // Gastos operativos
+    // 3. Gastos operativos
     agExpList.forEach((g) => {
-      activeMovements.push({
+      const monto = Number(g.monto || 0);
+      rawActiveMovements.push({
         id: g.id,
         id_display: `#${g.id}`,
         fecha: String(g.fecha || g.created_at || '').slice(0, 10),
+        created_at: g.created_at || g.fecha,
         tipo_categoria: 'GASTO',
         categoria_label: '🏷️ Gasto Operativo',
         concepto: g.concepto || 'Gasto General',
         referencia: g.descripcion || 'Gasto registrado',
-        cajero: g.cajero || g.nombre_cajero || '-',
-        monto: Number(g.monto || 0),
+        cajero: resolveCashierName(g.cajero || g.nombre_cajero, g.cajero_id, g.supervisor_nombre),
+        monto,
         es_abono: false,
+        tipo_impacto: 'RESTA',
+        signo: '-',
+        delta: -monto,
+        saldo_anterior: 0,
+        saldo_resultante: 0,
         confirmado: Boolean(g.confirmado || g.confirmado_supervisor),
         rechazado: Boolean(g.rechazado),
         origen_tabla: 'cda_gastos_diarios'
       });
     });
 
-    // Reposiciones de premios (pagos_semana)
+    // 4. Reposiciones de premios (pagos_semana)
     agManualPrem.forEach((p) => {
-      activeMovements.push({
+      const monto = Number(p.monto || 0);
+      rawActiveMovements.push({
         id: p.id || `prem_${p.fecha}`,
         id_display: p.id ? `#${p.id}` : '#PREMIO',
         fecha: String(p.fecha || p.created_at || '').slice(0, 10),
+        created_at: p.created_at || p.fecha,
         tipo_categoria: 'PREMIO',
         categoria_label: '🏆 Reposición Premios',
         concepto: p.tipo_pago || p.concepto || 'Abono / Reposición',
         referencia: p.referencia || 'Reposición de Caja',
-        cajero: '-',
-        monto: Number(p.monto || 0),
+        cajero: resolveCashierName(p.cajero, p.cajero_id, p.confirmado_por),
+        monto,
         es_abono: false,
+        tipo_impacto: 'SUMA',
+        signo: '+',
+        delta: monto,
+        saldo_anterior: 0,
+        saldo_resultante: 0,
         confirmado: true,
         rechazado: false,
         origen_tabla: 'pagos_semana'
       });
     });
 
-    // Ventas por sistema
+    // 5. Ventas por sistema
     agActiveSales.forEach((s) => {
       const vNeto = Number(s.neto || (Number(s.venta || 0) - Number(s.comision || 0) - Number(s.premios || 0)));
-      activeMovements.push({
+      rawActiveMovements.push({
         id: s.id || `vta_${s.sistema}_${s.fecha || 'act'}`,
         id_display: s.id ? `#${s.id}` : `#VTA-${s.sistema || 'BETM3'}`,
         fecha: String(s.fecha || systemCycle?.hasta || '').slice(0, 10),
+        created_at: s.created_at || s.fecha,
         tipo_categoria: 'VENTA',
         categoria_label: '📊 Venta Neta Sistema',
         concepto: `Venta Sistema ${s.sistema || 'BETM3'}`,
         referencia: `Venta: ${formatCurrency(s.venta || 0, mon)} | Prem: ${formatCurrency(s.premios || 0, mon)} | Com: ${formatCurrency(s.comision || 0, mon)}`,
         cajero: '-',
-        monto: vNeto,
+        monto: Math.abs(vNeto),
         es_abono: false,
+        tipo_impacto: vNeto >= 0 ? 'SUMA' : 'RESTA',
+        signo: vNeto >= 0 ? '+' : '-',
+        delta: vNeto,
+        saldo_anterior: 0,
+        saldo_resultante: 0,
         confirmado: true,
         rechazado: false,
         origen_tabla: 'carga_actual'
       });
     });
 
-    activeMovements.sort((a, b) => {
-      const fCmp = String(b.fecha).localeCompare(String(a.fecha));
+    // Ordenamiento cronológico ascendente para calcular el encadenamiento bancario exacto
+    const activeChronological = [...rawActiveMovements].sort((a, b) => {
+      const fCmp = String(a.fecha).localeCompare(String(b.fecha));
       if (fCmp !== 0) return fCmp;
-      return String(b.id).localeCompare(String(a.id));
+      const tA = a.created_at || '';
+      const tB = b.created_at || '';
+      if (tA && tB && tA !== tB) return tA.localeCompare(tB);
+      const nA = typeof a.id === 'number' ? a.id : parseInt(String(a.id).replace(/\D/g, ''), 10) || 0;
+      const nB = typeof b.id === 'number' ? b.id : parseInt(String(b.id).replace(/\D/g, ''), 10) || 0;
+      return nA - nB;
+    });
+
+    // Encadenar saldos bancarios: Viene con ($S_{i-1}$) -> Movimiento (+/-) -> Saldo ($S_i$)
+    let activeRunning = curArrastre;
+    activeChronological.forEach((m) => {
+      m.saldo_anterior = activeRunning;
+      const effDelta = m.rechazado ? 0 : m.delta;
+      m.saldo_resultante = Math.round((activeRunning + effDelta) * 100) / 100;
+      activeRunning = m.saldo_resultante;
     });
 
     list.push({
@@ -384,7 +490,7 @@ export const AgencyCycleHistoryTab: React.FC = () => {
         reposicion_premios: agManualPrem,
         ventas_sistemas: agActiveSales,
       },
-      movements: activeMovements,
+      movements: activeChronological,
     });
 
     // 2. CLOSED CYCLES
@@ -437,17 +543,24 @@ export const AgencyCycleHistoryTab: React.FC = () => {
 
       histCob.forEach((p) => {
         const isCob = Boolean(p.qr_token) || String(p.tipo_pago || '').toUpperCase().includes('COBRADOR');
+        const monto = Number(p.monto || 0);
         closedMovements.push({
           id: p.id,
           id_display: `#${p.id}`,
           fecha: String(p.fecha || p.created_at || '').slice(0, 10),
+          created_at: p.created_at || p.fecha,
           tipo_categoria: isCob ? 'COBRADOR' : 'EFECTIVO',
           categoria_label: isCob ? '🛵 Cobrador Ruta (QR)' : '💵 Efectivo Taquilla',
           concepto: p.tipo_pago || (isCob ? 'Entrega a Cobrador' : 'Entregado a Supervisor'),
           referencia: p.qr_token ? `QR: ${p.qr_token}` : (p.referencia || 'Efectivo'),
-          cajero: p.cajero || p.nombre_cajero || p.cajero_id || 'Cajero',
-          monto: Number(p.monto || 0),
+          cajero: resolveCashierName(p.cajero || p.nombre_cajero, p.cajero_id, p.supervisor_nombre),
+          monto,
           es_abono: true,
+          tipo_impacto: 'RESTA',
+          signo: '-',
+          delta: -monto,
+          saldo_anterior: 0,
+          saldo_resultante: 0,
           confirmado: Boolean(p.confirmado || p.confirmado_supervisor),
           rechazado: Boolean(p.rechazado),
           origen_tabla: 'cda_pagos_diarios'
@@ -455,17 +568,24 @@ export const AgencyCycleHistoryTab: React.FC = () => {
       });
 
       histBank.forEach((b) => {
+        const monto = Number(b.monto || 0);
         closedMovements.push({
           id: b.id,
           id_display: `#${b.id}`,
           fecha: String(b.fecha || b.created_at || '').slice(0, 10),
+          created_at: b.created_at || b.fecha,
           tipo_categoria: 'BANCO',
           categoria_label: '🏛️ Pago Bancario',
           concepto: b.metodo_pago || b.concepto || 'Transferencia',
           referencia: b.referencia ? `REF: ${b.referencia}` : 'Banco',
-          cajero: b.datos_pagador || b.cajero || '-',
-          monto: Number(b.monto || 0),
+          cajero: resolveCashierName(b.datos_pagador || b.cajero, b.cajero_id, null),
+          monto,
           es_abono: true,
+          tipo_impacto: 'RESTA',
+          signo: '-',
+          delta: -monto,
+          saldo_anterior: 0,
+          saldo_resultante: 0,
           confirmado: Boolean(b.confirmado),
           rechazado: Boolean(b.rechazado),
           origen_tabla: 'cda_pagos_bancarios'
@@ -473,27 +593,48 @@ export const AgencyCycleHistoryTab: React.FC = () => {
       });
 
       histExp.forEach((g) => {
+        const monto = Number(g.monto || 0);
         closedMovements.push({
           id: g.id,
           id_display: `#${g.id}`,
           fecha: String(g.fecha || g.created_at || '').slice(0, 10),
+          created_at: g.created_at || g.fecha,
           tipo_categoria: 'GASTO',
           categoria_label: '🏷️ Gasto Operativo',
           concepto: g.concepto || 'Gasto General',
           referencia: g.descripcion || 'Gasto',
-          cajero: g.cajero || g.nombre_cajero || '-',
-          monto: Number(g.monto || 0),
+          cajero: resolveCashierName(g.cajero || g.nombre_cajero, g.cajero_id, g.supervisor_nombre),
+          monto,
           es_abono: false,
+          tipo_impacto: 'RESTA',
+          signo: '-',
+          delta: -monto,
+          saldo_anterior: 0,
+          saldo_resultante: 0,
           confirmado: true,
           rechazado: false,
           origen_tabla: 'cda_gastos_diarios'
         });
       });
 
-      closedMovements.sort((a, b) => {
-        const fCmp = String(b.fecha).localeCompare(String(a.fecha));
+      // Encadenar saldos para ciclos cerrados
+      const closedChronological = [...closedMovements].sort((a, b) => {
+        const fCmp = String(a.fecha).localeCompare(String(b.fecha));
         if (fCmp !== 0) return fCmp;
-        return String(b.id).localeCompare(String(a.id));
+        const tA = a.created_at || '';
+        const tB = b.created_at || '';
+        if (tA && tB && tA !== tB) return tA.localeCompare(tB);
+        const nA = typeof a.id === 'number' ? a.id : parseInt(String(a.id).replace(/\D/g, ''), 10) || 0;
+        const nB = typeof b.id === 'number' ? b.id : parseInt(String(b.id).replace(/\D/g, ''), 10) || 0;
+        return nA - nB;
+      });
+
+      let pastRunning = arrPast;
+      closedChronological.forEach((m) => {
+        m.saldo_anterior = pastRunning;
+        const effDelta = m.rechazado ? 0 : m.delta;
+        m.saldo_resultante = Math.round((pastRunning + effDelta) * 100) / 100;
+        pastRunning = m.saldo_resultante;
       });
 
       list.push({
@@ -520,7 +661,7 @@ export const AgencyCycleHistoryTab: React.FC = () => {
           reposicion_premios: [],
           ventas_sistemas: [],
         },
-        movements: closedMovements,
+        movements: closedChronological,
       });
     });
 
@@ -536,6 +677,7 @@ export const AgencyCycleHistoryTab: React.FC = () => {
     rawManualPayments,
     closures,
     systemCycle,
+    usersMap,
   ]);
 
   // Compute Monthly Rows
@@ -580,6 +722,27 @@ export const AgencyCycleHistoryTab: React.FC = () => {
       else if (saldoFinMonth > 0) mStatus = 'pendiente';
       else mStatus = 'favor';
 
+      // Encadenar movimientos del mes en orden cronológico
+      const rawMonthMovements = sorted.flatMap((r) => r.movements);
+      const monthChronological = [...rawMonthMovements].sort((a, b) => {
+        const fCmp = String(a.fecha).localeCompare(String(b.fecha));
+        if (fCmp !== 0) return fCmp;
+        const tA = a.created_at || '';
+        const tB = b.created_at || '';
+        if (tA && tB && tA !== tB) return tA.localeCompare(tB);
+        const nA = typeof a.id === 'number' ? a.id : parseInt(String(a.id).replace(/\D/g, ''), 10) || 0;
+        const nB = typeof b.id === 'number' ? b.id : parseInt(String(b.id).replace(/\D/g, ''), 10) || 0;
+        return nA - nB;
+      });
+
+      let mRunning = saldoIniMonth;
+      monthChronological.forEach((m) => {
+        m.saldo_anterior = mRunning;
+        const effDelta = m.rechazado ? 0 : m.delta;
+        m.saldo_resultante = Math.round((mRunning + effDelta) * 100) / 100;
+        mRunning = m.saldo_resultante;
+      });
+
       months.push({
         id: `month_${ym}`,
         tipo_periodo: 'mensual',
@@ -604,7 +767,7 @@ export const AgencyCycleHistoryTab: React.FC = () => {
           reposicion_premios: sorted.flatMap((r) => r.vouchers.reposicion_premios),
           ventas_sistemas: sorted.flatMap((r) => r.vouchers.ventas_sistemas),
         },
-        movements: sorted.flatMap((r) => r.movements),
+        movements: monthChronological,
       });
     });
 
@@ -613,7 +776,7 @@ export const AgencyCycleHistoryTab: React.FC = () => {
 
   const activeRows = periodicity === 'semanal' ? weeklyHistoryRows : monthlyHistoryRows;
 
-  // Lista unificada y desduplicada de todos los movimientos (1 a 1)
+  // Lista unificada y desduplicada de todos los movimientos (1 a 1 con ID)
   const allMovements = useMemo(() => {
     const seen = new Set<string>();
     const list: DetailedMovement[] = [];
@@ -626,12 +789,54 @@ export const AgencyCycleHistoryTab: React.FC = () => {
         }
       });
     });
+
     return list.sort((a, b) => {
-      const fCmp = String(b.fecha).localeCompare(String(a.fecha));
-      if (fCmp !== 0) return fCmp;
-      return String(b.id).localeCompare(String(a.id));
+      if (movementSortOrder === 'asc') {
+        const fCmp = String(a.fecha).localeCompare(String(b.fecha));
+        if (fCmp !== 0) return fCmp;
+        const tA = a.created_at || '';
+        const tB = b.created_at || '';
+        if (tA && tB && tA !== tB) return tA.localeCompare(tB);
+        const nA = typeof a.id === 'number' ? a.id : parseInt(String(a.id).replace(/\D/g, ''), 10) || 0;
+        const nB = typeof b.id === 'number' ? b.id : parseInt(String(b.id).replace(/\D/g, ''), 10) || 0;
+        return nA - nB;
+      } else {
+        const fCmp = String(b.fecha).localeCompare(String(a.fecha));
+        if (fCmp !== 0) return fCmp;
+        const tA = a.created_at || '';
+        const tB = b.created_at || '';
+        if (tA && tB && tA !== tB) return tB.localeCompare(tA);
+        const nA = typeof a.id === 'number' ? a.id : parseInt(String(a.id).replace(/\D/g, ''), 10) || 0;
+        const nB = typeof b.id === 'number' ? b.id : parseInt(String(b.id).replace(/\D/g, ''), 10) || 0;
+        return nB - nA;
+      }
     });
-  }, [activeRows]);
+  }, [activeRows, movementSortOrder]);
+
+  // Resumen del extracto bancario para métricas superiores
+  const bankExtractSummary = useMemo(() => {
+    const latestRow = activeRows.length > 0 ? activeRows[0] : null;
+    const initialBalance = latestRow ? latestRow.arrastre_inicial : 0;
+    
+    // Sumas (+): Ventas y Reposiciones
+    const totalSumas = allMovements
+      .filter((m) => !m.rechazado && m.tipo_impacto === 'SUMA')
+      .reduce((sum, curr) => sum + curr.monto, 0);
+
+    // Restas (-): Efectivo, Cobradores, Bancos y Gastos
+    const totalRestas = allMovements
+      .filter((m) => !m.rechazado && m.tipo_impacto === 'RESTA')
+      .reduce((sum, curr) => sum + curr.monto, 0);
+
+    const saldoResultante = latestRow ? latestRow.saldo_final : (initialBalance + totalSumas - totalRestas);
+
+    return {
+      initialBalance,
+      totalSumas,
+      totalRestas,
+      saldoResultante,
+    };
+  }, [activeRows, allMovements]);
 
   // Conteo de movimientos por categoría
   const categoryCounts = useMemo(() => {
@@ -979,7 +1184,7 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                                       📋 {row.periodo_label}
                                     </span>
                                     <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                                      Movimientos Detallados del Período ({row.movements.length} movimientos &bull; 1 movimiento = 1 ID)
+                                      Extracto y Movimientos del Período ({row.movements.length} operaciones &bull; 1 ID por movimiento)
                                     </h4>
                                   </div>
                                   <button
@@ -993,22 +1198,54 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                                   </button>
                                 </div>
 
+                                {/* Mini-Barra Resumen de Extracto del Período */}
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-2.5 rounded-xl bg-[#061015] border border-slate-800 text-xs">
+                                  <div>
+                                    <span className="text-[10px] text-slate-400 font-bold block uppercase">🏁 Viene con (Saldo Ant.)</span>
+                                    <span className="font-mono font-bold text-slate-200">
+                                      {formatCurrency(row.arrastre_inicial, selectedCurrency)}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-[10px] text-emerald-400 font-bold block uppercase">➕ Total Sumas (+ Cargos)</span>
+                                    <span className="font-mono font-bold text-emerald-400">
+                                      +{formatCurrency(row.venta_neta + row.reposicion_premios, selectedCurrency)}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-[10px] text-rose-400 font-bold block uppercase">➖ Total Restas (- Abonos)</span>
+                                    <span className="font-mono font-bold text-rose-400">
+                                      -{formatCurrency(row.efectivo_qr + row.bancos + row.gastos, selectedCurrency)}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-[10px] text-cyan-400 font-bold block uppercase">💳 Saldo Resultante</span>
+                                    <span className={`font-mono font-black ${
+                                      row.saldo_final > 0 ? 'text-rose-400' : row.saldo_final < 0 ? 'text-cyan-400' : 'text-emerald-400'
+                                    }`}>
+                                      {formatCurrency(row.saldo_final, selectedCurrency)}
+                                    </span>
+                                  </div>
+                                </div>
+
                                 {row.movements.length === 0 ? (
                                   <p className="text-xs text-slate-500 italic py-4 text-center">
                                     No hay movimientos individuales registrados para este ciclo en {selectedCurrency}.
                                   </p>
                                 ) : (
                                   <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-[#071217]">
-                                    <table className="w-full text-left text-xs">
+                                    <table className="w-full text-left text-xs border-collapse">
                                       <thead className="bg-slate-900/90 text-slate-400 font-bold uppercase text-[10px] tracking-wider border-b border-slate-800">
                                         <tr>
-                                          <th className="py-2.5 px-3">ID Movimiento</th>
+                                          <th className="py-2.5 px-3">ID</th>
                                           <th className="py-2.5 px-3">Fecha</th>
                                           <th className="py-2.5 px-3">Categoría</th>
                                           <th className="py-2.5 px-3">Concepto</th>
                                           <th className="py-2.5 px-3">Referencia / Comprobante</th>
                                           <th className="py-2.5 px-3">Cajero / Resp.</th>
-                                          <th className="py-2.5 px-3 text-right">Monto</th>
+                                          <th className="py-2.5 px-3 text-right">Viene con (Saldo Ant.)</th>
+                                          <th className="py-2.5 px-3 text-center">Movimiento (+ / -)</th>
+                                          <th className="py-2.5 px-3 text-right">Saldo Resultante</th>
                                           <th className="py-2.5 px-3 text-center">Estado</th>
                                         </tr>
                                       </thead>
@@ -1035,18 +1272,41 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                                             <td className="py-2.5 px-3 text-slate-400 text-[11px]">
                                               {m.referencia}
                                             </td>
-                                            <td className="py-2.5 px-3 font-sans text-slate-400 text-[11px]">
-                                              {m.cajero}
+                                            <td className="py-2.5 px-3 font-sans text-slate-300 text-[11px]">
+                                              <span className="px-2 py-0.5 rounded bg-slate-800/60 border border-slate-700/60">
+                                                {m.cajero}
+                                              </span>
                                             </td>
-                                            <td className={`py-2.5 px-3 text-right font-bold text-xs ${
-                                              m.es_abono 
-                                                ? 'text-emerald-400' 
-                                                : m.tipo_categoria === 'GASTO' 
-                                                ? 'text-rose-400' 
-                                                : 'text-slate-200'
-                                            }`}>
-                                              {m.es_abono ? '-' : m.tipo_categoria === 'GASTO' ? '-' : '+'}
-                                              {formatCurrency(m.monto, selectedCurrency)}
+                                            <td className="py-2.5 px-3 text-right font-bold text-xs text-slate-300 whitespace-nowrap">
+                                              {formatCurrency(m.saldo_anterior, selectedCurrency)}
+                                            </td>
+                                            <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                                              {m.rechazado ? (
+                                                <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-800 text-slate-500 line-through">
+                                                  {formatCurrency(m.monto, selectedCurrency)}
+                                                </span>
+                                              ) : m.tipo_impacto === 'SUMA' ? (
+                                                <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-xs font-black">
+                                                  <ArrowUpRight className="w-3 h-3" />
+                                                  +{formatCurrency(m.monto, selectedCurrency)}
+                                                </span>
+                                              ) : (
+                                                <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-lg bg-rose-500/15 text-rose-400 border border-rose-500/30 text-xs font-black">
+                                                  <ArrowDownRight className="w-3 h-3" />
+                                                  -{formatCurrency(m.monto, selectedCurrency)}
+                                                </span>
+                                              )}
+                                            </td>
+                                            <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                                              <span className={`inline-flex items-center px-2 py-0.5 rounded-lg font-black text-xs border ${
+                                                m.saldo_resultante > 0
+                                                  ? 'bg-rose-500/10 text-rose-300 border-rose-500/25'
+                                                  : m.saldo_resultante < 0
+                                                  ? 'bg-cyan-500/10 text-cyan-300 border-cyan-500/25'
+                                                  : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/25'
+                                              }`}>
+                                                {formatCurrency(m.saldo_resultante, selectedCurrency)}
+                                              </span>
                                             </td>
                                             <td className="py-2.5 px-3 text-center font-sans">
                                               {m.rechazado ? (
@@ -1136,27 +1396,126 @@ export const AgencyCycleHistoryTab: React.FC = () => {
             </div>
           </div>
 
-          {/* Tabla de Movimientos por Separado (1 Movimiento = 1 ID) */}
+          {/* Resumen Superior de Extracto Bancario */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 p-4 bg-[#0D1B22] border border-slate-800 rounded-3xl shadow-xl">
+            <div className="p-3.5 rounded-2xl bg-[#071217] border border-slate-800">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">🏁 Viene con (Saldo Inicial)</span>
+              <span className="text-base sm:text-lg font-black font-mono text-white mt-1 block">
+                {formatCurrency(bankExtractSummary.initialBalance, selectedCurrency)}
+              </span>
+              <span className="text-[10px] text-slate-500">Arrastre al corte de inicio</span>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-[#071217] border border-emerald-500/20">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-400 block">➕ Total Sumas (+ Cargos)</span>
+              <span className="text-base sm:text-lg font-black font-mono text-emerald-400 mt-1 block">
+                +{formatCurrency(bankExtractSummary.totalSumas, selectedCurrency)}
+              </span>
+              <span className="text-[10px] text-slate-500">Ventas netas y reposiciones</span>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-[#071217] border border-rose-500/20">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-rose-400 block">➖ Total Restas (- Abonos)</span>
+              <span className="text-base sm:text-lg font-black font-mono text-rose-400 mt-1 block">
+                -{formatCurrency(bankExtractSummary.totalRestas, selectedCurrency)}
+              </span>
+              <span className="text-[10px] text-slate-500">Efectivo, cobradores, bancos y gastos</span>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-[#071217] border border-slate-800">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-cyan-400 block">💳 Saldo Resultante en Cuenta</span>
+              <span className={`text-base sm:text-lg font-black font-mono mt-1 block ${
+                bankExtractSummary.saldoResultante > 0 ? 'text-rose-400' : bankExtractSummary.saldoResultante < 0 ? 'text-cyan-400' : 'text-emerald-400'
+              }`}>
+                {formatCurrency(bankExtractSummary.saldoResultante, selectedCurrency)}
+              </span>
+              <span className="text-[10px] text-slate-500">Posición actual consolidada</span>
+            </div>
+          </div>
+
+          {/* Barra de Filtros, Búsqueda y Ordenamiento */}
+          <div className="bg-[#0D1B22] border border-slate-800 rounded-3xl p-4 sm:p-5 shadow-xl space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="relative flex-1 max-w-md">
+                <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Buscar por ID (#60), concepto, referencia, cajero..."
+                  className="w-full bg-[#071217] border border-slate-700/80 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-sans"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 self-end sm:self-auto">
+                <button
+                  onClick={() => setMovementSortOrder(movementSortOrder === 'desc' ? 'asc' : 'desc')}
+                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1.5 border border-slate-700 transition-all cursor-pointer"
+                  title="Alternar orden cronológico"
+                >
+                  <ArrowUpDown className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>{movementSortOrder === 'desc' ? '⏱️ Más reciente primero' : '📅 Cronológico (Antiguo a Reciente)'}</span>
+                </button>
+
+                <span className="text-xs text-slate-400 font-mono font-bold">
+                  {filteredMovements.length} / {allMovements.length} mov.
+                </span>
+              </div>
+            </div>
+
+            {/* Píldoras de Categoría */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-800">
+              {[
+                { key: 'all', label: 'Todos', count: categoryCounts.all },
+                { key: 'EFECTIVO', label: '💵 Efectivo Taquilla', count: categoryCounts.EFECTIVO },
+                { key: 'COBRADOR', label: '🛵 Cobrador Ruta (QR)', count: categoryCounts.COBRADOR },
+                { key: 'BANCO', label: '🏛️ Bancos', count: categoryCounts.BANCO },
+                { key: 'GASTO', label: '🏷️ Gastos', count: categoryCounts.GASTO },
+                { key: 'VENTA', label: '📊 Ventas Netas', count: categoryCounts.VENTA },
+                { key: 'PREMIO', label: '🏆 Reposición Premios', count: categoryCounts.PREMIO },
+              ].map((c) => (
+                <button
+                  key={c.key}
+                  onClick={() => setCategoryFilter(c.key)}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    categoryFilter === c.key
+                      ? 'bg-emerald-500 text-slate-950 shadow font-black'
+                      : 'bg-[#071217] text-slate-400 hover:text-white border border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  <span>{c.label}</span>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                    categoryFilter === c.key ? 'bg-slate-900/40 text-slate-950' : 'bg-slate-800 text-slate-300'
+                  }`}>
+                    {c.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Tabla de Extracto Bancario (1 Movimiento = 1 ID) */}
           <div className="bg-[#0D1B22] border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead className="bg-[#071217] text-slate-400 border-b border-slate-800 font-bold uppercase tracking-wider text-[10px]">
                   <tr>
-                    <th className="py-3 px-4">ID</th>
-                    <th className="py-3 px-4">Fecha</th>
-                    <th className="py-3 px-4">Categoría</th>
+                    <th className="py-3 px-3">ID</th>
+                    <th className="py-3 px-3">Fecha</th>
+                    <th className="py-3 px-3">Categoría</th>
                     <th className="py-3 px-4">Concepto</th>
                     <th className="py-3 px-4">Referencia / Comprobante</th>
-                    <th className="py-3 px-4">Cajero / Responsable</th>
-                    <th className="py-3 px-4 text-right">Monto</th>
-                    <th className="py-3 px-4 text-center">Impacto</th>
-                    <th className="py-3 px-4 text-center">Estado</th>
+                    <th className="py-3 px-3">Cajero / Responsable</th>
+                    <th className="py-3 px-4 text-right">Viene con (Saldo Ant.)</th>
+                    <th className="py-3 px-4 text-center">Movimiento (+ / -)</th>
+                    <th className="py-3 px-4 text-right">Saldo Resultante</th>
+                    <th className="py-3 px-3 text-center">Estado</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/80 font-mono">
                   {filteredMovements.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="py-12 text-center text-slate-500 font-sans">
+                      <td colSpan={10} className="py-12 text-center text-slate-500 font-sans">
                         No se encontraron movimientos con los filtros seleccionados para {selectedCurrency}.
                       </td>
                     </tr>
@@ -1166,24 +1525,24 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                         key={`${m.origen_tabla}_${m.id}_${idx}`}
                         className="hover:bg-slate-800/40 transition-colors"
                       >
-                        <td className="py-3 px-4 font-mono font-bold">
-                          <span className="px-2.5 py-1 rounded-lg bg-slate-800/90 border border-slate-700 text-emerald-300 inline-flex items-center gap-1 shadow-sm">
+                        <td className="py-3 px-3 font-mono font-bold">
+                          <span className="px-2 py-0.5 rounded-lg bg-slate-800/90 border border-slate-700 text-emerald-300 inline-flex items-center gap-1 shadow-sm text-xs">
                             <Hash className="w-3 h-3 text-slate-500" />
                             {m.id_display.replace('#', '')}
                           </span>
                         </td>
 
-                        <td className="py-3 px-4 font-sans text-slate-300 text-xs whitespace-nowrap">
+                        <td className="py-3 px-3 font-sans text-slate-300 text-xs whitespace-nowrap">
                           {formatDate(m.fecha)}
                         </td>
 
-                        <td className="py-3 px-4 font-sans">
+                        <td className="py-3 px-3 font-sans">
                           <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${getCategoryBadgeClass(m.tipo_categoria)}`}>
                             {m.categoria_label}
                           </span>
                         </td>
 
-                        <td className="py-3 px-4 font-sans text-slate-200 font-semibold">
+                        <td className="py-3 px-4 font-sans text-slate-200 font-semibold text-xs">
                           {m.concepto}
                         </td>
 
@@ -1191,38 +1550,50 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                           {m.referencia}
                         </td>
 
-                        <td className="py-3 px-4 font-sans text-slate-400 text-xs">
-                          {m.cajero}
+                        <td className="py-3 px-3 font-sans text-slate-300 text-xs">
+                          <span className="px-2 py-0.5 rounded bg-slate-800/60 border border-slate-700/60 inline-block">
+                            {m.cajero}
+                          </span>
                         </td>
 
-                        <td className={`py-3 px-4 text-right font-black text-sm font-mono ${
-                          m.es_abono 
-                            ? 'text-emerald-400' 
-                            : m.tipo_categoria === 'GASTO' 
-                            ? 'text-rose-400' 
-                            : 'text-slate-100'
-                        }`}>
-                          {m.es_abono ? '-' : m.tipo_categoria === 'GASTO' ? '-' : '+'}
-                          {formatCurrency(m.monto, selectedCurrency)}
+                        {/* Viene con (Saldo Ant.) */}
+                        <td className="py-3 px-4 text-right font-mono font-bold text-slate-300 text-xs whitespace-nowrap">
+                          {formatCurrency(m.saldo_anterior, selectedCurrency)}
                         </td>
 
-                        <td className="py-3 px-4 text-center font-sans">
-                          {m.es_abono ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                              <ArrowDownRight className="w-3 h-3" /> Abono / Pago
+                        {/* Movimiento (+ / -) */}
+                        <td className="py-3 px-4 text-center font-mono whitespace-nowrap">
+                          {m.rechazado ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-slate-800 text-slate-500 line-through">
+                              {formatCurrency(m.monto, selectedCurrency)}
                             </span>
-                          ) : m.tipo_categoria === 'GASTO' ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">
-                              <ArrowDownRight className="w-3 h-3" /> Gasto
+                          ) : m.tipo_impacto === 'SUMA' ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-xs font-black">
+                              <ArrowUpRight className="w-3.5 h-3.5" />
+                              +{formatCurrency(m.monto, selectedCurrency)}
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20">
-                              <ArrowUpRight className="w-3 h-3" /> Cargo
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/15 text-rose-400 border border-rose-500/30 text-xs font-black">
+                              <ArrowDownRight className="w-3.5 h-3.5" />
+                              -{formatCurrency(m.monto, selectedCurrency)}
                             </span>
                           )}
                         </td>
 
-                        <td className="py-3 px-4 text-center font-sans">
+                        {/* Saldo Resultante */}
+                        <td className="py-3 px-4 text-right font-mono whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-lg font-black text-xs border ${
+                            m.saldo_resultante > 0
+                              ? 'bg-rose-500/10 text-rose-300 border-rose-500/25'
+                              : m.saldo_resultante < 0
+                              ? 'bg-cyan-500/10 text-cyan-300 border-cyan-500/25'
+                              : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/25'
+                          }`}>
+                            {formatCurrency(m.saldo_resultante, selectedCurrency)}
+                          </span>
+                        </td>
+
+                        <td className="py-3 px-3 text-center font-sans">
                           {m.rechazado ? (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">
                               Rechazado
@@ -1255,7 +1626,7 @@ export const AgencyCycleHistoryTab: React.FC = () => {
               <div className="flex items-center gap-2.5">
                 <Receipt className="w-5 h-5 text-emerald-400" />
                 <div>
-                  <h3 className="text-sm font-bold text-white">Comprobantes y Movimientos del Período</h3>
+                  <h3 className="text-sm font-bold text-white">Extracto de Comprobantes y Movimientos Bancarios</h3>
                   <p className="text-[11px] text-slate-400 font-mono">{selectedDrilldownRow.periodo_label} &bull; {selectedCurrency}</p>
                 </div>
               </div>
@@ -1267,17 +1638,47 @@ export const AgencyCycleHistoryTab: React.FC = () => {
               </button>
             </div>
 
+            {/* Mini-Barra Resumen en Modal */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 px-5 py-2.5 bg-[#071217] border-b border-slate-800 text-xs">
+              <div>
+                <span className="text-[10px] text-slate-400 font-bold block uppercase">🏁 Viene con</span>
+                <span className="font-mono font-bold text-slate-200">
+                  {formatCurrency(selectedDrilldownRow.arrastre_inicial, selectedCurrency)}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] text-emerald-400 font-bold block uppercase">➕ Total Sumas</span>
+                <span className="font-mono font-bold text-emerald-400">
+                  +{formatCurrency(selectedDrilldownRow.venta_neta + selectedDrilldownRow.reposicion_premios, selectedCurrency)}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] text-rose-400 font-bold block uppercase">➖ Total Restas</span>
+                <span className="font-mono font-bold text-rose-400">
+                  -{formatCurrency(selectedDrilldownRow.efectivo_qr + selectedDrilldownRow.bancos + selectedDrilldownRow.gastos, selectedCurrency)}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] text-cyan-400 font-bold block uppercase">💳 Saldo Resultante</span>
+                <span className={`font-mono font-black ${
+                  selectedDrilldownRow.saldo_final > 0 ? 'text-rose-400' : selectedDrilldownRow.saldo_final < 0 ? 'text-cyan-400' : 'text-emerald-400'
+                }`}>
+                  {formatCurrency(selectedDrilldownRow.saldo_final, selectedCurrency)}
+                </span>
+              </div>
+            </div>
+
             {/* Filtros dentro del modal */}
             <div className="px-5 pt-3 pb-2 border-b border-slate-800/80 bg-[#071217] flex items-center justify-between gap-2 overflow-x-auto">
               <div className="flex items-center gap-1.5">
                 {[
                   { key: 'all', label: 'Todos' },
                   { key: 'EFECTIVO', label: '💵 Efectivo' },
-                  { key: 'BANCO', label: '🏛️ Bancos' },
                   { key: 'COBRADOR', label: '🛵 Cobrador' },
+                  { key: 'BANCO', label: '🏛️ Bancos' },
                   { key: 'GASTO', label: '🏷️ Gastos' },
-                  { key: 'PREMIO', label: '🏆 Premios' },
                   { key: 'VENTA', label: '📊 Ventas' },
+                  { key: 'PREMIO', label: '🏆 Premios' },
                 ].map((f) => (
                   <button
                     key={f.key}
@@ -1336,26 +1737,56 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                             {m.cajero && m.cajero !== '-' && (
                               <>
                                 <span>&bull;</span>
-                                <span className="text-slate-400">Resp: {m.cajero}</span>
+                                <span className="text-slate-300">Resp: {m.cajero}</span>
                               </>
                             )}
                           </div>
                         </div>
                       </div>
 
-                      <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-800">
-                        <span className={`font-mono font-black text-sm ${
-                          m.es_abono 
-                            ? 'text-emerald-400' 
-                            : m.tipo_categoria === 'GASTO' 
-                            ? 'text-rose-400' 
-                            : 'text-slate-200'
-                        }`}>
-                          {m.es_abono ? '-' : m.tipo_categoria === 'GASTO' ? '-' : '+'}
-                          {formatCurrency(m.monto, selectedCurrency)}
-                        </span>
-                        <span className="text-[10px] font-bold text-slate-400 mt-0.5">
-                          {m.confirmado ? '✅ Confirmado' : m.rechazado ? '❌ Rechazado' : '⏳ En Tránsito'}
+                      <div className="flex flex-wrap items-center gap-3 justify-between sm:justify-end border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-800">
+                        {/* Viene con */}
+                        <div className="text-right">
+                          <span className="text-[9px] text-slate-500 uppercase font-bold block">Viene con</span>
+                          <span className="font-mono font-bold text-slate-300 text-xs">
+                            {formatCurrency(m.saldo_anterior, selectedCurrency)}
+                          </span>
+                        </div>
+
+                        {/* Movimiento */}
+                        <div className="text-right">
+                          <span className="text-[9px] text-slate-500 uppercase font-bold block">Movimiento</span>
+                          {m.rechazado ? (
+                            <span className="font-mono text-xs text-slate-500 line-through">
+                              {formatCurrency(m.monto, selectedCurrency)}
+                            </span>
+                          ) : m.tipo_impacto === 'SUMA' ? (
+                            <span className="font-mono font-black text-xs text-emerald-400 inline-flex items-center gap-0.5">
+                              <ArrowUpRight className="w-3 h-3" />+{formatCurrency(m.monto, selectedCurrency)}
+                            </span>
+                          ) : (
+                            <span className="font-mono font-black text-xs text-rose-400 inline-flex items-center gap-0.5">
+                              <ArrowDownRight className="w-3 h-3" />-{formatCurrency(m.monto, selectedCurrency)}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Saldo Resultante */}
+                        <div className="text-right">
+                          <span className="text-[9px] text-slate-500 uppercase font-bold block">Saldo</span>
+                          <span className={`font-mono font-black text-xs px-2 py-0.5 rounded border inline-block ${
+                            m.saldo_resultante > 0
+                              ? 'bg-rose-500/10 text-rose-300 border-rose-500/25'
+                              : m.saldo_resultante < 0
+                              ? 'bg-cyan-500/10 text-cyan-300 border-cyan-500/25'
+                              : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/25'
+                          }`}>
+                            {formatCurrency(m.saldo_resultante, selectedCurrency)}
+                          </span>
+                        </div>
+
+                        <span className="text-[10px] font-bold text-slate-400 self-center">
+                          {m.confirmado ? '✅' : m.rechazado ? '❌' : '⏳'}
                         </span>
                       </div>
                     </div>
