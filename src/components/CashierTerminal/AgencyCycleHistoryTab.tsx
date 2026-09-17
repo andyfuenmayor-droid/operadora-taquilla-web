@@ -7,11 +7,34 @@ import {
   RefreshCw,
   Printer,
   ChevronRight,
+  ChevronDown,
   CheckCircle2,
   AlertTriangle,
   Receipt,
-  X
+  X,
+  Search,
+  ArrowDownRight,
+  ArrowUpRight,
+  Eye,
+  Hash,
+  BarChart3
 } from 'lucide-react';
+
+export interface DetailedMovement {
+  id: string | number;
+  id_display: string;
+  fecha: string;
+  tipo_categoria: 'EFECTIVO' | 'COBRADOR' | 'BANCO' | 'GASTO' | 'PREMIO' | 'VENTA';
+  categoria_label: string;
+  concepto: string;
+  referencia: string;
+  cajero: string;
+  monto: number;
+  es_abono: boolean;
+  confirmado: boolean;
+  rechazado: boolean;
+  origen_tabla: string;
+}
 
 interface CycleHistoryRow {
   id: string;
@@ -31,11 +54,13 @@ interface CycleHistoryRow {
   status: 'pagado' | 'pendiente' | 'favor';
   vouchers: {
     cobradores_qr: any[];
+    efectivo: any[];
     bancos: any[];
     gastos: any[];
     reposicion_premios: any[];
     ventas_sistemas: any[];
   };
+  movements: DetailedMovement[];
 }
 
 export const AgencyCycleHistoryTab: React.FC = () => {
@@ -44,6 +69,15 @@ export const AgencyCycleHistoryTab: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCurrency, setSelectedCurrency] = useState<'BS' | 'USD' | 'COP'>('COP');
   const [periodicity, setPeriodicity] = useState<'semanal' | 'mensual'>('semanal');
+  const [viewMode, setViewMode] = useState<'resumen' | 'movimientos'>('resumen');
+
+  // Filtros para la vista de movimientos detallados
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
+
+  // Filtro dentro del modal drilldown
+  const [modalCategoryFilter, setModalCategoryFilter] = useState<string>('all');
 
   // Agency data
   const targetAgencyName = useMemo(() => {
@@ -79,7 +113,7 @@ export const AgencyCycleHistoryTab: React.FC = () => {
         supabase.from('cierres_semanales').select('*').ilike('entidad', targetAgencyName).order('fecha_cierre', { ascending: false }),
         supabase.from('carga_actual').select('*').ilike('agencia', targetAgencyName),
         supabase.from('cda_pagos_diarios').select('*').or(`agencia.ilike.${targetAgencyName},nombre_agency.ilike.${targetAgencyName}`),
-        supabase.from('cda_pagos_bancarios').select('*').ilike('agencia', targetAgencyName).eq('confirmado', true),
+        supabase.from('cda_pagos_bancarios').select('*').or(`agencia.ilike.${targetAgencyName},nombre_agency.ilike.${targetAgencyName}`),
         supabase.from('cda_gastos_diarios').select('*').or(`agencia.ilike.${targetAgencyName},nombre_agency.ilike.${targetAgencyName}`),
         supabase.from('pagos_semana').select('*').ilike('agencia', targetAgencyName),
       ]);
@@ -118,6 +152,26 @@ export const AgencyCycleHistoryTab: React.FC = () => {
       supabase.removeChannel(channel);
     };
   }, [targetAgencyName]);
+
+  // Helper para clases de badge por categoría
+  const getCategoryBadgeClass = (tipo: DetailedMovement['tipo_categoria']) => {
+    switch (tipo) {
+      case 'EFECTIVO':
+        return 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+      case 'COBRADOR':
+        return 'bg-amber-500/20 text-amber-400 border border-amber-500/30';
+      case 'BANCO':
+        return 'bg-sky-500/20 text-sky-400 border border-sky-500/30';
+      case 'GASTO':
+        return 'bg-rose-500/20 text-rose-400 border border-rose-500/30';
+      case 'PREMIO':
+        return 'bg-purple-500/20 text-purple-400 border border-purple-500/30';
+      case 'VENTA':
+        return 'bg-teal-500/20 text-teal-400 border border-teal-500/30';
+      default:
+        return 'bg-slate-700/40 text-slate-300 border border-slate-600/30';
+    }
+  };
 
   // Compute Weekly Rows
   const weeklyHistoryRows = useMemo<CycleHistoryRow[]>(() => {
@@ -164,7 +218,7 @@ export const AgencyCycleHistoryTab: React.FC = () => {
       const matchMon = normalizarMoneda(p.moneda) === mon;
       const fStr = String(p.fecha || p.created_at || '').slice(0, 10);
       const inCycle = (!cycleDesde || fStr >= cycleDesde) && (!cycleHasta || fStr <= cycleHasta);
-      return matchMon && inCycle && !p.rechazado;
+      return matchMon && inCycle && (p.confirmado === undefined || p.confirmado === null || Boolean(p.confirmado)) && !p.rechazado;
     });
     const bancosTot = agBankList.reduce((sum, curr) => sum + Number(curr.monto || 0), 0);
 
@@ -192,6 +246,120 @@ export const AgencyCycleHistoryTab: React.FC = () => {
     else if (activeFinal > 0) activeStatus = 'pendiente';
     else activeStatus = 'favor';
 
+    // Construcción de Movimientos Detallados (1 movimiento = 1 ID)
+    const activeMovements: DetailedMovement[] = [];
+
+    // Pagos diarios (efectivo y cobradores)
+    const allActiveDaily = rawDailyPayments.filter((p) => {
+      const matchMon = normalizarMoneda(p.moneda) === mon;
+      const fStr = String(p.fecha || p.created_at || '').slice(0, 10);
+      const inCycle = (!cycleDesde || fStr >= cycleDesde) && (!cycleHasta || fStr <= cycleHasta);
+      return matchMon && inCycle && !p.rechazado;
+    });
+
+    allActiveDaily.forEach((p) => {
+      const isCob = Boolean(p.qr_token) || String(p.tipo_pago || '').toUpperCase().includes('COBRADOR');
+      const isConf = Boolean(p.confirmado) || Boolean(p.confirmado_supervisor) || Boolean(p.fecha_escaneo_cobrador);
+      activeMovements.push({
+        id: p.id,
+        id_display: `#${p.id}`,
+        fecha: String(p.fecha || p.created_at || '').slice(0, 10),
+        tipo_categoria: isCob ? 'COBRADOR' : 'EFECTIVO',
+        categoria_label: isCob ? '🛵 Cobrador Ruta (QR)' : '💵 Efectivo Taquilla',
+        concepto: p.tipo_pago || (isCob ? 'Entrega a Cobrador' : 'Entregado a Supervisor'),
+        referencia: p.qr_token ? `QR: ${p.qr_token}` : (p.referencia || (p.supervisor_nombre ? `Sup: ${p.supervisor_nombre}` : 'Efectivo')),
+        cajero: p.cajero || p.nombre_cajero || p.cajero_id || 'Cajero',
+        monto: Number(p.monto || 0),
+        es_abono: true,
+        confirmado: isConf,
+        rechazado: Boolean(p.rechazado),
+        origen_tabla: 'cda_pagos_diarios'
+      });
+    });
+
+    // Pagos bancarios
+    agBankList.forEach((b) => {
+      activeMovements.push({
+        id: b.id,
+        id_display: `#${b.id}`,
+        fecha: String(b.fecha || b.created_at || '').slice(0, 10),
+        tipo_categoria: 'BANCO',
+        categoria_label: '🏛️ Pago Bancario',
+        concepto: b.metodo_pago || b.concepto || 'Transferencia Bancaria',
+        referencia: b.referencia ? `REF: ${b.referencia} ${b.pos_o_cuenta ? `(${b.pos_o_cuenta})` : ''}` : (b.pos_o_cuenta || 'Banco'),
+        cajero: b.datos_pagador || b.cajero || '-',
+        monto: Number(b.monto || 0),
+        es_abono: true,
+        confirmado: Boolean(b.confirmado),
+        rechazado: Boolean(b.rechazado),
+        origen_tabla: 'cda_pagos_bancarios'
+      });
+    });
+
+    // Gastos operativos
+    agExpList.forEach((g) => {
+      activeMovements.push({
+        id: g.id,
+        id_display: `#${g.id}`,
+        fecha: String(g.fecha || g.created_at || '').slice(0, 10),
+        tipo_categoria: 'GASTO',
+        categoria_label: '🏷️ Gasto Operativo',
+        concepto: g.concepto || 'Gasto General',
+        referencia: g.descripcion || 'Gasto registrado',
+        cajero: g.cajero || g.nombre_cajero || '-',
+        monto: Number(g.monto || 0),
+        es_abono: false,
+        confirmado: Boolean(g.confirmado || g.confirmado_supervisor),
+        rechazado: Boolean(g.rechazado),
+        origen_tabla: 'cda_gastos_diarios'
+      });
+    });
+
+    // Reposiciones de premios (pagos_semana)
+    agManualPrem.forEach((p) => {
+      activeMovements.push({
+        id: p.id || `prem_${p.fecha}`,
+        id_display: p.id ? `#${p.id}` : '#PREMIO',
+        fecha: String(p.fecha || p.created_at || '').slice(0, 10),
+        tipo_categoria: 'PREMIO',
+        categoria_label: '🏆 Reposición Premios',
+        concepto: p.tipo_pago || p.concepto || 'Abono / Reposición',
+        referencia: p.referencia || 'Reposición de Caja',
+        cajero: '-',
+        monto: Number(p.monto || 0),
+        es_abono: false,
+        confirmado: true,
+        rechazado: false,
+        origen_tabla: 'pagos_semana'
+      });
+    });
+
+    // Ventas por sistema
+    agActiveSales.forEach((s) => {
+      const vNeto = Number(s.neto || (Number(s.venta || 0) - Number(s.comision || 0) - Number(s.premios || 0)));
+      activeMovements.push({
+        id: s.id || `vta_${s.sistema}_${s.fecha || 'act'}`,
+        id_display: s.id ? `#${s.id}` : `#VTA-${s.sistema || 'BETM3'}`,
+        fecha: String(s.fecha || systemCycle?.hasta || '').slice(0, 10),
+        tipo_categoria: 'VENTA',
+        categoria_label: '📊 Venta Neta Sistema',
+        concepto: `Venta Sistema ${s.sistema || 'BETM3'}`,
+        referencia: `Venta: ${formatCurrency(s.venta || 0, mon)} | Prem: ${formatCurrency(s.premios || 0, mon)} | Com: ${formatCurrency(s.comision || 0, mon)}`,
+        cajero: '-',
+        monto: vNeto,
+        es_abono: false,
+        confirmado: true,
+        rechazado: false,
+        origen_tabla: 'carga_actual'
+      });
+    });
+
+    activeMovements.sort((a, b) => {
+      const fCmp = String(b.fecha).localeCompare(String(a.fecha));
+      if (fCmp !== 0) return fCmp;
+      return String(b.id).localeCompare(String(a.id));
+    });
+
     list.push({
       id: `active_sem_${systemCycle?.semana || 'actual'}`,
       tipo_periodo: 'semanal',
@@ -210,11 +378,13 @@ export const AgencyCycleHistoryTab: React.FC = () => {
       status: activeStatus,
       vouchers: {
         cobradores_qr: agCobradorList,
+        efectivo: agEfectivoList,
         bancos: agBankList,
         gastos: agExpList,
         reposicion_premios: agManualPrem,
         ventas_sistemas: agActiveSales,
       },
+      movements: activeMovements,
     });
 
     // 2. CLOSED CYCLES
@@ -262,6 +432,70 @@ export const AgencyCycleHistoryTab: React.FC = () => {
       const pastCobTot = histCob.reduce((sum, curr) => sum + Number(curr.monto || 0), 0);
       const pastBankTot = histBank.reduce((sum, curr) => sum + Number(curr.monto || 0), 0);
 
+      // Movimientos de ciclos cerrados
+      const closedMovements: DetailedMovement[] = [];
+
+      histCob.forEach((p) => {
+        const isCob = Boolean(p.qr_token) || String(p.tipo_pago || '').toUpperCase().includes('COBRADOR');
+        closedMovements.push({
+          id: p.id,
+          id_display: `#${p.id}`,
+          fecha: String(p.fecha || p.created_at || '').slice(0, 10),
+          tipo_categoria: isCob ? 'COBRADOR' : 'EFECTIVO',
+          categoria_label: isCob ? '🛵 Cobrador Ruta (QR)' : '💵 Efectivo Taquilla',
+          concepto: p.tipo_pago || (isCob ? 'Entrega a Cobrador' : 'Entregado a Supervisor'),
+          referencia: p.qr_token ? `QR: ${p.qr_token}` : (p.referencia || 'Efectivo'),
+          cajero: p.cajero || p.nombre_cajero || p.cajero_id || 'Cajero',
+          monto: Number(p.monto || 0),
+          es_abono: true,
+          confirmado: Boolean(p.confirmado || p.confirmado_supervisor),
+          rechazado: Boolean(p.rechazado),
+          origen_tabla: 'cda_pagos_diarios'
+        });
+      });
+
+      histBank.forEach((b) => {
+        closedMovements.push({
+          id: b.id,
+          id_display: `#${b.id}`,
+          fecha: String(b.fecha || b.created_at || '').slice(0, 10),
+          tipo_categoria: 'BANCO',
+          categoria_label: '🏛️ Pago Bancario',
+          concepto: b.metodo_pago || b.concepto || 'Transferencia',
+          referencia: b.referencia ? `REF: ${b.referencia}` : 'Banco',
+          cajero: b.datos_pagador || b.cajero || '-',
+          monto: Number(b.monto || 0),
+          es_abono: true,
+          confirmado: Boolean(b.confirmado),
+          rechazado: Boolean(b.rechazado),
+          origen_tabla: 'cda_pagos_bancarios'
+        });
+      });
+
+      histExp.forEach((g) => {
+        closedMovements.push({
+          id: g.id,
+          id_display: `#${g.id}`,
+          fecha: String(g.fecha || g.created_at || '').slice(0, 10),
+          tipo_categoria: 'GASTO',
+          categoria_label: '🏷️ Gasto Operativo',
+          concepto: g.concepto || 'Gasto General',
+          referencia: g.descripcion || 'Gasto',
+          cajero: g.cajero || g.nombre_cajero || '-',
+          monto: Number(g.monto || 0),
+          es_abono: false,
+          confirmado: true,
+          rechazado: false,
+          origen_tabla: 'cda_gastos_diarios'
+        });
+      });
+
+      closedMovements.sort((a, b) => {
+        const fCmp = String(b.fecha).localeCompare(String(a.fecha));
+        if (fCmp !== 0) return fCmp;
+        return String(b.id).localeCompare(String(a.id));
+      });
+
       list.push({
         id: `closed_${c.id}`,
         tipo_periodo: 'semanal',
@@ -279,12 +513,14 @@ export const AgencyCycleHistoryTab: React.FC = () => {
         is_active_cycle: false,
         status: cStatus,
         vouchers: {
-          cobradores_qr: histCob,
+          cobradores_qr: histCob.filter((p) => Boolean(p.qr_token) || String(p.tipo_pago || '').toUpperCase().includes('COBRADOR')),
+          efectivo: histCob.filter((p) => !Boolean(p.qr_token) && !String(p.tipo_pago || '').toUpperCase().includes('COBRADOR')),
           bancos: histBank,
           gastos: histExp,
           reposicion_premios: [],
           ventas_sistemas: [],
         },
+        movements: closedMovements,
       });
     });
 
@@ -362,11 +598,13 @@ export const AgencyCycleHistoryTab: React.FC = () => {
         status: mStatus,
         vouchers: {
           cobradores_qr: sorted.flatMap((r) => r.vouchers.cobradores_qr),
+          efectivo: sorted.flatMap((r) => r.vouchers.efectivo),
           bancos: sorted.flatMap((r) => r.vouchers.bancos),
           gastos: sorted.flatMap((r) => r.vouchers.gastos),
           reposicion_premios: sorted.flatMap((r) => r.vouchers.reposicion_premios),
           ventas_sistemas: sorted.flatMap((r) => r.vouchers.ventas_sistemas),
         },
+        movements: sorted.flatMap((r) => r.movements),
       });
     });
 
@@ -374,6 +612,64 @@ export const AgencyCycleHistoryTab: React.FC = () => {
   }, [weeklyHistoryRows]);
 
   const activeRows = periodicity === 'semanal' ? weeklyHistoryRows : monthlyHistoryRows;
+
+  // Lista unificada y desduplicada de todos los movimientos (1 a 1)
+  const allMovements = useMemo(() => {
+    const seen = new Set<string>();
+    const list: DetailedMovement[] = [];
+    activeRows.forEach((r) => {
+      r.movements.forEach((m) => {
+        const key = `${m.origen_tabla}_${m.id}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          list.push(m);
+        }
+      });
+    });
+    return list.sort((a, b) => {
+      const fCmp = String(b.fecha).localeCompare(String(a.fecha));
+      if (fCmp !== 0) return fCmp;
+      return String(b.id).localeCompare(String(a.id));
+    });
+  }, [activeRows]);
+
+  // Conteo de movimientos por categoría
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {
+      all: allMovements.length,
+      EFECTIVO: 0,
+      BANCO: 0,
+      COBRADOR: 0,
+      GASTO: 0,
+      PREMIO: 0,
+      VENTA: 0,
+    };
+    allMovements.forEach((m) => {
+      if (counts[m.tipo_categoria] !== undefined) {
+        counts[m.tipo_categoria]++;
+      }
+    });
+    return counts;
+  }, [allMovements]);
+
+  // Movimientos filtrados para la vista detallada
+  const filteredMovements = useMemo(() => {
+    return allMovements.filter((m) => {
+      if (categoryFilter !== 'all' && m.tipo_categoria !== categoryFilter) {
+        return false;
+      }
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchId = String(m.id).toLowerCase().includes(q) || m.id_display.toLowerCase().includes(q);
+        const matchConcept = m.concepto.toLowerCase().includes(q);
+        const matchRef = m.referencia.toLowerCase().includes(q);
+        const matchUser = m.cajero.toLowerCase().includes(q);
+        const matchCat = m.categoria_label.toLowerCase().includes(q);
+        return matchId || matchConcept || matchRef || matchUser || matchCat;
+      }
+      return true;
+    });
+  }, [allMovements, categoryFilter, searchQuery]);
 
   // Thermal receipt print handler
   const handlePrintThermalTicket = () => {
@@ -432,7 +728,7 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                 </span>
               </h2>
               <p className="text-xs text-slate-400 mt-0.5">
-                Auditoría de ganancias, entregas en efectivo, transferencias bancarias y saldo acumulado.
+                Auditoría detallada movimiento por movimiento con ID individual, pagos en efectivo, transferencias y gastos.
               </p>
             </div>
           </div>
@@ -457,243 +753,623 @@ export const AgencyCycleHistoryTab: React.FC = () => {
           </div>
         </div>
 
-        {/* Currency & Periodicity Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-800">
-          {/* Currency Tabs */}
-          <div className="flex items-center bg-[#071217] p-1 rounded-xl border border-slate-700 w-full sm:w-auto">
-            {(['COP', 'BS', 'USD'] as const).map((m) => (
+        {/* Currency, Periodicity & View Mode Switch */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-3 border-t border-slate-800">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Currency Tabs */}
+            <div className="flex items-center bg-[#071217] p-1 rounded-xl border border-slate-700">
+              {(['COP', 'BS', 'USD'] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setSelectedCurrency(m)}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    selectedCurrency === m
+                      ? 'bg-emerald-500 text-slate-950 shadow font-black'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {m === 'COP' ? '🟡 COP' : m === 'BS' ? '🔵 BS' : '🟢 USD'}
+                </button>
+              ))}
+            </div>
+
+            {/* Periodicity Switch */}
+            <div className="flex items-center bg-[#071217] p-1 rounded-xl border border-slate-700">
               <button
-                key={m}
-                onClick={() => setSelectedCurrency(m)}
-                className={`flex-1 sm:flex-initial px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  selectedCurrency === m
+                onClick={() => setPeriodicity('semanal')}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  periodicity === 'semanal'
                     ? 'bg-emerald-500 text-slate-950 shadow font-black'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                {m === 'COP' ? '🟡 COP' : m === 'BS' ? '🔵 BS' : '🟢 USD'}
+                📅 Semanal
               </button>
-            ))}
+              <button
+                onClick={() => setPeriodicity('mensual')}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  periodicity === 'mensual'
+                    ? 'bg-emerald-500 text-slate-950 shadow font-black'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                🗓️ Mensual
+              </button>
+            </div>
           </div>
 
-          {/* Periodicity Switch */}
-          <div className="flex items-center bg-[#071217] p-1 rounded-xl border border-slate-700 w-full sm:w-auto">
+          {/* View Mode Selector: Resumen vs Movimientos por separado (1 por ID) */}
+          <div className="flex items-center bg-[#071217] p-1 rounded-xl border border-slate-700">
             <button
-              onClick={() => setPeriodicity('semanal')}
-              className={`flex-1 sm:flex-initial px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                periodicity === 'semanal'
-                  ? 'bg-emerald-500 text-slate-950 shadow font-black'
+              onClick={() => setViewMode('resumen')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                viewMode === 'resumen'
+                  ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 shadow font-black'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              📅 Semanal
+              <BarChart3 className="w-3.5 h-3.5" />
+              <span>📊 Resumen por Ciclo</span>
             </button>
             <button
-              onClick={() => setPeriodicity('mensual')}
-              className={`flex-1 sm:flex-initial px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                periodicity === 'mensual'
-                  ? 'bg-emerald-500 text-slate-950 shadow font-black'
+              onClick={() => setViewMode('movimientos')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                viewMode === 'movimientos'
+                  ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 shadow font-black'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              🗓️ Mensual
+              <Hash className="w-3.5 h-3.5" />
+              <span>🧾 Movimientos por Separado (1 por ID)</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-900/60 font-mono">
+                {allMovements.length}
+              </span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Main Historical Table */}
-      <div className="bg-[#0D1B22] border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
-        <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between">
-          <h3 className="text-xs font-bold text-white uppercase tracking-wider">
-            {periodicity === 'semanal' ? '📜 Liquidaciones Semanales' : '🗓️ Consolidado Mensual'}
-          </h3>
-          <span className="text-xs font-bold text-slate-400">
-            {activeRows.length} registros en {selectedCurrency}
-          </span>
-        </div>
+      {/* VISTA 1: RESUMEN POR CICLO (CON ACORDEÓN EXPANDIBLE INLINE) */}
+      {viewMode === 'resumen' && (
+        <div className="bg-[#0D1B22] border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
+          <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between">
+            <div>
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                {periodicity === 'semanal' ? '📜 Liquidaciones Semanales' : '🗓️ Consolidado Mensual'}
+              </h3>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                Haz clic en cualquier período o en la flecha <ChevronRight className="w-3 h-3 inline text-emerald-400" /> para ver todos sus movimientos individuales por ID.
+              </p>
+            </div>
+            <span className="text-xs font-bold text-slate-400 font-mono">
+              {activeRows.length} registros en {selectedCurrency}
+            </span>
+          </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-[#071217] text-slate-400 border-b border-slate-800 font-bold uppercase tracking-wider">
-              <tr>
-                <th className="py-3 px-4">Período</th>
-                <th className="py-3 px-4 text-right">Arrastre Inicial</th>
-                <th className="py-3 px-4 text-right">Ganancia / Pérdida</th>
-                <th className="py-3 px-4 text-right">(-) Efectivo / QR</th>
-                <th className="py-3 px-4 text-right">(-) Banco</th>
-                <th className="py-3 px-4 text-right">(+) Rep. Premios</th>
-                <th className="py-3 px-4 text-right">Saldo Final</th>
-                <th className="py-3 px-4 text-center">Estado</th>
-                <th className="py-3 px-3 text-center">Detalle</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/80 font-mono">
-              {activeRows.length === 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="bg-[#071217] text-slate-400 border-b border-slate-800 font-bold uppercase tracking-wider">
                 <tr>
-                  <td colSpan={9} className="py-10 text-center text-slate-500 font-sans">
-                    No hay registros de liquidación para {selectedCurrency}.
-                  </td>
+                  <th className="py-3 px-4">Período</th>
+                  <th className="py-3 px-4 text-right">Arrastre Inicial</th>
+                  <th className="py-3 px-4 text-right">Ganancia / Pérdida</th>
+                  <th className="py-3 px-4 text-right">(-) Efectivo / QR</th>
+                  <th className="py-3 px-4 text-right">(-) Banco</th>
+                  <th className="py-3 px-4 text-right">(+) Rep. Premios</th>
+                  <th className="py-3 px-4 text-right">Saldo Final</th>
+                  <th className="py-3 px-4 text-center">Estado</th>
+                  <th className="py-3 px-3 text-center">Detalle</th>
                 </tr>
-              ) : (
-                activeRows.map((row) => (
-                  <tr
-                    key={row.id}
-                    onClick={() => setSelectedDrilldownRow(row)}
-                    className="hover:bg-slate-800/40 transition-colors cursor-pointer group"
-                  >
-                    <td className="py-3.5 px-4 font-sans">
-                      <div className="font-bold text-white flex items-center gap-1.5">
-                        {row.periodo_label}
-                        {row.is_active_cycle && (
-                          <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                            Activo
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-[10px] text-slate-500 block">{row.rango_fechas}</span>
-                    </td>
-
-                    <td className="py-3.5 px-4 text-right text-slate-400">
-                      {formatCurrency(row.arrastre_inicial, selectedCurrency)}
-                    </td>
-
-                    <td
-                      className={`py-3.5 px-4 text-right font-semibold ${
-                        row.venta_neta > 0
-                          ? 'text-emerald-400'
-                          : row.venta_neta < 0
-                          ? 'text-rose-400'
-                          : 'text-slate-400'
-                      }`}
-                    >
-                      {row.venta_neta > 0 ? '+' : ''}
-                      {formatCurrency(row.venta_neta, selectedCurrency)}
-                    </td>
-
-                    <td className="py-3.5 px-4 text-right text-rose-400">
-                      {row.efectivo_qr > 0 ? `-${formatCurrency(row.efectivo_qr, selectedCurrency)}` : '0.00'}
-                    </td>
-
-                    <td className="py-3.5 px-4 text-right text-sky-400">
-                      {row.bancos > 0 ? `-${formatCurrency(row.bancos, selectedCurrency)}` : '0.00'}
-                    </td>
-
-                    <td className="py-3.5 px-4 text-right text-amber-400">
-                      {row.reposicion_premios > 0
-                        ? `+${formatCurrency(row.reposicion_premios, selectedCurrency)}`
-                        : '0.00'}
-                    </td>
-
-                    <td
-                      className={`py-3.5 px-4 text-right font-black ${
-                        row.saldo_final > 0
-                          ? 'text-rose-400'
-                          : row.saldo_final < 0
-                          ? 'text-cyan-400'
-                          : 'text-emerald-400'
-                      }`}
-                    >
-                      {formatCurrency(row.saldo_final, selectedCurrency)}
-                    </td>
-
-                    <td className="py-3.5 px-4 text-center font-sans">
-                      {row.status === 'pagado' ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                          <CheckCircle2 className="w-3 h-3" /> Solvente
-                        </span>
-                      ) : row.status === 'pendiente' ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">
-                          <AlertTriangle className="w-3 h-3" /> Por Pagar
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
-                          A Favor
-                        </span>
-                      )}
-                    </td>
-
-                    <td className="py-3.5 px-3 text-center">
-                      <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-emerald-400 transition-colors mx-auto" />
+              </thead>
+              <tbody className="divide-y divide-slate-800/80 font-mono">
+                {activeRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="py-10 text-center text-slate-500 font-sans">
+                      No hay registros de liquidación para {selectedCurrency}.
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                ) : (
+                  activeRows.map((row) => {
+                    const isExpanded = expandedRowId === row.id;
+                    return (
+                      <React.Fragment key={row.id}>
+                        <tr
+                          onClick={() => setExpandedRowId(isExpanded ? null : row.id)}
+                          className={`hover:bg-slate-800/40 transition-colors cursor-pointer group ${
+                            isExpanded ? 'bg-slate-800/50 border-l-2 border-emerald-400' : ''
+                          }`}
+                        >
+                          <td className="py-3.5 px-4 font-sans">
+                            <div className="font-bold text-white flex items-center gap-1.5">
+                              {row.periodo_label}
+                              {row.is_active_cycle && (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                  Activo
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-slate-500 block">{row.rango_fechas}</span>
+                          </td>
 
-      {/* Drilldown Modal */}
+                          <td className="py-3.5 px-4 text-right text-slate-400">
+                            {formatCurrency(row.arrastre_inicial, selectedCurrency)}
+                          </td>
+
+                          <td
+                            className={`py-3.5 px-4 text-right font-semibold ${
+                              row.venta_neta > 0
+                                ? 'text-emerald-400'
+                                : row.venta_neta < 0
+                                ? 'text-rose-400'
+                                : 'text-slate-400'
+                            }`}
+                          >
+                            {row.venta_neta > 0 ? '+' : ''}
+                            {formatCurrency(row.venta_neta, selectedCurrency)}
+                          </td>
+
+                          <td className="py-3.5 px-4 text-right text-rose-400">
+                            {row.efectivo_qr > 0 ? `-${formatCurrency(row.efectivo_qr, selectedCurrency)}` : '0.00'}
+                          </td>
+
+                          <td className="py-3.5 px-4 text-right text-sky-400">
+                            {row.bancos > 0 ? `-${formatCurrency(row.bancos, selectedCurrency)}` : '0.00'}
+                          </td>
+
+                          <td className="py-3.5 px-4 text-right text-amber-400">
+                            {row.reposicion_premios > 0
+                              ? `+${formatCurrency(row.reposicion_premios, selectedCurrency)}`
+                              : '0.00'}
+                          </td>
+
+                          <td
+                            className={`py-3.5 px-4 text-right font-black ${
+                              row.saldo_final > 0
+                                ? 'text-rose-400'
+                                : row.saldo_final < 0
+                                ? 'text-cyan-400'
+                                : 'text-emerald-400'
+                            }`}
+                          >
+                            {formatCurrency(row.saldo_final, selectedCurrency)}
+                          </td>
+
+                          <td className="py-3.5 px-4 text-center font-sans">
+                            {row.status === 'pagado' ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                <CheckCircle2 className="w-3 h-3" /> Solvente
+                              </span>
+                            ) : row.status === 'pendiente' ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                                <AlertTriangle className="w-3 h-3" /> Por Pagar
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                                A Favor
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="py-3.5 px-3 text-center">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setExpandedRowId(isExpanded ? null : row.id);
+                              }}
+                              title={isExpanded ? 'Ocultar movimientos' : 'Ver movimientos por separado (1 por ID)'}
+                              className="p-1 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+                            >
+                              {isExpanded ? (
+                                <ChevronDown className="w-4 h-4 text-emerald-400 mx-auto" />
+                              ) : (
+                                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-emerald-400 transition-colors mx-auto" />
+                              )}
+                            </button>
+                          </td>
+                        </tr>
+
+                        {/* ACORDEÓN EXPANDIBLE INLINE: MOVIMIENTOS POR SEPARADO 1 A 1 CON ID */}
+                        {isExpanded && (
+                          <tr className="bg-[#08151D] border-b border-slate-800 animate-fadeIn">
+                            <td colSpan={9} className="p-4 sm:p-5">
+                              <div className="space-y-3 font-sans">
+                                <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-slate-800">
+                                  <div className="flex items-center gap-2">
+                                    <span className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 font-black text-xs">
+                                      📋 {row.periodo_label}
+                                    </span>
+                                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                                      Movimientos Detallados del Período ({row.movements.length} movimientos &bull; 1 movimiento = 1 ID)
+                                    </h4>
+                                  </div>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedDrilldownRow(row);
+                                    }}
+                                    className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1.5 border border-slate-700 transition-all cursor-pointer"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" /> Abrir en Modal Completo
+                                  </button>
+                                </div>
+
+                                {row.movements.length === 0 ? (
+                                  <p className="text-xs text-slate-500 italic py-4 text-center">
+                                    No hay movimientos individuales registrados para este ciclo en {selectedCurrency}.
+                                  </p>
+                                ) : (
+                                  <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-[#071217]">
+                                    <table className="w-full text-left text-xs">
+                                      <thead className="bg-slate-900/90 text-slate-400 font-bold uppercase text-[10px] tracking-wider border-b border-slate-800">
+                                        <tr>
+                                          <th className="py-2.5 px-3">ID Movimiento</th>
+                                          <th className="py-2.5 px-3">Fecha</th>
+                                          <th className="py-2.5 px-3">Categoría</th>
+                                          <th className="py-2.5 px-3">Concepto</th>
+                                          <th className="py-2.5 px-3">Referencia / Comprobante</th>
+                                          <th className="py-2.5 px-3">Cajero / Resp.</th>
+                                          <th className="py-2.5 px-3 text-right">Monto</th>
+                                          <th className="py-2.5 px-3 text-center">Estado</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-slate-800/60 font-mono">
+                                        {row.movements.map((m, idx) => (
+                                          <tr key={`${m.origen_tabla}_${m.id}_${idx}`} className="hover:bg-slate-800/40 transition-colors">
+                                            <td className="py-2.5 px-3">
+                                              <span className="px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700 text-emerald-300 font-bold font-mono text-[11px] inline-flex items-center gap-1">
+                                                <Hash className="w-3 h-3 text-slate-400" />
+                                                {m.id_display.replace('#', '')}
+                                              </span>
+                                            </td>
+                                            <td className="py-2.5 px-3 text-slate-300 font-sans text-[11px] whitespace-nowrap">
+                                              {formatDate(m.fecha)}
+                                            </td>
+                                            <td className="py-2.5 px-3 font-sans">
+                                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${getCategoryBadgeClass(m.tipo_categoria)}`}>
+                                                {m.categoria_label}
+                                              </span>
+                                            </td>
+                                            <td className="py-2.5 px-3 font-sans text-slate-200 font-semibold">
+                                              {m.concepto}
+                                            </td>
+                                            <td className="py-2.5 px-3 text-slate-400 text-[11px]">
+                                              {m.referencia}
+                                            </td>
+                                            <td className="py-2.5 px-3 font-sans text-slate-400 text-[11px]">
+                                              {m.cajero}
+                                            </td>
+                                            <td className={`py-2.5 px-3 text-right font-bold text-xs ${
+                                              m.es_abono 
+                                                ? 'text-emerald-400' 
+                                                : m.tipo_categoria === 'GASTO' 
+                                                ? 'text-rose-400' 
+                                                : 'text-slate-200'
+                                            }`}>
+                                              {m.es_abono ? '-' : m.tipo_categoria === 'GASTO' ? '-' : '+'}
+                                              {formatCurrency(m.monto, selectedCurrency)}
+                                            </td>
+                                            <td className="py-2.5 px-3 text-center font-sans">
+                                              {m.rechazado ? (
+                                                <span className="px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-400 text-[10px] font-bold">
+                                                  Rechazado
+                                                </span>
+                                              ) : m.confirmado ? (
+                                                <span className="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 text-[10px] font-bold">
+                                                  Confirmado
+                                                </span>
+                                              ) : (
+                                                <span className="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 text-[10px] font-bold">
+                                                  En Tránsito
+                                                </span>
+                                              )}
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* VISTA 2: MOVIMIENTOS POR SEPARADO (1 MOVIMIENTO = 1 ID) */}
+      {viewMode === 'movimientos' && (
+        <div className="space-y-4 animate-fadeIn">
+          {/* Barra de Filtros y Búsqueda */}
+          <div className="bg-[#0D1B22] border border-slate-800 rounded-3xl p-4 sm:p-5 shadow-xl space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="relative flex-1 max-w-md">
+                <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Buscar por ID (#104), concepto, referencia, cajero..."
+                  className="w-full bg-[#071217] border border-slate-700/80 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-sans"
+                />
+              </div>
+
+              <span className="text-xs text-slate-400 font-mono font-bold self-end sm:self-auto">
+                Mostrando {filteredMovements.length} de {allMovements.length} movimientos
+              </span>
+            </div>
+
+            {/* Píldoras de Categoría */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-800">
+              {[
+                { key: 'all', label: 'Todos', count: categoryCounts.all },
+                { key: 'EFECTIVO', label: '💵 Efectivo Taquilla', count: categoryCounts.EFECTIVO },
+                { key: 'BANCO', label: '🏛️ Bancos', count: categoryCounts.BANCO },
+                { key: 'COBRADOR', label: '🛵 Cobrador Ruta (QR)', count: categoryCounts.COBRADOR },
+                { key: 'GASTO', label: '🏷️ Gastos', count: categoryCounts.GASTO },
+                { key: 'PREMIO', label: '🏆 Reposición Premios', count: categoryCounts.PREMIO },
+                { key: 'VENTA', label: '📊 Ventas Netas', count: categoryCounts.VENTA },
+              ].map((c) => (
+                <button
+                  key={c.key}
+                  onClick={() => setCategoryFilter(c.key)}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    categoryFilter === c.key
+                      ? 'bg-emerald-500 text-slate-950 shadow font-black'
+                      : 'bg-[#071217] text-slate-400 hover:text-white border border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  <span>{c.label}</span>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                    categoryFilter === c.key ? 'bg-slate-900/40 text-slate-950' : 'bg-slate-800 text-slate-300'
+                  }`}>
+                    {c.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Tabla de Movimientos por Separado (1 Movimiento = 1 ID) */}
+          <div className="bg-[#0D1B22] border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-[#071217] text-slate-400 border-b border-slate-800 font-bold uppercase tracking-wider text-[10px]">
+                  <tr>
+                    <th className="py-3 px-4">ID</th>
+                    <th className="py-3 px-4">Fecha</th>
+                    <th className="py-3 px-4">Categoría</th>
+                    <th className="py-3 px-4">Concepto</th>
+                    <th className="py-3 px-4">Referencia / Comprobante</th>
+                    <th className="py-3 px-4">Cajero / Responsable</th>
+                    <th className="py-3 px-4 text-right">Monto</th>
+                    <th className="py-3 px-4 text-center">Impacto</th>
+                    <th className="py-3 px-4 text-center">Estado</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/80 font-mono">
+                  {filteredMovements.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="py-12 text-center text-slate-500 font-sans">
+                        No se encontraron movimientos con los filtros seleccionados para {selectedCurrency}.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredMovements.map((m, idx) => (
+                      <tr
+                        key={`${m.origen_tabla}_${m.id}_${idx}`}
+                        className="hover:bg-slate-800/40 transition-colors"
+                      >
+                        <td className="py-3 px-4 font-mono font-bold">
+                          <span className="px-2.5 py-1 rounded-lg bg-slate-800/90 border border-slate-700 text-emerald-300 inline-flex items-center gap-1 shadow-sm">
+                            <Hash className="w-3 h-3 text-slate-500" />
+                            {m.id_display.replace('#', '')}
+                          </span>
+                        </td>
+
+                        <td className="py-3 px-4 font-sans text-slate-300 text-xs whitespace-nowrap">
+                          {formatDate(m.fecha)}
+                        </td>
+
+                        <td className="py-3 px-4 font-sans">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${getCategoryBadgeClass(m.tipo_categoria)}`}>
+                            {m.categoria_label}
+                          </span>
+                        </td>
+
+                        <td className="py-3 px-4 font-sans text-slate-200 font-semibold">
+                          {m.concepto}
+                        </td>
+
+                        <td className="py-3 px-4 text-slate-400 text-xs">
+                          {m.referencia}
+                        </td>
+
+                        <td className="py-3 px-4 font-sans text-slate-400 text-xs">
+                          {m.cajero}
+                        </td>
+
+                        <td className={`py-3 px-4 text-right font-black text-sm font-mono ${
+                          m.es_abono 
+                            ? 'text-emerald-400' 
+                            : m.tipo_categoria === 'GASTO' 
+                            ? 'text-rose-400' 
+                            : 'text-slate-100'
+                        }`}>
+                          {m.es_abono ? '-' : m.tipo_categoria === 'GASTO' ? '-' : '+'}
+                          {formatCurrency(m.monto, selectedCurrency)}
+                        </td>
+
+                        <td className="py-3 px-4 text-center font-sans">
+                          {m.es_abono ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                              <ArrowDownRight className="w-3 h-3" /> Abono / Pago
+                            </span>
+                          ) : m.tipo_categoria === 'GASTO' ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">
+                              <ArrowDownRight className="w-3 h-3" /> Gasto
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20">
+                              <ArrowUpRight className="w-3 h-3" /> Cargo
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="py-3 px-4 text-center font-sans">
+                          {m.rechazado ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                              Rechazado
+                            </span>
+                          ) : m.confirmado ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                              <CheckCircle2 className="w-3 h-3" /> Confirmado
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                              En Tránsito
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Drilldown Modal: Movimientos Detallados 1 a 1 por ID */}
       {selectedDrilldownRow && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-fade-in">
-          <div className="bg-[#0D1B22] border border-slate-800 rounded-3xl max-w-xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-[#0D1B22] border border-slate-800 rounded-3xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
             <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/60">
               <div className="flex items-center gap-2.5">
                 <Receipt className="w-5 h-5 text-emerald-400" />
                 <div>
-                  <h3 className="text-sm font-bold text-white">Comprobantes del Período</h3>
-                  <p className="text-[11px] text-slate-400">{selectedDrilldownRow.periodo_label}</p>
+                  <h3 className="text-sm font-bold text-white">Comprobantes y Movimientos del Período</h3>
+                  <p className="text-[11px] text-slate-400 font-mono">{selectedDrilldownRow.periodo_label} &bull; {selectedCurrency}</p>
                 </div>
               </div>
               <button
                 onClick={() => setSelectedDrilldownRow(null)}
-                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 cursor-pointer"
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 cursor-pointer transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-5 overflow-y-auto space-y-4 text-xs">
-              {/* QR Receipts */}
-              <div className="space-y-1.5">
-                <span className="font-bold text-white block uppercase tracking-wider text-[10px]">
-                  📲 Entregas a Cobradores en Ruta (QR):
-                </span>
-                {selectedDrilldownRow.vouchers.cobradores_qr.length === 0 ? (
-                  <p className="text-slate-500 italic">Sin entregas QR en este ciclo.</p>
-                ) : (
-                  selectedDrilldownRow.vouchers.cobradores_qr.map((v, i) => (
-                    <div key={i} className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 flex justify-between">
-                      <div>
-                        <strong className="text-white block">{v.qr_token || 'Token QR'}</strong>
-                        <span className="text-[10px] text-slate-400">Fecha: {formatDate(v.fecha || v.created_at)}</span>
-                      </div>
-                      <span className="font-mono font-bold text-rose-400">
-                        -{formatCurrency(v.monto, selectedCurrency)}
-                      </span>
-                    </div>
-                  ))
-                )}
+            {/* Filtros dentro del modal */}
+            <div className="px-5 pt-3 pb-2 border-b border-slate-800/80 bg-[#071217] flex items-center justify-between gap-2 overflow-x-auto">
+              <div className="flex items-center gap-1.5">
+                {[
+                  { key: 'all', label: 'Todos' },
+                  { key: 'EFECTIVO', label: '💵 Efectivo' },
+                  { key: 'BANCO', label: '🏛️ Bancos' },
+                  { key: 'COBRADOR', label: '🛵 Cobrador' },
+                  { key: 'GASTO', label: '🏷️ Gastos' },
+                  { key: 'PREMIO', label: '🏆 Premios' },
+                  { key: 'VENTA', label: '📊 Ventas' },
+                ].map((f) => (
+                  <button
+                    key={f.key}
+                    onClick={() => setModalCategoryFilter(f.key)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
+                      modalCategoryFilter === f.key
+                        ? 'bg-emerald-500 text-slate-950 font-black'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
               </div>
-
-              {/* Bank Transfers */}
-              <div className="space-y-1.5">
-                <span className="font-bold text-white block uppercase tracking-wider text-[10px]">
-                  🏦 Transferencias Bancarias Confirmadas:
-                </span>
-                {selectedDrilldownRow.vouchers.bancos.length === 0 ? (
-                  <p className="text-slate-500 italic">Sin transferencias en este ciclo.</p>
-                ) : (
-                  selectedDrilldownRow.vouchers.bancos.map((v, i) => (
-                    <div key={i} className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 flex justify-between">
-                      <div>
-                        <strong className="text-white block">REF: {v.referencia || 'N/A'}</strong>
-                        <span className="text-[10px] text-slate-400">Fecha: {formatDate(v.fecha || v.created_at)}</span>
-                      </div>
-                      <span className="font-mono font-bold text-sky-400">
-                        -{formatCurrency(v.monto, selectedCurrency)}
-                      </span>
-                    </div>
-                  ))
-                )}
-              </div>
+              <span className="text-[11px] text-slate-400 font-mono whitespace-nowrap font-bold">
+                {selectedDrilldownRow.movements.filter((m) => modalCategoryFilter === 'all' || m.tipo_categoria === modalCategoryFilter).length} mov.
+              </span>
             </div>
 
-            <div className="p-4 border-t border-slate-800 bg-slate-900/60 flex justify-end">
+            {/* Lista detallada de movimientos: 1 movimiento = 1 ID */}
+            <div className="p-4 sm:p-5 overflow-y-auto space-y-2 text-xs flex-1">
+              {selectedDrilldownRow.movements
+                .filter((m) => modalCategoryFilter === 'all' || m.tipo_categoria === modalCategoryFilter)
+                .length === 0 ? (
+                <div className="py-12 text-center text-slate-500 font-sans">
+                  No hay movimientos registrados para esta categoría en este período.
+                </div>
+              ) : (
+                selectedDrilldownRow.movements
+                  .filter((m) => modalCategoryFilter === 'all' || m.tipo_categoria === modalCategoryFilter)
+                  .map((m, i) => (
+                    <div
+                      key={i}
+                      className="p-3 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-slate-700 transition-colors"
+                    >
+                      <div className="flex items-start gap-3">
+                        <span className="px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700 text-emerald-300 font-mono font-bold text-xs inline-flex items-center gap-0.5 mt-0.5">
+                          <Hash className="w-3 h-3 text-slate-400" />
+                          {m.id_display.replace('#', '')}
+                        </span>
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-white text-xs">{m.concepto}</span>
+                            <span className={`px-2 py-0.2 rounded-full text-[9px] font-bold ${getCategoryBadgeClass(m.tipo_categoria)}`}>
+                              {m.categoria_label}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-400 mt-1 flex flex-wrap items-center gap-2">
+                            <span>📅 {formatDate(m.fecha)}</span>
+                            {m.referencia && (
+                              <>
+                                <span>&bull;</span>
+                                <span className="font-mono text-slate-300">{m.referencia}</span>
+                              </>
+                            )}
+                            {m.cajero && m.cajero !== '-' && (
+                              <>
+                                <span>&bull;</span>
+                                <span className="text-slate-400">Resp: {m.cajero}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-800">
+                        <span className={`font-mono font-black text-sm ${
+                          m.es_abono 
+                            ? 'text-emerald-400' 
+                            : m.tipo_categoria === 'GASTO' 
+                            ? 'text-rose-400' 
+                            : 'text-slate-200'
+                        }`}>
+                          {m.es_abono ? '-' : m.tipo_categoria === 'GASTO' ? '-' : '+'}
+                          {formatCurrency(m.monto, selectedCurrency)}
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-400 mt-0.5">
+                          {m.confirmado ? '✅ Confirmado' : m.rechazado ? '❌ Rechazado' : '⏳ En Tránsito'}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+              )}
+            </div>
+
+            <div className="p-4 border-t border-slate-800 bg-slate-900/60 flex items-center justify-between">
+              <span className="text-xs text-slate-400 font-mono">
+                Total en período: <strong className="text-white">{selectedDrilldownRow.movements.length} movimientos</strong>
+              </span>
               <button
                 onClick={() => setSelectedDrilldownRow(null)}
-                className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold cursor-pointer"
+                className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold cursor-pointer transition-colors"
               >
                 Cerrar
               </button>
@@ -704,3 +1380,5 @@ export const AgencyCycleHistoryTab: React.FC = () => {
     </div>
   );
 };
+
+export default AgencyCycleHistoryTab;
