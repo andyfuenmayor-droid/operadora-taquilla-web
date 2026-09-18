@@ -270,21 +270,147 @@ export const AgencyCycleHistoryTab: React.FC = () => {
     const efectivoRemanente = Math.max(0, rawEfectivoTot - cobradorTot);
     const totalEfectivoQR = cobradorTot + efectivoRemanente;
 
-    // Active bank transfers
-    const agBankList = rawBankPayments.filter((p) => {
+    // ==========================================
+    // UNIFIED CONSOLIDATION OF PAYMENTS (Active)
+    // ==========================================
+    // Combine `cda_pagos_bancarios` and `pagos_semana`
+
+    // 1. Pagos manuales / activos de pagos_semana
+    const activePsList = rawManualPayments.filter((p) => {
+      const matchMon = normalizarMoneda(p.moneda) === mon;
+      return matchMon && !p.rechazado;
+    });
+
+    // 2. Pagos bancarios registrados en cda_pagos_bancarios
+    const activePbList = rawBankPayments.filter((p) => {
       const matchMon = normalizarMoneda(p.moneda) === mon;
       const fStr = String(p.fecha || p.created_at || '').slice(0, 10);
-      const inCycle = (!cycleDesde || fStr >= cycleDesde) && (!cycleHasta || fStr <= cycleHasta);
+      const inCycle = (!cycleHasta || fStr <= cycleHasta);
       return matchMon && inCycle && (p.confirmado === undefined || p.confirmado === null || Boolean(p.confirmado)) && !p.rechazado;
     });
-    const bancosTot = agBankList.reduce((sum, curr) => sum + Number(curr.monto || 0), 0);
 
-    // Active prize replenishments
-    const agManualPrem = rawManualPayments.filter((p) => {
-      const matchMon = normalizarMoneda(p.moneda) === mon;
-      const isPrem = String(p.tipo_pago || '').toUpperCase().includes('PREMIO') || String(p.referencia || '').toUpperCase().includes('PREMIO');
-      return matchMon && isPrem && !p.rechazado;
+    // 3. Deduplicación inteligente entre pagos_semana y cda_pagos_bancarios
+    const psRefKeys = new Set<string>();
+    const psAmountDateKeys = new Set<string>();
+
+    activePsList.forEach((ps) => {
+      const refVal = String(ps.referencia || '').trim().toUpperCase();
+      const mVal = Math.round(Number(ps.monto || 0) * 100) / 100;
+      const fVal = String(ps.fecha || ps.created_at || '').slice(0, 10);
+      if (refVal && refVal !== 'N/A') {
+        psRefKeys.add(refVal);
+      }
+      if (mVal > 0) {
+        psAmountDateKeys.add(`${mVal}_${fVal}`);
+      }
     });
+
+    interface ActiveUnifiedPayment {
+      id: string | number;
+      id_display: string;
+      fecha: string;
+      created_at?: string;
+      is_premio: boolean;
+      tipo_pago: string;
+      metodo: string;
+      concepto?: string;
+      referencia: string;
+      datos_pagador?: string;
+      cajero?: string;
+      cajero_id?: string | number;
+      confirmado_por?: string;
+      monto: number;
+      confirmado: boolean;
+      rechazado: boolean;
+      origen_tabla: 'pagos_semana' | 'cda_pagos_bancarios';
+    }
+
+    const unifiedPayments: ActiveUnifiedPayment[] = [];
+
+    // Agregar de pagos_semana
+    activePsList.forEach((ps) => {
+      const mVal = Math.round(Number(ps.monto || 0) * 100) / 100;
+      if (mVal <= 0) return;
+      const tUpper = String(ps.tipo_pago || '').trim().toUpperCase();
+      const cUpper = String(ps.concepto || '').trim().toUpperCase();
+      const mUpper = String(ps.metodo || '').trim().toUpperCase();
+      const rUpper = String(ps.referencia || '').trim().toUpperCase();
+
+      const isPrem = tUpper.includes('PREMIO') || cUpper.includes('PREMIO') || mUpper.includes('REPOSICION') || rUpper.includes('REPOSICION');
+
+      unifiedPayments.push({
+        id: ps.id,
+        id_display: `#${ps.id}`,
+        fecha: String(ps.fecha || ps.created_at || '').slice(0, 10),
+        created_at: ps.created_at || ps.fecha,
+        is_premio: isPrem,
+        tipo_pago: ps.tipo_pago || (isPrem ? 'Pago de Premios' : 'Pago'),
+        metodo: ps.metodo || (isPrem ? 'Reposición' : 'Pago Móvil / Banco'),
+        concepto: ps.concepto || ps.tipo_pago,
+        referencia: ps.referencia || (isPrem ? 'Reposición de Caja' : 'Pago Bancario'),
+        cajero: ps.cajero,
+        cajero_id: ps.cajero_id,
+        confirmado_por: ps.confirmado_por,
+        monto: mVal,
+        confirmado: Boolean(ps.confirmado),
+        rechazado: Boolean(ps.rechazado),
+        origen_tabla: 'pagos_semana'
+      });
+    });
+
+    // Agregar de cda_pagos_bancarios que no estén duplicados
+    activePbList.forEach((pb) => {
+      const mVal = Math.round(Number(pb.monto || 0) * 100) / 100;
+      if (mVal <= 0) return;
+      const pbRef = String(pb.referencia || '').trim().toUpperCase();
+      const fVal = String(pb.fecha || pb.created_at || '').slice(0, 10);
+
+      let yaEnPs = false;
+      if (pbRef && pbRef !== 'N/A') {
+        for (const psRef of psRefKeys) {
+          if (psRef === pbRef || psRef.includes(pbRef) || (pbRef.length >= 4 && psRef.includes(pbRef))) {
+            yaEnPs = true;
+            break;
+          }
+        }
+      }
+      if (!yaEnPs && psAmountDateKeys.has(`${mVal}_${fVal}`)) {
+        yaEnPs = true;
+      }
+
+      if (yaEnPs) return;
+
+      const tUpper = String(pb.tipo_pago || '').trim().toUpperCase();
+      const cUpper = String(pb.concepto || '').trim().toUpperCase();
+      const mUpper = String(pb.metodo_pago || '').trim().toUpperCase();
+      const rUpper = String(pb.referencia || '').trim().toUpperCase();
+      const isPrem = tUpper.includes('PREMIO') || cUpper.includes('PREMIO') || mUpper.includes('REPOSICION') || rUpper.includes('REPOSICION');
+
+      unifiedPayments.push({
+        id: pb.id,
+        id_display: `#${pb.id}`,
+        fecha: fVal,
+        created_at: pb.created_at || pb.fecha,
+        is_premio: isPrem,
+        tipo_pago: pb.metodo_pago || pb.concepto || (isPrem ? 'Pago de Premios' : 'Transferencia Bancaria'),
+        metodo: pb.metodo_pago || 'BANCO',
+        concepto: pb.concepto || pb.metodo_pago,
+        referencia: pb.referencia ? `REF: ${pb.referencia} ${pb.pos_o_cuenta ? `(${pb.pos_o_cuenta})` : ''}` : (pb.pos_o_cuenta || 'Banco'),
+        datos_pagador: pb.datos_pagador,
+        cajero: pb.cajero,
+        cajero_id: pb.cajero_id,
+        monto: mVal,
+        confirmado: pb.confirmado === undefined || pb.confirmado === null || Boolean(pb.confirmado),
+        rechazado: Boolean(pb.rechazado),
+        origen_tabla: 'cda_pagos_bancarios'
+      });
+    });
+
+    // Separar en Bancos Ordinarios vs Reposición de Premios
+    const agBankList = unifiedPayments.filter((p) => !p.is_premio);
+    const agManualPrem = unifiedPayments.filter((p) => p.is_premio);
+
+    const bancosTot = agBankList.reduce((sum, curr) => sum + Number(curr.monto || 0), 0);
     const reposicionPremiosTot = agManualPrem.reduce((sum, curr) => sum + Number(curr.monto || 0), 0);
 
     // Active expenses
@@ -346,14 +472,14 @@ export const AgencyCycleHistoryTab: React.FC = () => {
       const monto = Number(b.monto || 0);
       rawActiveMovements.push({
         id: b.id,
-        id_display: `#${b.id}`,
+        id_display: b.id_display || `#${b.id}`,
         fecha: String(b.fecha || b.created_at || '').slice(0, 10),
         created_at: b.created_at || b.fecha,
         tipo_categoria: 'BANCO',
         categoria_label: '🏛️ Pago Bancario',
-        concepto: b.metodo_pago || b.concepto || 'Transferencia Bancaria',
-        referencia: b.referencia ? `REF: ${b.referencia} ${b.pos_o_cuenta ? `(${b.pos_o_cuenta})` : ''}` : (b.pos_o_cuenta || 'Banco'),
-        cajero: resolveCashierName(b.datos_pagador || b.cajero, b.cajero_id, null),
+        concepto: b.metodo || b.tipo_pago || 'Transferencia Bancaria',
+        referencia: b.referencia ? (b.referencia.toUpperCase().startsWith('REF') ? b.referencia : `REF: ${b.referencia}`) : 'Banco',
+        cajero: resolveCashierName(b.cajero || b.datos_pagador, b.cajero_id, b.confirmado_por),
         monto,
         es_abono: true,
         tipo_impacto: 'RESTA',
@@ -363,7 +489,7 @@ export const AgencyCycleHistoryTab: React.FC = () => {
         saldo_resultante: 0,
         confirmado: Boolean(b.confirmado),
         rechazado: Boolean(b.rechazado),
-        origen_tabla: 'cda_pagos_bancarios'
+        origen_tabla: b.origen_tabla
       });
     });
 
@@ -393,17 +519,17 @@ export const AgencyCycleHistoryTab: React.FC = () => {
       });
     });
 
-    // 4. Reposiciones de premios (pagos_semana)
+    // 4. Reposiciones de premios (pagos_semana / cda_pagos_bancarios)
     agManualPrem.forEach((p) => {
       const monto = Number(p.monto || 0);
       rawActiveMovements.push({
         id: p.id || `prem_${p.fecha}`,
-        id_display: p.id ? `#${p.id}` : '#PREMIO',
+        id_display: p.id_display || (p.id ? `#${p.id}` : '#PREMIO'),
         fecha: String(p.fecha || p.created_at || '').slice(0, 10),
         created_at: p.created_at || p.fecha,
         tipo_categoria: 'PREMIO',
         categoria_label: '🏆 Reposición Premios',
-        concepto: p.tipo_pago || p.concepto || 'Abono / Reposición',
+        concepto: p.tipo_pago || p.concepto || 'Pago de Premios',
         referencia: p.referencia || 'Reposición de Caja',
         cajero: resolveCashierName(p.cajero, p.cajero_id, p.confirmado_por),
         monto,
@@ -415,7 +541,7 @@ export const AgencyCycleHistoryTab: React.FC = () => {
         saldo_resultante: 0,
         confirmado: true,
         rechazado: false,
-        origen_tabla: 'pagos_semana'
+        origen_tabla: p.origen_tabla
       });
     });
 

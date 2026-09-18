@@ -93,7 +93,6 @@ export function clasificarPagoRegistro(r: Record<string, any>): 'PREMIO' | 'BANC
     'PERDIDA',
     'PÉRDIDAS',
     'PERDIDAS',
-    'ABONO',
     'REPOSICION',
     'REPOSICIÓN',
     'REPOSICION DE CAJA',
@@ -442,7 +441,6 @@ export async function fetchFullCycleMetrics(
           .from('cda_pagos_bancarios')
           .select('*')
           .or(`agencia.ilike.${agencyName},nombre_agency.ilike.${agencyName}`)
-          .gte('fecha', fDesdeCarga)
           .lte('fecha', fHastaEfectivo),
         supabase
           .from('cda_pagos_diarios')
@@ -454,7 +452,6 @@ export async function fetchFullCycleMetrics(
           .from('pagos_semana')
           .select('*')
           .ilike('agencia', agencyName)
-          .gte('fecha', fDesdeAdmin)
           .lte('fecha', fHastaEfectivo)
       ]);
 
