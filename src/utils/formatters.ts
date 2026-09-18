@@ -51,6 +51,19 @@ export function formatMoney(amount: number | string, currency = 'BS'): string {
 
 export function formatDate(dateStr?: string | Date): string {
   if (!dateStr) return '';
+  if (typeof dateStr === 'string') {
+    const clean = dateStr.trim();
+    const matchYMD = clean.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (matchYMD) {
+      const [, y, m, d] = matchYMD;
+      return `${d}/${m}/${y}`;
+    }
+    const matchDMY = clean.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (matchDMY) {
+      const [, d, m, y] = matchDMY;
+      return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`;
+    }
+  }
   const d = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
   if (isNaN(d.getTime())) return String(dateStr);
   return d.toLocaleDateString('es-VE', {

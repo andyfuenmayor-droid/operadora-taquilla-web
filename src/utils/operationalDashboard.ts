@@ -440,11 +440,15 @@ export async function fetchFullCycleMetrics(
         supabase
           .from('cda_pagos_bancarios')
           .select('*')
-          .ilike('agencia', `%${agencyName.trim()}%`),
+          .ilike('agencia', `%${agencyName.trim()}%`)
+          .gte('fecha', fDesdeAdmin)
+          .lte('fecha', fHastaEfectivo),
         supabase
           .from('cda_pagos_diarios')
           .select('*')
-          .or(`agencia.ilike.%${agencyName.trim()}%,nombre_agency.ilike.%${agencyName.trim()}%`),
+          .or(`agencia.ilike.%${agencyName.trim()}%,nombre_agency.ilike.%${agencyName.trim()}%`)
+          .gte('fecha', fDesdeAdmin)
+          .lte('fecha', fHastaEfectivo),
         supabase
           .from('pagos_semana')
           .select('*')
@@ -457,11 +461,15 @@ export async function fetchFullCycleMetrics(
 
       const unified: any[] = [];
 
-      // Procesar pagos diarios (efectivo y cobradores confirmados)
+      // Procesar pagos diarios (efectivo y cobradores confirmados dentro del ciclo operativo)
       const confirmedDaily = dailyData.filter((p: any) => {
         const isRech = Boolean(p.rechazado) || String(p.estado || '').toUpperCase() === 'RECHAZADO';
         const isConf = Boolean(p.confirmado) || Boolean(p.confirmado_supervisor) || Boolean(p.fecha_escaneo_cobrador) || String(p.estado || '').toUpperCase() === 'CONFIRMADO';
-        return isConf && !isRech;
+        if (isRech || !isConf) return false;
+
+        const fStr = String(p.fecha || p.created_at || '').slice(0, 10);
+        if (fStr && (fStr < fDesdeAdmin || fStr > fHastaEfectivo)) return false;
+        return true;
       });
 
       const cobradorRows = confirmedDaily.filter((p: any) => Boolean(p.qr_token) || String(p.tipo_pago || '').toUpperCase().includes('COBRADOR'));
