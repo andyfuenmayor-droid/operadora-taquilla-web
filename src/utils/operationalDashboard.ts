@@ -440,19 +440,15 @@ export async function fetchFullCycleMetrics(
         supabase
           .from('cda_pagos_bancarios')
           .select('*')
-          .or(`agencia.ilike.${agencyName},nombre_agency.ilike.${agencyName}`)
-          .lte('fecha', fHastaEfectivo),
+          .or(`agencia.ilike.%${agencyName}%,nombre_agency.ilike.%${agencyName}%`),
         supabase
           .from('cda_pagos_diarios')
           .select('*')
-          .or(`agencia.ilike.${agencyName},nombre_agency.ilike.${agencyName}`)
-          .gte('fecha', fDesdeCarga)
-          .lte('fecha', fHastaEfectivo),
+          .or(`agencia.ilike.%${agencyName}%,nombre_agency.ilike.%${agencyName}%`),
         supabase
           .from('pagos_semana')
           .select('*')
-          .ilike('agencia', agencyName)
-          .lte('fecha', fHastaEfectivo)
+          .ilike('agencia', `%${agencyName}%`)
       ]);
 
       const bankData = bankRes.data || [];
@@ -463,8 +459,8 @@ export async function fetchFullCycleMetrics(
 
       // Procesar pagos diarios (efectivo y cobradores confirmados)
       const confirmedDaily = dailyData.filter((p: any) => {
-        const isRech = Boolean(p.rechazado);
-        const isConf = Boolean(p.confirmado) || Boolean(p.confirmado_supervisor) || Boolean(p.fecha_escaneo_cobrador);
+        const isRech = Boolean(p.rechazado) || String(p.estado || '').toUpperCase() === 'RECHAZADO';
+        const isConf = Boolean(p.confirmado) || Boolean(p.confirmado_supervisor) || Boolean(p.fecha_escaneo_cobrador) || String(p.estado || '').toUpperCase() === 'CONFIRMADO';
         return isConf && !isRech;
       });
 
@@ -484,7 +480,9 @@ export async function fetchFullCycleMetrics(
             metodo_pago: p.metodo_pago || 'EFECTIVO',
             referencia: p.referencia || 'Efectivo Taquilla',
             moneda: normalizarMoneda(p.moneda),
-            monto: Number(p.monto ?? 0)
+            monto: Number(p.monto ?? 0),
+            confirmado: true,
+            rechazado: false
           });
         });
         if (cobradorSum > supervisorSum) {
@@ -499,7 +497,8 @@ export async function fetchFullCycleMetrics(
             referencia: 'Cobrador de Ruta (Excedente)',
             moneda: supervisorRows[0]?.moneda ? normalizarMoneda(supervisorRows[0].moneda) : 'COP',
             monto: excess,
-            confirmado: true
+            confirmado: true,
+            rechazado: false
           });
         }
       } else {
@@ -512,15 +511,21 @@ export async function fetchFullCycleMetrics(
             metodo_pago: p.metodo_pago || 'COBRADOR',
             referencia: p.referencia || 'Cobrador de Ruta',
             moneda: normalizarMoneda(p.moneda),
-            monto: Number(p.monto ?? 0)
+            monto: Number(p.monto ?? 0),
+            confirmado: true,
+            rechazado: false
           });
         });
       }
 
+      // Procesar pagos bancarios de cda_pagos_bancarios
       bankData.forEach((b: any) => {
-        if (b.rechazado || !b.confirmado) return;
+        const isRech = Boolean(b.rechazado) || String(b.estado || '').toUpperCase() === 'RECHAZADO';
+        const isConf = Boolean(b.confirmado) || Boolean(b.confirmado_supervisor) || Boolean(b.confirmado_por) || String(b.estado || '').toUpperCase() === 'CONFIRMADO';
+        if (isRech || !isConf) return;
+
         const ref = String(b.referencia || '').trim();
-        const metodo = String(b.metodo_pago || 'Pago Bancario').trim();
+        const metodo = String(b.metodo_pago || b.metodo || 'Pago Bancario').trim();
         const concepto = String(b.concepto || '').trim();
         const tipo = concepto && !metodo.toUpperCase().includes(concepto.toUpperCase())
           ? `${concepto} - ${metodo}`
@@ -533,27 +538,50 @@ export async function fetchFullCycleMetrics(
           tipo_pago: ref ? `${tipo} (Ref: ${ref})` : tipo,
           concepto: concepto || metodo,
           metodo_pago: metodo,
+          metodo: metodo,
           referencia: ref || b.pos_o_cuenta || 'Banco',
           moneda: normalizarMoneda(b.moneda),
-          monto: Number(b.monto ?? 0)
+          monto: Number(b.monto ?? 0),
+          confirmado: true,
+          rechazado: false
         });
       });
 
+      // Procesar pagos de pagos_semana
       weekData.forEach((w: any) => {
+        const isRech = Boolean(w.rechazado) || String(w.estado || '').toUpperCase() === 'RECHAZADO';
+        if (isRech) return;
+
         const montoPs = Number(w.monto ?? 0);
-        const fechaPs = String(w.fecha || '').slice(0, 10);
-        const yaExiste = unified.some(
-          (u) => String(u.fecha || '').slice(0, 10) === fechaPs && Math.abs(Number(u.monto) - montoPs) < 0.01
-        );
-        if (!yaExiste && montoPs > 0) {
+        if (montoPs <= 0) return;
+
+        const refPs = String(w.referencia || '').trim().toUpperCase();
+        const monPs = normalizarMoneda(w.moneda);
+
+        const yaExiste = unified.some((u) => {
+          if (normalizarMoneda(u.moneda) !== monPs) return false;
+          const uRef = String(u.referencia || '').trim().toUpperCase();
+          if (refPs && uRef && refPs !== 'N/A' && uRef !== 'N/A') {
+            if (refPs === uRef || refPs.includes(uRef) || uRef.includes(refPs)) return true;
+          }
+          return Math.abs(Number(u.monto) - montoPs) < 0.01;
+        });
+
+        if (!yaExiste) {
+          const metodoW = String(w.metodo || 'PAGO MÓVIL').trim();
+          const tipoW = String(w.tipo_pago || w.metodo || 'Pago').trim();
           unified.push({
             ...w,
             origen: 'pagos_semana',
             tabla: 'pagos_semana',
-            tipo_pago: w.tipo_pago || w.metodo || 'Pago',
-            referencia: w.referencia || 'Semana',
-            moneda: normalizarMoneda(w.moneda),
-            monto: montoPs
+            tipo_pago: tipoW,
+            metodo: metodoW,
+            metodo_pago: metodoW,
+            referencia: w.referencia || 'Pago Registrado',
+            moneda: monPs,
+            monto: montoPs,
+            confirmado: true,
+            rechazado: false
           });
         }
       });
