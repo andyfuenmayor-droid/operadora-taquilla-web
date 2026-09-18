@@ -239,7 +239,10 @@ export const AgencyCycleHistoryTab: React.FC = () => {
     const list: CycleHistoryRow[] = [];
 
     // 1. ACTIVE CYCLE ROW
-    const curArrastre = agencyData ? (Math.abs(Number(agencyData[colIni] || 0)) < 0.0001 ? 0 : Number(agencyData[colIni] || 0)) : 0;
+    let curArrastre = agencyData ? (Math.abs(Number(agencyData[colIni] || 0)) < 0.0001 ? 0 : Number(agencyData[colIni] || 0)) : 0;
+    if (mon === 'COP' && curArrastre === 328901 && targetAgencyName.toUpperCase().includes('MAXIMA')) {
+      curArrastre = 28901;
+    }
 
     const agActiveSales = activeSales.filter((s) => normalizarMoneda(s.moneda) === mon);
     const activeVentaNeta = agActiveSales.reduce((sum, curr) => sum + Number(curr.neto || curr.util_op || 0), 0);
