@@ -538,7 +538,7 @@ export const AgencyCycleHistoryTab: React.FC = () => {
       const pastCobTot = histCob.reduce((sum, curr) => sum + Number(curr.monto || 0), 0);
       const pastBankTot = histBank.reduce((sum, curr) => sum + Number(curr.monto || 0), 0);
 
-      // Movimientos de ciclos cerrados
+      // Movimientos de ciclos cerrados (incluyendo cobros, bancos, gastos y la venta neta auditada)
       const closedMovements: DetailedMovement[] = [];
 
       histCob.forEach((p) => {
@@ -617,6 +617,57 @@ export const AgencyCycleHistoryTab: React.FC = () => {
         });
       });
 
+      // Inyección de Venta Neta auditada del ciclo cerrado
+      if (Math.abs(vtaPast) > 0.001) {
+        closedMovements.push({
+          id: `vta_closed_${c.id}`,
+          id_display: `#VTA-${c.id}`,
+          fecha: pHasta || String(c.fecha_cierre || '').slice(0, 10),
+          created_at: c.fecha_cierre,
+          tipo_categoria: 'VENTA',
+          categoria_label: '📊 Venta Neta Auditada',
+          concepto: `Utilidad Semanal (${c.periodo || 'Cierre'})`,
+          referencia: `Venta Neta auditada y archivada en cierre`,
+          cajero: '-',
+          monto: Math.abs(vtaPast),
+          es_abono: false,
+          tipo_impacto: vtaPast >= 0 ? 'SUMA' : 'RESTA',
+          signo: vtaPast >= 0 ? '+' : '-',
+          delta: vtaPast,
+          saldo_anterior: 0,
+          saldo_resultante: 0,
+          confirmado: true,
+          rechazado: false,
+          origen_tabla: 'cierres_semanales'
+        });
+      }
+
+      // Inyección de Reposición de Premios del ciclo cerrado si existió
+      const reposicionPremiosClosed = Math.max(0, movPast + pastCobTot + pastBankTot + gasPast);
+      if (reposicionPremiosClosed > 0.01) {
+        closedMovements.push({
+          id: `prem_closed_${c.id}`,
+          id_display: `#PREM-${c.id}`,
+          fecha: pHasta || String(c.fecha_cierre || '').slice(0, 10),
+          created_at: c.fecha_cierre,
+          tipo_categoria: 'PREMIO',
+          categoria_label: '🏆 Reposición Premios',
+          concepto: 'Abono / Reposición de Premios',
+          referencia: 'Reposición auditada por Administración',
+          cajero: '-',
+          monto: reposicionPremiosClosed,
+          es_abono: false,
+          tipo_impacto: 'SUMA',
+          signo: '+',
+          delta: reposicionPremiosClosed,
+          saldo_anterior: 0,
+          saldo_resultante: 0,
+          confirmado: true,
+          rechazado: false,
+          origen_tabla: 'cierres_semanales'
+        });
+      }
+
       // Encadenar saldos para ciclos cerrados
       const closedChronological = [...closedMovements].sort((a, b) => {
         const fCmp = String(a.fecha).localeCompare(String(b.fecha));
@@ -648,7 +699,7 @@ export const AgencyCycleHistoryTab: React.FC = () => {
         venta_neta: vtaPast,
         efectivo_qr: pastCobTot,
         bancos: pastBankTot > 0 ? pastBankTot : Math.max(0, -movPast - pastCobTot - gasPast),
-        reposicion_premios: Math.max(0, movPast + pastCobTot + pastBankTot + gasPast),
+        reposicion_premios: reposicionPremiosClosed,
         gastos: gasPast,
         saldo_final: cFinal,
         is_active_cycle: false,

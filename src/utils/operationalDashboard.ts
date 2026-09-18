@@ -342,6 +342,37 @@ export async function fetchFullCycleMetrics(
           };
         });
       }
+
+      // Fallback a cierres_semanales para ciclos archivados
+      const { data: dataCierres } = await supabase
+        .from('cierres_semanales')
+        .select('*')
+        .ilike('entidad', agencyName);
+
+      if (dataCierres && dataCierres.length > 0) {
+        const matchingCierres = dataCierres.filter((c: any) => {
+          if (!c.periodo || !c.periodo.includes(' al ')) return false;
+          const [pD, pH] = c.periodo.split(' al ').map((s: string) => s.trim());
+          return pD && pH && fDesdeAdmin <= pH && fHastaAdmin >= pD;
+        });
+
+        if (matchingCierres.length > 0) {
+          return matchingCierres.map((c: any) => {
+            const uVal = Number(c.utilidad_semana || 0);
+            return {
+              id: `cierre_${c.id}`,
+              fecha: fHastaAdmin,
+              agencia: agencyName,
+              monto_venta: uVal,
+              comision: 0,
+              monto_premios: 0,
+              neto: uVal,
+              moneda: normalizarMoneda(c.moneda),
+              sistema: 'CIERRE_OFICIAL'
+            };
+          });
+        }
+      }
     } catch (err) {
       console.error('Error querying sales data:', err);
     }

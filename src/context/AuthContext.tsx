@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import type { UserSession, Agency, UserRole, SystemCycle } from '../types';
-import { normalizarMoneda, getTodayDateString } from '../utils/formatters';
+import { normalizarMoneda } from '../utils/formatters';
 import { clearMetricsCache } from '../utils/operationalDashboard';
 
 interface AuthContextType {
@@ -97,7 +97,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const activeCycle: SystemCycle = {
           desde: confMap['fecha_desde'] || defaultCycle.desde,
           hasta: confMap['fecha_hasta'] || defaultCycle.hasta,
-          tipo: confMap['tipo_cierre'] || defaultCycle.tipo,
+          tipo: (confMap['tipo_cierre']?.toUpperCase() === 'DIARIO' ? 'DIARIO' : 'SEMANAL') as 'SEMANAL' | 'DIARIO',
           semana: confMap['semana_no'] || defaultCycle.semana,
         };
 
@@ -117,50 +117,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return defaultCycle;
   }, []);
 
-  const checkDayClosedStatus = useCallback(async (dateStr?: string): Promise<boolean> => {
-    const targetDate = dateStr || getTodayDateString();
-    const agName = agency?.nombre_agencia;
-    if (!agName) return false;
-
-    try {
-      // 1. Consultar saldo_taquilla (si existe registro con saldo_restante, el día está cerrado)
-      let q = supabase
-        .table('saldo_taquilla')
-        .select('id, saldo_restante')
-        .eq('fecha', targetDate)
-        .ilike('nombre_agency', agName);
-
-      if (user?.rol === 'cajero' && user.id) {
-        q = q.eq('cajero_id', String(user.id));
-      }
-
-      const { data: saldoList } = await q.limit(1);
-      if (saldoList && saldoList.length > 0) {
-        setIsDayClosed(true);
-        return true;
-      }
-
-      // 2. Consultar cda_reportes_diarios donde cerrado = true
-      let qRep = supabase
-        .table('cda_reportes_diarios')
-        .select('id')
-        .eq('fecha', targetDate)
-        .ilike('nombre_agency', agName)
-        .eq('cerrado', true);
-
-      if (user?.rol === 'cajero' && user.id) {
-        qRep = qRep.eq('cajero_id', String(user.id));
-      }
-
-      const { data: repList } = await qRep.limit(1);
-      const closed = Boolean(repList && repList.length > 0);
-      setIsDayClosed(closed);
-      return closed;
-    } catch (err) {
-      console.warn('Error checking day closed status:', err);
-      return false;
-    }
-  }, [agency?.nombre_agencia, user?.rol, user?.id]);
+  // La taquilla opera de forma continua sincronizada con el ciclo administrativo
+  const checkDayClosedStatus = useCallback(async (): Promise<boolean> => {
+    setIsDayClosed(false);
+    return false;
+  }, []);
 
   // Restore session from localStorage on mount (fully awaited before releasing loading)
   useEffect(() => {
@@ -220,10 +181,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [fetchSystemCycle]);
 
   useEffect(() => {
-    if (agency?.nombre_agencia) {
-      checkDayClosedStatus();
-    }
-  }, [agency?.nombre_agencia, checkDayClosedStatus]);
+    const channel = supabase
+      .channel('realtime_taquilla_config_sistema')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'config_sistema' }, () => {
+        fetchSystemCycle(user?.user_id || agency?.user_id);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.user_id, agency?.user_id, fetchSystemCycle]);
 
   const refreshAgency = async () => {
     if (!agency?.id && !user?.agencia_id) return;

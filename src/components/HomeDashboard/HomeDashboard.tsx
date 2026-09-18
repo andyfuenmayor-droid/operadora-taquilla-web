@@ -14,7 +14,6 @@ import {
   Calculator, 
   Award, 
   TrendingUp, 
-  Lock, 
   Unlock,
   RefreshCw,
   Percent,
@@ -28,7 +27,7 @@ interface HomeDashboardProps {
 }
 
 export const HomeDashboard: React.FC<HomeDashboardProps> = () => {
-  const { user, agency, systemCycle, assignedCurrencies, assignedSystems, isDayClosed } = useAuth();
+  const { user, agency, systemCycle, assignedCurrencies, assignedSystems } = useAuth();
   const [metricsByCurrency, setMetricsByCurrency] = useState<Record<string, CurrencyOperationalMetrics>>({});
   const [selectedCurrency, setSelectedCurrency] = useState<string>(assignedCurrencies[0] || 'BS');
   const [loading, setLoading] = useState(false);
@@ -184,17 +183,10 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = () => {
 
           <div className="flex flex-col sm:items-end gap-2 text-right">
             <div className="flex items-center gap-2">
-              {isDayClosed ? (
-                <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">
-                  <Lock className="w-3.5 h-3.5" />
-                  🔒 DÍA OPERATIVO CERRADO
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                  <Unlock className="w-3.5 h-3.5" />
-                  🟢 DÍA OPERATIVO ABIERTO
-                </span>
-              )}
+              <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                <Unlock className="w-3.5 h-3.5" />
+                🟢 CICLO OPERATIVO ACTIVO
+              </span>
 
               <button
                 onClick={() => loadData(true)}
@@ -209,7 +201,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = () => {
             <div className="text-[11px] text-slate-400 mt-1 flex items-center justify-end gap-1.5 flex-wrap">
               <Calendar className="w-3.5 h-3.5 text-slate-400" />
               <span>
-                📅 Día Operativo: <strong className="text-white font-mono">{formatDate(todayStr)}</strong>
+                📅 Hoy: <strong className="text-white font-mono">{formatDate(todayStr)}</strong>
               </span>
               <span className="text-slate-600">|</span>
               <span>

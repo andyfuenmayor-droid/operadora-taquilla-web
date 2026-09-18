@@ -6,13 +6,12 @@ import {
   User as UserIcon, 
   Receipt, 
   CreditCard, 
-  Calculator, 
   LayoutDashboard, 
   QrCode, 
-  ShieldCheck,
-  Home,
-  BarChart3,
-  History
+  ShieldCheck, 
+  Home, 
+  BarChart3, 
+  History 
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -131,18 +130,6 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                   <ShieldCheck className="w-3.5 h-3.5" />
                   <span>Banco / POS</span>
                 </button>
-
-                <button
-                  onClick={() => onTabChange('cierre')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                    currentTab === 'cierre'
-                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                  }`}
-                >
-                  <Calculator className="w-3.5 h-3.5" />
-                  <span>Cierre</span>
-                </button>
               </>
             )}
 
@@ -207,18 +194,6 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                 >
                   <BarChart3 className="w-3.5 h-3.5" />
                   <span>Reporte</span>
-                </button>
-
-                <button
-                  onClick={() => onTabChange('cierre')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                    currentTab === 'cierre'
-                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                  }`}
-                >
-                  <Calculator className="w-3.5 h-3.5" />
-                  <span>Cierre Maestro</span>
                 </button>
               </>
             )}
@@ -406,14 +381,6 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
               >
                 Banco
               </button>
-              <button
-                onClick={() => onTabChange('cierre')}
-                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
-                  currentTab === 'cierre' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Cierre
-              </button>
             </>
           )}
 
@@ -459,14 +426,6 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                 }`}
               >
                 Reporte
-              </button>
-              <button
-                onClick={() => onTabChange('cierre')}
-                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
-                  currentTab === 'cierre' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Cierre Maestro
               </button>
             </>
           )}
