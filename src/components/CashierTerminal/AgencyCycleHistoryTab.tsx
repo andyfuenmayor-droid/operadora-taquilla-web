@@ -119,13 +119,13 @@ export const AgencyCycleHistoryTab: React.FC = () => {
         psRes,
         usrRes
       ] = await Promise.all([
-        supabase.from('agencias').select('*').ilike('nombre_agencia', targetAgencyName).limit(1),
-        supabase.from('cierres_semanales').select('*').ilike('entidad', targetAgencyName).order('fecha_cierre', { ascending: false }),
-        supabase.from('carga_actual').select('*').ilike('agencia', targetAgencyName),
-        supabase.from('cda_pagos_diarios').select('*').or(`agencia.ilike.${targetAgencyName},nombre_agency.ilike.${targetAgencyName}`),
-        supabase.from('cda_pagos_bancarios').select('*').or(`agencia.ilike.${targetAgencyName},nombre_agency.ilike.${targetAgencyName}`),
-        supabase.from('cda_gastos_diarios').select('*').or(`agencia.ilike.${targetAgencyName},nombre_agency.ilike.${targetAgencyName}`),
-        supabase.from('pagos_semana').select('*').ilike('agencia', targetAgencyName),
+        supabase.from('agencias').select('*').ilike('nombre_agencia', targetAgencyName.trim()).limit(1),
+        supabase.from('cierres_semanales').select('*').ilike('entidad', `%${targetAgencyName.trim()}%`).order('fecha_cierre', { ascending: false }),
+        supabase.from('carga_actual').select('*').ilike('agencia', `%${targetAgencyName.trim()}%`),
+        supabase.from('cda_pagos_diarios').select('*').or(`agencia.ilike.%${targetAgencyName.trim()}%,nombre_agency.ilike.%${targetAgencyName.trim()}%`),
+        supabase.from('cda_pagos_bancarios').select('*').ilike('agencia', `%${targetAgencyName.trim()}%`),
+        supabase.from('cda_gastos_diarios').select('*').or(`agencia.ilike.%${targetAgencyName.trim()}%,nombre_agency.ilike.%${targetAgencyName.trim()}%`),
+        supabase.from('pagos_semana').select('*').ilike('agencia', `%${targetAgencyName.trim()}%`),
         supabase.from('taquilla_usuarios').select('id, usuario, nombre_cajero'),
       ]);
 
@@ -278,14 +278,16 @@ export const AgencyCycleHistoryTab: React.FC = () => {
     // 1. Pagos manuales / activos de pagos_semana
     const activePsList = rawManualPayments.filter((p) => {
       const matchMon = normalizarMoneda(p.moneda) === mon;
-      return matchMon && !p.rechazado;
+      const fStr = String(p.fecha || p.created_at || '').slice(0, 10);
+      const inCycle = (!cycleDesde || fStr >= cycleDesde) && (!cycleHasta || fStr <= cycleHasta);
+      return matchMon && inCycle && !p.rechazado;
     });
 
     // 2. Pagos bancarios registrados en cda_pagos_bancarios
     const activePbList = rawBankPayments.filter((p) => {
       const matchMon = normalizarMoneda(p.moneda) === mon;
       const fStr = String(p.fecha || p.created_at || '').slice(0, 10);
-      const inCycle = (!cycleHasta || fStr <= cycleHasta);
+      const inCycle = (!cycleDesde || fStr >= cycleDesde) && (!cycleHasta || fStr <= cycleHasta);
       return matchMon && inCycle && (p.confirmado === undefined || p.confirmado === null || Boolean(p.confirmado)) && !p.rechazado;
     });
 

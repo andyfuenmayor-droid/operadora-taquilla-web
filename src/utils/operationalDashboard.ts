@@ -440,15 +440,15 @@ export async function fetchFullCycleMetrics(
         supabase
           .from('cda_pagos_bancarios')
           .select('*')
-          .or(`agencia.ilike.%${agencyName}%,nombre_agency.ilike.%${agencyName}%`),
+          .ilike('agencia', `%${agencyName.trim()}%`),
         supabase
           .from('cda_pagos_diarios')
           .select('*')
-          .or(`agencia.ilike.%${agencyName}%,nombre_agency.ilike.%${agencyName}%`),
+          .or(`agencia.ilike.%${agencyName.trim()}%,nombre_agency.ilike.%${agencyName.trim()}%`),
         supabase
           .from('pagos_semana')
           .select('*')
-          .ilike('agencia', `%${agencyName}%`)
+          .ilike('agencia', `%${agencyName.trim()}%`)
       ]);
 
       const bankData = bankRes.data || [];
@@ -524,6 +524,9 @@ export async function fetchFullCycleMetrics(
         const isConf = Boolean(b.confirmado) || Boolean(b.confirmado_supervisor) || Boolean(b.confirmado_por) || String(b.estado || '').toUpperCase() === 'CONFIRMADO';
         if (isRech || !isConf) return;
 
+        const fStr = String(b.fecha || b.created_at || '').slice(0, 10);
+        if (fStr && (fStr < fDesdeAdmin || fStr > fHastaEfectivo)) return;
+
         const ref = String(b.referencia || '').trim();
         const metodo = String(b.metodo_pago || b.metodo || 'Pago Bancario').trim();
         const concepto = String(b.concepto || '').trim();
@@ -555,6 +558,9 @@ export async function fetchFullCycleMetrics(
         const montoPs = Number(w.monto ?? 0);
         if (montoPs <= 0) return;
 
+        const fStr = String(w.fecha || w.created_at || '').slice(0, 10);
+        if (fStr && (fStr < fDesdeAdmin || fStr > fHastaEfectivo)) return;
+
         const refPs = String(w.referencia || '').trim().toUpperCase();
         const monPs = normalizarMoneda(w.moneda);
 
@@ -564,7 +570,8 @@ export async function fetchFullCycleMetrics(
           if (refPs && uRef && refPs !== 'N/A' && uRef !== 'N/A') {
             if (refPs === uRef || refPs.includes(uRef) || uRef.includes(refPs)) return true;
           }
-          return Math.abs(Number(u.monto) - montoPs) < 0.01;
+          const uFecha = String(u.fecha || u.created_at || '').slice(0, 10);
+          return Math.abs(Number(u.monto) - montoPs) < 0.01 && uFecha && fStr && uFecha === fStr;
         });
 
         if (!yaExiste) {
