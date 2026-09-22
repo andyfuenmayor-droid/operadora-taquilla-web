@@ -10,9 +10,11 @@ import {
   CheckCircle2, 
   Receipt, 
   CreditCard, 
-  Send 
+  Send,
+  Bell
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { notificationService } from '../../utils/notificationService';
 
 interface ParsedBankAccount {
   id: number;
@@ -546,6 +548,72 @@ export const BankTransfersTab: React.FC = () => {
     }
   }, [subTab, fetchHistorial]);
 
+  // -------------------------------------------------------------
+  // 6.1 SUSCRIPCIÓN EN TIEMPO REAL POR SOCKET A CONFIRMACIONES
+  // -------------------------------------------------------------
+  useEffect(() => {
+    if (!agencyName) return;
+
+    const safeAgency = agencyName.trim().toUpperCase();
+    const channelName = `taquilla_bank_transfers_${safeAgency.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}`;
+
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'cda_pagos_bancarios',
+        },
+        (payload: any) => {
+          const newRow = payload.new as BankTransferRow;
+          const oldRow = payload.old as BankTransferRow;
+
+          const rowAgency = String(newRow?.agencia || '').trim().toUpperCase();
+          const matchesAgency = rowAgency === safeAgency || rowAgency.includes(safeAgency) || safeAgency.includes(rowAgency);
+
+          if (payload.eventType === 'UPDATE' && matchesAgency) {
+            // Caso 1: El pago fue confirmado por el supervisor o CMS
+            if (newRow?.confirmado && (!oldRow || !oldRow.confirmado)) {
+              notificationService.showNotification('✅ ¡Pago Bancario Confirmado!', {
+                body: `Ref: ${newRow.referencia || 'N/A'} por ${formatCurrency(Number(newRow.monto || 0), newRow.moneda as any)} ha sido confirmado por ${newRow.confirmado_por || 'Supervisor'}.`,
+                soundType: 'confirmed',
+                tag: `pago_conf_${newRow.id}`,
+              });
+              try {
+                confetti({ particleCount: 35, spread: 60, origin: { y: 0.7 } });
+              } catch (_) {}
+            }
+            // Caso 2: El pago fue rechazado
+            else if (newRow?.rechazado && (!oldRow || !oldRow.rechazado)) {
+              notificationService.showNotification('❌ Pago Bancario Rechazado', {
+                body: `Ref: ${newRow.referencia || 'N/A'} por ${formatCurrency(Number(newRow.monto || 0), newRow.moneda as any)}. Motivo: ${newRow.motivo_rechazo || 'No especificado'}.`,
+                soundType: 'rejected',
+                tag: `pago_rech_${newRow.id}`,
+              });
+            }
+
+            // Recargar datos en pantalla y recalcular la tarjeta de deuda en tiempo real
+            fetchDailyTransfers();
+            fetchHistorial();
+            clearMetricsCache();
+            loadDebtMetrics(true);
+          } else if (payload.eventType === 'INSERT' && matchesAgency) {
+            fetchDailyTransfers();
+            fetchHistorial();
+            clearMetricsCache();
+            loadDebtMetrics(true);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [agencyName, fetchDailyTransfers, fetchHistorial, clearMetricsCache, loadDebtMetrics]);
+
   // Resumen métrico para el historial
   const historialMetrics = useMemo(() => {
     const valid = transfers.filter((t) => !t.rechazado);
@@ -576,14 +644,35 @@ export const BankTransfersTab: React.FC = () => {
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* HEADER SECTION MATCHING STREAMLIT */}
-      <div>
-        <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2">
-          <span>🏛️</span>
-          <span>Gestión Bancaria</span>
-        </h2>
-        <p className="text-xs text-slate-400 mt-0.5">
-          Terminal: <span className="text-slate-200 font-bold">{agencyName || 'AGENCIA GENERAL'}</span>
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2">
+            <span>🏛️</span>
+            <span>Gestión Bancaria</span>
+          </h2>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Terminal: <span className="text-slate-200 font-bold">{agencyName || 'AGENCIA GENERAL'}</span>
+          </p>
+        </div>
+
+        {/* Botón de activación de Notificaciones Push de Escritorio */}
+        <button
+          type="button"
+          onClick={async () => {
+            const granted = await notificationService.requestPermission();
+            if (granted) {
+              notificationService.showNotification('🔔 Notificaciones en Vivo Activadas', {
+                body: 'Recibirás avisos sonoros y notificaciones al confirmarse tus pagos.',
+                soundType: 'confirmed',
+              });
+            }
+          }}
+          className="px-3 py-1.5 rounded-xl text-xs font-bold border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-all flex items-center gap-2 cursor-pointer shadow-sm"
+          title="Activar alertas sonoras y notificaciones de escritorio"
+        >
+          <Bell className="w-3.5 h-3.5 text-emerald-400" />
+          <span>Notificaciones en Vivo</span>
+        </button>
       </div>
 
       {/* SUB-TABS NAVIGATION BAR */}
