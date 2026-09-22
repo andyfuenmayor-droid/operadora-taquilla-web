@@ -70,26 +70,62 @@ interface CycleHistoryRow {
   movements: DetailedMovement[];
 }
 
-const sortMovementsDesc = (a: DetailedMovement, b: DetailedMovement) => {
-  const fCmp = String(b.fecha).localeCompare(String(a.fecha));
-  if (fCmp !== 0) return fCmp;
-  const tA = a.created_at || '';
-  const tB = b.created_at || '';
-  if (tA && tB && tA !== tB) return tB.localeCompare(tA);
-  const nA = typeof a.id === 'number' ? a.id : parseInt(String(a.id).replace(/\D/g, ''), 10) || 0;
-  const nB = typeof b.id === 'number' ? b.id : parseInt(String(b.id).replace(/\D/g, ''), 10) || 0;
-  return nB - nA;
+const getMovementCategoryPriority = (m: DetailedMovement) => {
+  // En la contabilidad del ciclo, las ventas y reposiciones base se asientan primero (cargos)
+  if (m.tipo_categoria === 'VENTA') return 1;
+  if (m.tipo_categoria === 'PREMIO') return 2;
+  // Luego los abonos y pagos de la taquilla (gastos, cobradores, efectivo, bancos)
+  if (m.tipo_categoria === 'GASTO') return 3;
+  if (m.tipo_categoria === 'COBRADOR') return 4;
+  if (m.tipo_categoria === 'EFECTIVO') return 5;
+  if (m.tipo_categoria === 'BANCO') return 6;
+  return 7;
 };
 
 const sortMovementsAsc = (a: DetailedMovement, b: DetailedMovement) => {
+  // 1. Cronológico por fecha
   const fCmp = String(a.fecha).localeCompare(String(b.fecha));
   if (fCmp !== 0) return fCmp;
+
+  // 2. En la misma fecha: Ventas/Cargos primero (1), Pagos/Abonos después (6)
+  const pA = getMovementCategoryPriority(a);
+  const pB = getMovementCategoryPriority(b);
+  if (pA !== pB) return pA - pB;
+
+  // 3. Por timestamp de creación si son de la misma fecha
   const tA = a.created_at || '';
   const tB = b.created_at || '';
-  if (tA && tB && tA !== tB) return tA.localeCompare(tB);
+  if (tA && tB && tA.slice(0, 10) === tB.slice(0, 10) && tA !== tB) {
+    return tA.localeCompare(tB);
+  }
+
+  // 4. Por ID / Número de transacción (más bajo primero)
   const nA = typeof a.id === 'number' ? a.id : parseInt(String(a.id).replace(/\D/g, ''), 10) || 0;
   const nB = typeof b.id === 'number' ? b.id : parseInt(String(b.id).replace(/\D/g, ''), 10) || 0;
   return nA - nB;
+};
+
+const sortMovementsDesc = (a: DetailedMovement, b: DetailedMovement) => {
+  // 1. Decreciente por fecha (más reciente primero)
+  const fCmp = String(b.fecha).localeCompare(String(a.fecha));
+  if (fCmp !== 0) return fCmp;
+
+  // 2. En la misma fecha: Últimos pagos/abonos arriba (6), Ventas/Cargos abajo (1)
+  const pA = getMovementCategoryPriority(a);
+  const pB = getMovementCategoryPriority(b);
+  if (pA !== pB) return pB - pA;
+
+  // 3. Por timestamp de creación (más reciente arriba)
+  const tA = a.created_at || '';
+  const tB = b.created_at || '';
+  if (tA && tB && tA.slice(0, 10) === tB.slice(0, 10) && tA !== tB) {
+    return tB.localeCompare(tA);
+  }
+
+  // 4. Por ID / Número de transacción (más alto arriba)
+  const nA = typeof a.id === 'number' ? a.id : parseInt(String(a.id).replace(/\D/g, ''), 10) || 0;
+  const nB = typeof b.id === 'number' ? b.id : parseInt(String(b.id).replace(/\D/g, ''), 10) || 0;
+  return nB - nA;
 };
 
 export const AgencyCycleHistoryTab: React.FC = () => {
@@ -581,7 +617,7 @@ export const AgencyCycleHistoryTab: React.FC = () => {
         id: s.id || `vta_${s.sistema}_${s.fecha || 'act'}`,
         id_display: s.id ? `#${s.id}` : `#VTA-${s.sistema || 'BETM3'}`,
         fecha: String(s.fecha || systemCycle?.hasta || '').slice(0, 10),
-        created_at: s.created_at || s.fecha,
+        created_at: String(s.fecha || systemCycle?.hasta || '').slice(0, 10) + 'T00:00:00.000Z',
         tipo_categoria: 'VENTA',
         categoria_label: '📊 Venta Neta Sistema',
         concepto: `Venta Sistema ${s.sistema || 'BETM3'}`,
