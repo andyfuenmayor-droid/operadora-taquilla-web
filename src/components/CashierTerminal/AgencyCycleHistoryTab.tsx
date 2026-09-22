@@ -70,6 +70,28 @@ interface CycleHistoryRow {
   movements: DetailedMovement[];
 }
 
+const sortMovementsDesc = (a: DetailedMovement, b: DetailedMovement) => {
+  const fCmp = String(b.fecha).localeCompare(String(a.fecha));
+  if (fCmp !== 0) return fCmp;
+  const tA = a.created_at || '';
+  const tB = b.created_at || '';
+  if (tA && tB && tA !== tB) return tB.localeCompare(tA);
+  const nA = typeof a.id === 'number' ? a.id : parseInt(String(a.id).replace(/\D/g, ''), 10) || 0;
+  const nB = typeof b.id === 'number' ? b.id : parseInt(String(b.id).replace(/\D/g, ''), 10) || 0;
+  return nB - nA;
+};
+
+const sortMovementsAsc = (a: DetailedMovement, b: DetailedMovement) => {
+  const fCmp = String(a.fecha).localeCompare(String(b.fecha));
+  if (fCmp !== 0) return fCmp;
+  const tA = a.created_at || '';
+  const tB = b.created_at || '';
+  if (tA && tB && tA !== tB) return tA.localeCompare(tB);
+  const nA = typeof a.id === 'number' ? a.id : parseInt(String(a.id).replace(/\D/g, ''), 10) || 0;
+  const nB = typeof b.id === 'number' ? b.id : parseInt(String(b.id).replace(/\D/g, ''), 10) || 0;
+  return nA - nB;
+};
+
 export const AgencyCycleHistoryTab: React.FC = () => {
   const { agency, systemCycle } = useAuth();
 
@@ -86,6 +108,8 @@ export const AgencyCycleHistoryTab: React.FC = () => {
 
   // Filtro dentro del modal drilldown
   const [modalCategoryFilter, setModalCategoryFilter] = useState<string>('all');
+  // Ordenamiento de extracto de ciclo (por defecto decreciente: la última transacción arriba)
+  const [cycleExtractSortOrder, setCycleExtractSortOrder] = useState<'desc' | 'asc'>('desc');
 
   // Agency data
   const targetAgencyName = useMemo(() => {
@@ -577,16 +601,7 @@ export const AgencyCycleHistoryTab: React.FC = () => {
     });
 
     // Ordenamiento cronológico ascendente para calcular el encadenamiento bancario exacto
-    const activeChronological = [...rawActiveMovements].sort((a, b) => {
-      const fCmp = String(a.fecha).localeCompare(String(b.fecha));
-      if (fCmp !== 0) return fCmp;
-      const tA = a.created_at || '';
-      const tB = b.created_at || '';
-      if (tA && tB && tA !== tB) return tA.localeCompare(tB);
-      const nA = typeof a.id === 'number' ? a.id : parseInt(String(a.id).replace(/\D/g, ''), 10) || 0;
-      const nB = typeof b.id === 'number' ? b.id : parseInt(String(b.id).replace(/\D/g, ''), 10) || 0;
-      return nA - nB;
-    });
+    const activeChronological = [...rawActiveMovements].sort(sortMovementsAsc);
 
     // Encadenar saldos bancarios: Viene con ($S_{i-1}$) -> Movimiento (+/-) -> Saldo ($S_i$)
     let activeRunning = curArrastre;
@@ -596,6 +611,9 @@ export const AgencyCycleHistoryTab: React.FC = () => {
       m.saldo_resultante = Math.round((activeRunning + effDelta) * 100) / 100;
       activeRunning = m.saldo_resultante;
     });
+
+    // Ordenar por transacción decreciente (la última transacción arriba)
+    const activeMovementsDesc = [...activeChronological].sort(sortMovementsDesc);
 
     list.push({
       id: `active_sem_${systemCycle?.semana || 'actual'}`,
@@ -621,7 +639,7 @@ export const AgencyCycleHistoryTab: React.FC = () => {
         reposicion_premios: agManualPrem,
         ventas_sistemas: agActiveSales,
       },
-      movements: activeChronological,
+      movements: activeMovementsDesc,
     });
 
     // 2. CLOSED CYCLES
@@ -800,16 +818,7 @@ export const AgencyCycleHistoryTab: React.FC = () => {
       }
 
       // Encadenar saldos para ciclos cerrados
-      const closedChronological = [...closedMovements].sort((a, b) => {
-        const fCmp = String(a.fecha).localeCompare(String(b.fecha));
-        if (fCmp !== 0) return fCmp;
-        const tA = a.created_at || '';
-        const tB = b.created_at || '';
-        if (tA && tB && tA !== tB) return tA.localeCompare(tB);
-        const nA = typeof a.id === 'number' ? a.id : parseInt(String(a.id).replace(/\D/g, ''), 10) || 0;
-        const nB = typeof b.id === 'number' ? b.id : parseInt(String(b.id).replace(/\D/g, ''), 10) || 0;
-        return nA - nB;
-      });
+      const closedChronological = [...closedMovements].sort(sortMovementsAsc);
 
       let pastRunning = arrPast;
       closedChronological.forEach((m) => {
@@ -818,6 +827,8 @@ export const AgencyCycleHistoryTab: React.FC = () => {
         m.saldo_resultante = Math.round((pastRunning + effDelta) * 100) / 100;
         pastRunning = m.saldo_resultante;
       });
+
+      const closedMovementsDesc = [...closedChronological].sort(sortMovementsDesc);
 
       list.push({
         id: `closed_${c.id}`,
@@ -843,7 +854,7 @@ export const AgencyCycleHistoryTab: React.FC = () => {
           reposicion_premios: [],
           ventas_sistemas: [],
         },
-        movements: closedChronological,
+        movements: closedMovementsDesc,
       });
     });
 
@@ -906,16 +917,7 @@ export const AgencyCycleHistoryTab: React.FC = () => {
 
       // Encadenar movimientos del mes en orden cronológico
       const rawMonthMovements = sorted.flatMap((r) => r.movements);
-      const monthChronological = [...rawMonthMovements].sort((a, b) => {
-        const fCmp = String(a.fecha).localeCompare(String(b.fecha));
-        if (fCmp !== 0) return fCmp;
-        const tA = a.created_at || '';
-        const tB = b.created_at || '';
-        if (tA && tB && tA !== tB) return tA.localeCompare(tB);
-        const nA = typeof a.id === 'number' ? a.id : parseInt(String(a.id).replace(/\D/g, ''), 10) || 0;
-        const nB = typeof b.id === 'number' ? b.id : parseInt(String(b.id).replace(/\D/g, ''), 10) || 0;
-        return nA - nB;
-      });
+      const monthChronological = [...rawMonthMovements].sort(sortMovementsAsc);
 
       let mRunning = saldoIniMonth;
       monthChronological.forEach((m) => {
@@ -924,6 +926,8 @@ export const AgencyCycleHistoryTab: React.FC = () => {
         m.saldo_resultante = Math.round((mRunning + effDelta) * 100) / 100;
         mRunning = m.saldo_resultante;
       });
+
+      const monthMovementsDesc = [...monthChronological].sort(sortMovementsDesc);
 
       months.push({
         id: `month_${ym}`,
@@ -949,7 +953,7 @@ export const AgencyCycleHistoryTab: React.FC = () => {
           reposicion_premios: sorted.flatMap((r) => r.vouchers.reposicion_premios),
           ventas_sistemas: sorted.flatMap((r) => r.vouchers.ventas_sistemas),
         },
-        movements: monthChronological,
+        movements: monthMovementsDesc,
       });
     });
 
@@ -1369,15 +1373,28 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                                       Extracto y Movimientos del Período ({row.movements.length} operaciones &bull; 1 ID por movimiento)
                                     </h4>
                                   </div>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setSelectedDrilldownRow(row);
-                                    }}
-                                    className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1.5 border border-slate-700 transition-all cursor-pointer"
-                                  >
-                                    <Eye className="w-3.5 h-3.5" /> Abrir en Modal Completo
-                                  </button>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setCycleExtractSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'));
+                                      }}
+                                      className="px-2.5 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 hover:text-white font-bold flex items-center gap-1.5 border border-slate-700 transition-all cursor-pointer"
+                                      title="Alternar orden de transacciones"
+                                    >
+                                      <ArrowUpDown className="w-3.5 h-3.5 text-emerald-400" />
+                                      <span>{cycleExtractSortOrder === 'desc' ? '🔽 Última transacción arriba' : '🔼 Más antigua primero'}</span>
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedDrilldownRow(row);
+                                      }}
+                                      className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1.5 border border-slate-700 transition-all cursor-pointer"
+                                    >
+                                      <Eye className="w-3.5 h-3.5" /> Abrir en Modal Completo
+                                    </button>
+                                  </div>
                                 </div>
 
                                 {/* Mini-Barra Resumen de Extracto del Período */}
@@ -1419,8 +1436,24 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                                     <table className="w-full text-left text-xs border-collapse">
                                       <thead className="bg-slate-900/90 text-slate-400 font-bold uppercase text-[10px] tracking-wider border-b border-slate-800">
                                         <tr>
-                                          <th className="py-2.5 px-3">ID</th>
-                                          <th className="py-2.5 px-3">Fecha</th>
+                                          <th
+                                            className="py-2.5 px-3 cursor-pointer select-none hover:text-white transition-colors"
+                                            onClick={() => setCycleExtractSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'))}
+                                            title="Ordenar por ID / Transacción"
+                                          >
+                                            <span className="inline-flex items-center gap-1">
+                                              ID <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                                            </span>
+                                          </th>
+                                          <th
+                                            className="py-2.5 px-3 cursor-pointer select-none hover:text-white transition-colors"
+                                            onClick={() => setCycleExtractSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'))}
+                                            title="Ordenar por Fecha"
+                                          >
+                                            <span className="inline-flex items-center gap-1">
+                                              Fecha <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                                            </span>
+                                          </th>
                                           <th className="py-2.5 px-3">Categoría</th>
                                           <th className="py-2.5 px-3">Concepto</th>
                                           <th className="py-2.5 px-3">Referencia / Comprobante</th>
@@ -1432,7 +1465,9 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                                         </tr>
                                       </thead>
                                       <tbody className="divide-y divide-slate-800/60 font-mono">
-                                        {row.movements.map((m, idx) => (
+                                        {[...row.movements]
+                                          .sort(cycleExtractSortOrder === 'desc' ? sortMovementsDesc : sortMovementsAsc)
+                                          .map((m, idx) => (
                                           <tr key={`${m.origen_tabla}_${m.id}_${idx}`} className="hover:bg-slate-800/40 transition-colors">
                                             <td className="py-2.5 px-3">
                                               <span className="px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700 text-emerald-300 font-bold font-mono text-[11px] inline-flex items-center gap-1">
@@ -1875,9 +1910,19 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                   </button>
                 ))}
               </div>
-              <span className="text-[11px] text-slate-400 font-mono whitespace-nowrap font-bold">
-                {selectedDrilldownRow.movements.filter((m) => modalCategoryFilter === 'all' || m.tipo_categoria === modalCategoryFilter).length} mov.
-              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCycleExtractSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'))}
+                  className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 flex items-center gap-1.5 cursor-pointer transition-all"
+                  title="Alternar orden de movimientos"
+                >
+                  <ArrowUpDown className="w-3 h-3 text-emerald-400" />
+                  <span>{cycleExtractSortOrder === 'desc' ? '🔽 Última arriba' : '🔼 Antigua primero'}</span>
+                </button>
+                <span className="text-[11px] text-slate-400 font-mono whitespace-nowrap font-bold">
+                  {selectedDrilldownRow.movements.filter((m) => modalCategoryFilter === 'all' || m.tipo_categoria === modalCategoryFilter).length} mov.
+                </span>
+              </div>
             </div>
 
             {/* Lista detallada de movimientos: 1 movimiento = 1 ID */}
@@ -1889,8 +1934,9 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                   No hay movimientos registrados para esta categoría en este período.
                 </div>
               ) : (
-                selectedDrilldownRow.movements
+                [...selectedDrilldownRow.movements]
                   .filter((m) => modalCategoryFilter === 'all' || m.tipo_categoria === modalCategoryFilter)
+                  .sort(cycleExtractSortOrder === 'desc' ? sortMovementsDesc : sortMovementsAsc)
                   .map((m, i) => (
                     <div
                       key={i}
