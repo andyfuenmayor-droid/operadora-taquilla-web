@@ -5,6 +5,7 @@ import { Header } from './components/Header';
 import { CashierTerminal } from './components/CashierTerminal/CashierTerminal';
 import { SupervisorBoard } from './components/SupervisorBoard/SupervisorBoard';
 import { CollectorPortal } from './components/CollectorPortal/CollectorPortal';
+import { ToastContainer } from './components/Common/ToastContainer';
 
 const MainLayout: React.FC = () => {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -48,6 +49,9 @@ const MainLayout: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#071217] text-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-black">
+      {/* Global In-App Floating Toast Notifications */}
+      <ToastContainer />
+
       <Header currentTab={currentTab} onTabChange={setCurrentTab} />
 
       <div className="flex-1">

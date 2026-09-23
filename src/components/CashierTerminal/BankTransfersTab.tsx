@@ -508,6 +508,15 @@ export const BankTransfersTab: React.FC = () => {
 
       confetti({ particleCount: 35, spread: 60, origin: { y: 0.8 } });
       setFormSuccess(`✅ Pago por ${currentDestinoMeta.metodo} (Ref: ${referenciaPago.trim().toUpperCase()}) registrado exitosamente! En espera de confirmación.`);
+
+      // Notificación visual in-app flotante instantánea para el cajero
+      notificationService.showNotification('📤 Pago Enviado a Confirmación', {
+        body: `${currentDestinoMeta.metodo} • ${formatCurrency(parsedMonto, currentDestinoMeta.moneda as any)} (Ref: ${referenciaPago.trim().toUpperCase()}) en espera de validación administrativa.`,
+        soundType: 'alert',
+        toastType: 'payment',
+        tag: `sent_pago_${referenciaPago.trim().toUpperCase()}`,
+      });
+
       setMontoPago('');
       setReferenciaPago('');
       setDatosPagador('');
@@ -739,23 +748,18 @@ export const BankTransfersTab: React.FC = () => {
           </p>
         </div>
 
-        {/* Botón de activación de Notificaciones Push de Escritorio */}
+        {/* Botón de activación y prueba de Alertas y Sonido */}
         <button
           type="button"
           onClick={async () => {
-            const granted = await notificationService.requestPermission();
-            if (granted) {
-              notificationService.showNotification('🔔 Notificaciones en Vivo Activadas', {
-                body: 'Recibirás avisos sonoros y notificaciones al confirmarse tus pagos.',
-                soundType: 'confirmed',
-              });
-            }
+            await notificationService.requestPermission();
+            await notificationService.testAlerts();
           }}
-          className="px-3 py-1.5 rounded-xl text-xs font-bold border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-all flex items-center gap-2 cursor-pointer shadow-sm"
-          title="Activar alertas sonoras y notificaciones de escritorio"
+          className="px-3 py-1.5 rounded-xl text-xs font-bold border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 transition-all flex items-center gap-2 cursor-pointer shadow-sm"
+          title="Probar sonido y alertas visuales"
         >
           <Bell className="w-3.5 h-3.5 text-emerald-400" />
-          <span>Notificaciones en Vivo</span>
+          <span>Alertas en Vivo</span>
         </button>
       </div>
 
