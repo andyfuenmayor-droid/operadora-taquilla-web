@@ -17,6 +17,7 @@ import {
   FileText
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { realtimeBroadcast } from '../../utils/realtimeBroadcast';
 
 const COMMON_CONCEPTS = [
   'SUELDO',

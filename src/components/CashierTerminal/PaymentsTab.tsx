@@ -18,6 +18,8 @@ import {
   Users 
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { realtimeBroadcast } from '../../utils/realtimeBroadcast';
+import { notificationService } from '../../utils/notificationService';
 
 interface PaymentRow {
   id: number;
@@ -375,6 +377,19 @@ export const PaymentsTab: React.FC = () => {
         .single();
 
       if (error) throw error;
+
+      // Broadcast via socket to CMS
+      await realtimeBroadcast.broadcast('NEW_CASH_PAYMENT', {
+        id: insData?.id,
+        tabla: 'cda_pagos_diarios',
+        agencia: agencyName,
+        monto: Math.round(parsedMonto * 100) / 100,
+        moneda: monedaPago,
+        tipo_pago: tipoPagoVal,
+        referencia: refStr || qrTokenVal || 'N/A',
+        cajero_id: user?.id ? String(user.id) : undefined,
+        created_at: new Date().toISOString(),
+      });
 
       if (isEntregaCobrador) {
         // También asentar en cda_caja_efectivo_supervisor como salida de custodia

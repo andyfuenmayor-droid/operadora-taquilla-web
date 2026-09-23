@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { notificationService } from '../../utils/notificationService';
+import { realtimeBroadcast } from '../../utils/realtimeBroadcast';
 
 interface ParsedBankAccount {
   id: number;
@@ -460,8 +461,30 @@ export const BankTransfersTab: React.FC = () => {
         created_at: nowIso,
       };
 
-      const { error } = await supabase.table('cda_pagos_bancarios').insert(newRecord);
+      const { data: insertedRows, error } = await supabase
+        .table('cda_pagos_bancarios')
+        .insert(newRecord)
+        .select();
+
       if (error) throw error;
+
+      const insertedItem = (insertedRows && insertedRows[0]) ? insertedRows[0] : newRecord;
+
+      // Broadcast immediately via socket to CMS
+      await realtimeBroadcast.broadcast('NEW_BANK_PAYMENT', {
+        id: insertedItem.id,
+        tabla: 'cda_pagos_bancarios',
+        agencia: agencyName,
+        monto: Math.round(parsedMonto * 100) / 100,
+        moneda: currentDestinoMeta.moneda,
+        referencia: referenciaPago.trim().toUpperCase(),
+        metodo_pago: currentDestinoMeta.metodo,
+        concepto: conceptoPago,
+        datos_pagador: datosPagador.trim().toUpperCase() || 'N/A',
+        pos_o_cuenta: selectedDestinoLabel,
+        cajero_id: user?.id ? String(user.id) : undefined,
+        created_at: nowIso,
+      });
 
       confetti({ particleCount: 35, spread: 60, origin: { y: 0.8 } });
       setFormSuccess(`✅ Pago por ${currentDestinoMeta.metodo} (Ref: ${referenciaPago.trim().toUpperCase()}) registrado exitosamente! En espera de confirmación.`);
@@ -555,8 +578,45 @@ export const BankTransfersTab: React.FC = () => {
     if (!agencyName) return;
 
     const safeAgency = agencyName.trim().toUpperCase();
-    const channelName = `taquilla_bank_transfers_${safeAgency.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}`;
 
+    // 1. Socket Broadcast Listener for confirmations / rejections
+    const unsubConfirmed = realtimeBroadcast.subscribe('PAYMENT_CONFIRMED', (data) => {
+      const dataAg = String(data.agencia || '').trim().toUpperCase();
+      if (dataAg === safeAgency || dataAg.includes(safeAgency) || safeAgency.includes(dataAg)) {
+        notificationService.showNotification('✅ ¡Pago Bancario Confirmado!', {
+          body: `Ref: ${data.referencia || 'N/A'} por ${formatCurrency(Number(data.monto || 0), (data.moneda || 'BS') as any)} ha sido confirmado por ${data.confirmado_por || 'Supervisor'}.`,
+          soundType: 'confirmed',
+          toastType: 'success',
+          tag: `socket_conf_${data.id || data.referencia}`,
+        });
+        try {
+          confetti({ particleCount: 35, spread: 60, origin: { y: 0.7 } });
+        } catch (_) {}
+        fetchDailyTransfers();
+        fetchHistorial();
+        clearMetricsCache();
+        loadDebtMetrics(true);
+      }
+    });
+
+    const unsubRejected = realtimeBroadcast.subscribe('PAYMENT_REJECTED', (data) => {
+      const dataAg = String(data.agencia || '').trim().toUpperCase();
+      if (dataAg === safeAgency || dataAg.includes(safeAgency) || safeAgency.includes(dataAg)) {
+        notificationService.showNotification('❌ Pago Bancario Rechazado', {
+          body: `Ref: ${data.referencia || 'N/A'} por ${formatCurrency(Number(data.monto || 0), (data.moneda || 'BS') as any)}. Motivo: ${data.motivo_rechazo || data.motivo || 'No especificado'}.`,
+          soundType: 'rejected',
+          toastType: 'warning',
+          tag: `socket_rech_${data.id || data.referencia}`,
+        });
+        fetchDailyTransfers();
+        fetchHistorial();
+        clearMetricsCache();
+        loadDebtMetrics(true);
+      }
+    });
+
+    // 2. Parallel Postgres Changes Subscription
+    const channelName = `taquilla_bank_transfers_${safeAgency.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}`;
     const channel = supabase
       .channel(channelName)
       .on(
@@ -579,6 +639,7 @@ export const BankTransfersTab: React.FC = () => {
               notificationService.showNotification('✅ ¡Pago Bancario Confirmado!', {
                 body: `Ref: ${newRow.referencia || 'N/A'} por ${formatCurrency(Number(newRow.monto || 0), newRow.moneda as any)} ha sido confirmado por ${newRow.confirmado_por || 'Supervisor'}.`,
                 soundType: 'confirmed',
+                toastType: 'success',
                 tag: `pago_conf_${newRow.id}`,
               });
               try {
@@ -590,6 +651,7 @@ export const BankTransfersTab: React.FC = () => {
               notificationService.showNotification('❌ Pago Bancario Rechazado', {
                 body: `Ref: ${newRow.referencia || 'N/A'} por ${formatCurrency(Number(newRow.monto || 0), newRow.moneda as any)}. Motivo: ${newRow.motivo_rechazo || 'No especificado'}.`,
                 soundType: 'rejected',
+                toastType: 'warning',
                 tag: `pago_rech_${newRow.id}`,
               });
             }
@@ -610,6 +672,8 @@ export const BankTransfersTab: React.FC = () => {
       .subscribe();
 
     return () => {
+      unsubConfirmed();
+      unsubRejected();
       supabase.removeChannel(channel);
     };
   }, [agencyName, fetchDailyTransfers, fetchHistorial, clearMetricsCache, loadDebtMetrics]);
