@@ -14,13 +14,17 @@ import {
   Calculator, 
   Award, 
   TrendingUp, 
-  Unlock,
-  RefreshCw,
-  Percent,
-  CheckCircle2,
-  Clock,
-  XCircle
+  Unlock, 
+  RefreshCw, 
+  Percent, 
+  CheckCircle2, 
+  Clock, 
+  XCircle 
 } from 'lucide-react';
+import confetti from 'canvas-confetti';
+import { realtimeBroadcast } from '../../utils/realtimeBroadcast';
+import { notificationService } from '../../utils/notificationService';
+import { formatCurrency } from '../../utils/formatters';
 
 interface HomeDashboardProps {
   onNavigate?: (tab: string) => void;
@@ -82,7 +86,79 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = () => {
     return () => window.removeEventListener('focus', handleFocus);
   }, [loadData, agencyName, systemCycle?.desde]);
 
-  // Suscripción Realtime para actualizar métricas operativas al instante ante pagos, gastos o ventas
+  // 1. Suscripción a eventos broadcast globales en tiempo real por WebSockets
+  useEffect(() => {
+    if (!agencyName) return;
+    const safeAgency = agencyName.trim().toUpperCase();
+
+    const unsubConfirmed = realtimeBroadcast.subscribe('PAYMENT_CONFIRMED', (data) => {
+      const dataAg = String(data.agencia || '').trim().toUpperCase();
+      if (dataAg === safeAgency || dataAg.includes(safeAgency) || safeAgency.includes(dataAg)) {
+        notificationService.showNotification('✅ ¡Pago Bancario Confirmado!', {
+          body: `Ref: ${data.referencia || 'N/A'} por ${formatCurrency(Number(data.monto || 0), (data.moneda || 'BS') as any)} ha sido confirmado por ${data.confirmado_por || 'Supervisor'}.`,
+          soundType: 'confirmed',
+          toastType: 'success',
+          tag: `home_conf_${data.id || data.referencia}`,
+        });
+        try {
+          confetti({ particleCount: 40, spread: 65, origin: { y: 0.7 } });
+        } catch (_) {}
+        clearMetricsCache();
+        loadData(true);
+      }
+    });
+
+    const unsubRejected = realtimeBroadcast.subscribe('PAYMENT_REJECTED', (data) => {
+      const dataAg = String(data.agencia || '').trim().toUpperCase();
+      if (dataAg === safeAgency || dataAg.includes(safeAgency) || safeAgency.includes(dataAg)) {
+        notificationService.showNotification('❌ Pago Rechazado', {
+          body: `Ref: ${data.referencia || 'N/A'} por ${formatCurrency(Number(data.monto || 0), (data.moneda || 'BS') as any)}. Motivo: ${data.motivo_rechazo || data.motivo || 'No especificado'}.`,
+          soundType: 'rejected',
+          toastType: 'warning',
+          tag: `home_rech_${data.id || data.referencia}`,
+        });
+        clearMetricsCache();
+        loadData(true);
+      }
+    });
+
+    const unsubDataChanged = realtimeBroadcast.subscribe('DATA_CHANGED', (data) => {
+      const dataAg = String(data.agencia || '').trim().toUpperCase();
+      if (!dataAg || dataAg === safeAgency || dataAg.includes(safeAgency) || safeAgency.includes(dataAg)) {
+        clearMetricsCache();
+        loadData(true);
+      }
+    });
+
+    const unsubNewExpense = realtimeBroadcast.subscribe('NEW_EXPENSE', (data) => {
+      const dataAg = String(data.agencia || '').trim().toUpperCase();
+      if (dataAg === safeAgency || dataAg.includes(safeAgency) || safeAgency.includes(dataAg)) {
+        clearMetricsCache();
+        loadData(true);
+      }
+    });
+
+    return () => {
+      unsubConfirmed();
+      unsubRejected();
+      unsubDataChanged();
+      unsubNewExpense();
+    };
+  }, [agencyName, loadData]);
+
+  // 2. Heartbeat de refresco automático continuo cada 10 segundos
+  useEffect(() => {
+    if (!agencyName || !systemCycle?.desde) return;
+
+    const intervalId = setInterval(() => {
+      clearMetricsCache();
+      loadData(false);
+    }, 10000);
+
+    return () => clearInterval(intervalId);
+  }, [agencyName, systemCycle?.desde, loadData]);
+
+  // 3. Suscripción Postgres Changes para actualizar métricas operativas
   useEffect(() => {
     if (!agencyName) return;
     const channel = supabase
