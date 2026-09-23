@@ -444,6 +444,25 @@ export const BankTransfersTab: React.FC = () => {
     setFormSuccess(null);
 
     try {
+      const cleanRef = referenciaPago.trim().toUpperCase();
+
+      // Validación preventiva contra pagos duplicados
+      const { data: existingDup } = await supabase
+        .table('cda_pagos_bancarios')
+        .select('id, referencia, monto, fecha, moneda, rechazado')
+        .eq('referencia', cleanRef)
+        .ilike('agencia', agencyName.trim())
+        .limit(1);
+
+      if (existingDup && existingDup.length > 0 && !existingDup[0].rechazado) {
+        const dup = existingDup[0];
+        setFormError(
+          `Ya existe un pago registrado con la referencia "${cleanRef}" por ${formatCurrency(Number(dup.monto || 0), currentDestinoMeta.moneda as any)} (Fecha: ${dup.fecha}). No se permiten pagos duplicados.`
+        );
+        setSubmitting(false);
+        return;
+      }
+
       const nowIso = new Date().toISOString();
       const newRecord = {
         fecha: fechaPago,

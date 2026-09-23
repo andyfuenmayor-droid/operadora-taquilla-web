@@ -533,7 +533,7 @@ export async function fetchFullCycleMetrics(
       bankData.forEach((b: any) => {
         const isRech = Boolean(b.rechazado) || String(b.estado || '').toUpperCase() === 'RECHAZADO';
         const isConf = Boolean(b.confirmado) || Boolean(b.confirmado_supervisor) || Boolean(b.confirmado_por) || String(b.estado || '').toUpperCase() === 'CONFIRMADO';
-        if (isRech || !isConf) return;
+        if (isRech) return;
 
         const fStr = String(b.fecha || b.created_at || '').slice(0, 10);
         if (fStr && (fStr < fDesdeAdmin || fStr > fHastaEfectivo)) return;
@@ -556,7 +556,7 @@ export async function fetchFullCycleMetrics(
           referencia: ref || b.pos_o_cuenta || 'Banco',
           moneda: normalizarMoneda(b.moneda),
           monto: Number(b.monto ?? 0),
-          confirmado: true,
+          confirmado: isConf,
           rechazado: false
         });
       });
@@ -771,14 +771,14 @@ export async function fetchFullCycleMetrics(
     const gastosValidos = gM.filter((g) => !g.rechazado);
     const totalGastos = gastosValidos.reduce((acc, g) => acc + (Number(g.monto) || 0), 0);
 
-    // Pagos no rechazados
-    const pagosBancoValidos = pMClassified.filter((p) => p.tipo_clasif === 'BANCO' && !p.rechazado);
+    // Pagos no rechazados y confirmados para el balance
+    const pagosBancoValidos = pMClassified.filter((p) => p.tipo_clasif === 'BANCO' && Boolean(p.confirmado) && !p.rechazado);
     const totalPagoBanco = pagosBancoValidos.reduce((acc, p) => acc + (Number(p.monto) || 0), 0);
 
-    const pagosEfecValidos = pMClassified.filter((p) => p.tipo_clasif === 'EFECTIVO' && !p.rechazado);
+    const pagosEfecValidos = pMClassified.filter((p) => p.tipo_clasif === 'EFECTIVO' && Boolean(p.confirmado) && !p.rechazado);
     const totalPagoEfectivo = pagosEfecValidos.reduce((acc, p) => acc + (Number(p.monto) || 0), 0);
 
-    const pagosPremiosValidos = pMClassified.filter((p) => p.tipo_clasif === 'PREMIO' && !p.rechazado);
+    const pagosPremiosValidos = pMClassified.filter((p) => p.tipo_clasif === 'PREMIO' && Boolean(p.confirmado) && !p.rechazado);
     const totalPagoPremios = pagosPremiosValidos.reduce((acc, p) => acc + (Number(p.monto) || 0), 0);
 
     // Resultados
