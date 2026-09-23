@@ -385,8 +385,8 @@ export const PaymentsTab: React.FC = () => {
         agencia: agencyName,
         monto: Math.round(parsedMonto * 100) / 100,
         moneda: monedaPago,
-        tipo_pago: tipoPagoVal,
-        referencia: refStr || qrTokenVal || 'N/A',
+        tipo_pago: tipoPago,
+        referencia: qrTokenVal || (pin6 ? `PIN: ${pin6}` : 'N/A'),
         cajero_id: user?.id ? String(user.id) : undefined,
         created_at: new Date().toISOString(),
       });
@@ -408,6 +408,7 @@ export const PaymentsTab: React.FC = () => {
       }
 
       confetti({ particleCount: 35, spread: 60, origin: { y: 0.8 } });
+      notificationService.playSound('new_payment');
       setSuccessMsg(`Pago registrado con éxito.`);
 
       if (pin6) {

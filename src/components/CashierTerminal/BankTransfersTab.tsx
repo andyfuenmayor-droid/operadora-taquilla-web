@@ -62,6 +62,7 @@ interface BankTransferRow {
   concepto?: string;
   datos_pagador?: string;
   confirmado: boolean;
+  confirmado_por?: string;
   rechazado?: boolean;
   motivo_rechazo?: string;
 }

@@ -275,6 +275,17 @@ export const ExpensesTab: React.FC = () => {
       const { error } = await supabase.table('cda_gastos_diarios').insert(newExpense);
       if (error) throw error;
 
+      await realtimeBroadcast.broadcast('NEW_EXPENSE', {
+        tabla: 'cda_gastos_diarios',
+        agencia: agencyName,
+        monto: parsedMonto,
+        moneda: normalizarMoneda(moneda),
+        concepto: cleanConcepto,
+        referencia: cleanRef || 'N/A',
+        cajero_id: user?.id ? String(user.id) : undefined,
+        created_at: new Date().toISOString(),
+      });
+
       confetti({ particleCount: 40, spread: 60 });
       setSuccessMsg(`¡Gasto de ${cleanConcepto} por ${formatCurrency(parsedMonto, moneda)} registrado con éxito!`);
 

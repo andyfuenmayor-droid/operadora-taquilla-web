@@ -85,6 +85,10 @@ class NotificationSoundService {
     return this.audioCtx;
   }
 
+  public get isUnlocked(): boolean {
+    return this.isAudioUnlocked;
+  }
+
   private getAudioContext(): AudioContext | null {
     if (!this.audioCtx && typeof window !== 'undefined') {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
@@ -103,7 +107,7 @@ class NotificationSoundService {
    */
   public async playSound(type: 'new_payment' | 'confirmed' | 'rejected' | 'alert') {
     try {
-      const ctx = (await this.unlockAudioContext()) || this.getAudioContext();
+      const ctx = (!this.isAudioUnlocked ? await this.unlockAudioContext() : null) || this.getAudioContext();
       if (!ctx) return;
 
       const now = ctx.currentTime;
