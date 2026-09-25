@@ -73,12 +73,15 @@ html.light .bg-\[\#0B161B\],
 html.light .bg-\[\#0c1e1c\],
 html.light .bg-\[\#16121b\],
 html.light .bg-\[\#0B221A\],
+html.light .bg-\[\#071318\],
+html.light .bg-\[\#08151D\],
 html.light .bg-slate-950,
 html.light .bg-slate-900,
 html.light .bg-slate-900\/90,
 html.light .bg-slate-900\/80,
 html.light .bg-slate-900\/70,
-html.light .bg-slate-900\/50 {
+html.light .bg-slate-900\/50,
+html.light .bg-slate-700 {
   background-color: #f1f5f9 !important;
   border-color: #cbd5e1 !important;
   color: #0f172a !important;
