@@ -1,7 +1,6 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
-  Building2, 
   LogOut, 
   User as UserIcon, 
   Receipt, 
@@ -22,7 +21,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
-  const { user, agency, logout } = useAuth();
+  const { user, logout } = useAuth();
 
   const role = (user?.rol || 'cajero').toLowerCase();
   const isCajero = role === 'cajero';
@@ -34,22 +33,9 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
     <header className="sticky top-0 z-40 w-full bg-[#0D1B22]/95 backdrop-blur-md border-b border-slate-800 shadow-lg">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Brand & Agency Info */}
+          {/* Brand Logo */}
           <div className="flex items-center gap-3 shrink-0">
             <Logo className="h-8 sm:h-9 w-auto" />
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] uppercase font-black tracking-wider px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  TAQUILLA POS
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-0.5">
-                <Building2 className="w-3.5 h-3.5 text-emerald-400/80 shrink-0" />
-                <span className="font-semibold text-slate-200 truncate max-w-[170px] sm:max-w-[260px]">
-                  {agency?.nombre_agencia || 'Agencia General'}
-                </span>
-              </div>
-            </div>
           </div>
 
           {/* Desktop Navigation Pills */}
