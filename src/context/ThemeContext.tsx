@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
 
 export type AppTheme = 'dark' | 'light';
 
@@ -8,15 +7,18 @@ interface ThemeContextType {
   isLight: boolean;
   toggleTheme: () => void;
   setTheme: (newTheme: AppTheme) => void;
-  resetToAutoTheme?: () => void;
+  resetToAutoTheme: () => void;
+  isManualTheme: boolean;
 }
 
 const THEME_STORAGE_KEY = 'app_theme_mode';
+const THEME_MANUAL_FLAG = 'app_theme_is_manual';
 
 /**
  * Verifica si la hora local se encuentra en el rango nocturno (entre 7:00 PM y 7:00 AM).
- * 7:00 PM = hora 19 (19:00 a 23:59)
- * 7:00 AM = hora 7 (00:00 a 06:59)
+ * 7:00 PM = hora 19 (19:00 a 23:59) -> true (Modo oscuro)
+ * 7:00 AM = hora 7 (00:00 a 06:59) -> true (Modo oscuro)
+ * Horario diurno = horas 7 a 18 (07:00 a 18:59) -> false (Modo claro)
  */
 export const isNightTime = (): boolean => {
   try {
@@ -28,42 +30,57 @@ export const isNightTime = (): boolean => {
 };
 
 /**
- * Determina el tema inicial según:
- * 1. Preferencia guardada previamente en el explorador (localStorage).
- * 2. Si no la tiene guardada, verifica la configuración de modos del explorador (prefers-color-scheme).
- * 3. Si el explorador tiene modo oscuro configurado, retorna 'dark'.
- * 4. Si el explorador no tiene preferencia definida (o no tiene modo oscuro configurado):
- *    - Entre 7:00 PM y 7:00 AM mantiene modo oscuro por defecto ('dark').
- *    - En horario diurno (7:00 AM a 6:59 PM) usa modo claro por defecto ('light').
+ * Calcula el tema automático basado en:
+ * 1. Configuración de modos del explorador/sistema (prefers-color-scheme: dark).
+ * 2. Si el explorador no tiene preferencia definida (o no está en modo oscuro):
+ *    - Entre 7:00 PM (19:00) y 7:00 AM (07:00): Modo oscuro por defecto ('dark').
+ *    - Horario diurno (7:00 AM a 6:59 PM): Modo claro por defecto ('light').
+ */
+export const resolveAutoTheme = (): AppTheme => {
+  // 1. Si el explorador/sistema tiene explícitamente configurado modo oscuro
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    try {
+      if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        return 'dark';
+      }
+    } catch (e) {
+      console.warn('Error checking prefers-color-scheme:', e);
+    }
+  }
+
+  // 2. Si el explorador no tiene preferencia definida o no está en modo oscuro:
+  // Horario nocturno (19:00 - 06:59) -> dark
+  // Horario diurno (07:00 - 18:59) -> light
+  return isNightTime() ? 'dark' : 'light';
+};
+
+/**
+ * Determina el tema inicial:
+ * - Si el usuario seleccionó explícitamente un tema manual, se respeta.
+ * - De lo contrario, se calcula el tema automático según explorador y horario.
  */
 export const getInitialTheme = (): AppTheme => {
   try {
-    const stored = localStorage.getItem(THEME_STORAGE_KEY);
-    if (stored === 'light' || stored === 'dark') {
-      return stored;
+    const isManual = localStorage.getItem(THEME_MANUAL_FLAG) === 'true';
+    if (isManual) {
+      const stored = localStorage.getItem(THEME_STORAGE_KEY);
+      if (stored === 'light' || stored === 'dark') {
+        return stored;
+      }
+    } else {
+      // Limpiar cualquier residuo de versiones anteriores en localStorage
+      // que pudiera estar forzando 'dark' permanentemente
+      localStorage.removeItem(THEME_STORAGE_KEY);
     }
   } catch (e) {
     console.warn('Error reading theme from localStorage:', e);
   }
 
-  // Verificar la configuración de modos del explorador
-  if (typeof window !== 'undefined' && window.matchMedia) {
-    try {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      if (prefersDark) {
-        return 'dark';
-      }
-    } catch (e) {
-      console.warn('Error checking prefers-color-scheme from browser:', e);
-    }
-  }
-
-  // Si no tiene configuración guardada y es entre 7pm y 7am mantener modo oscuro por defecto
-  return isNightTime() ? 'dark' : 'light';
+  return resolveAutoTheme();
 };
 
 /**
- * Aplica las clases CSS correspondientes en el elemento <html>
+ * Aplica las clases CSS en el elemento <html>
  */
 export const applyThemeToDOM = (currentTheme: AppTheme) => {
   if (typeof document === 'undefined') return;
@@ -88,6 +105,13 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<AppTheme>(getInitialTheme);
+  const [isManualTheme, setIsManualTheme] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(THEME_MANUAL_FLAG) === 'true';
+    } catch {
+      return false;
+    }
+  });
 
   // Aplica los cambios de tema al elemento <html>
   useEffect(() => {
@@ -101,9 +125,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const handleChange = (e: MediaQueryListEvent) => {
       try {
-        const stored = localStorage.getItem(THEME_STORAGE_KEY);
-        // Solo ajustar automáticamente si el usuario no ha fijado una preferencia manual en localStorage
-        if (!stored) {
+        const isManual = localStorage.getItem(THEME_MANUAL_FLAG) === 'true';
+        if (!isManual) {
           if (e.matches) {
             setThemeState('dark');
           } else {
@@ -126,72 +149,48 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, []);
 
-  // Verificación periódica del horario (entre 7pm y 7am) si no hay preferencia manual guardada
+  // Verificación periódica del horario (cada 30s) para alternar automáticamente
+  // entre horario diurno (7am a 7pm) y nocturno (7pm a 7am) si no hay tema manual
   useEffect(() => {
-    const interval = setInterval(() => {
+    const checkSchedule = () => {
       try {
-        const stored = localStorage.getItem(THEME_STORAGE_KEY);
-        if (!stored) {
-          const autoTheme = getInitialTheme();
+        const isManual = localStorage.getItem(THEME_MANUAL_FLAG) === 'true';
+        if (!isManual) {
+          const autoTheme = resolveAutoTheme();
           setThemeState((prev) => (prev !== autoTheme ? autoTheme : prev));
         }
       } catch {
         // Ignorar
       }
-    }, 60000); // Cada minuto
+    };
+
+    checkSchedule();
+    const interval = setInterval(checkSchedule, 30000);
 
     return () => clearInterval(interval);
   }, []);
 
-  // Si existe configuración guardada en config_sistema, leerla
-  useEffect(() => {
-    const fetchConfigTheme = async () => {
-      try {
-        const { data: config } = await supabase
-          .from('config_sistema')
-          .select('valor')
-          .eq('parametro', 'tema')
-          .maybeSingle();
-
-        if (config?.valor) {
-          const val = String(config.valor).toLowerCase().trim();
-          if (val === 'claro' || val === 'light') {
-            setThemeState('light');
-          } else if (val === 'oscuro' || val === 'dark') {
-            setThemeState('dark');
-          }
-        }
-      } catch (err) {
-        // Fallback silencioso
-      }
-    };
-    fetchConfigTheme();
-  }, []);
-
-  const setTheme = useCallback(async (newTheme: AppTheme) => {
+  const setTheme = useCallback((newTheme: AppTheme) => {
     setThemeState(newTheme);
+    setIsManualTheme(true);
     applyThemeToDOM(newTheme);
     try {
+      localStorage.setItem(THEME_MANUAL_FLAG, 'true');
       localStorage.setItem(THEME_STORAGE_KEY, newTheme);
-      const dbVal = newTheme === 'light' ? 'Claro' : 'Oscuro';
-      await supabase
-        .from('config_sistema')
-        .upsert(
-          { parametro: 'tema', valor: dbVal },
-          { onConflict: 'user_id,parametro' }
-        );
     } catch (e) {
-      // Ignorar si no tiene permisos de admin
+      console.warn('Error saving theme to localStorage:', e);
     }
   }, []);
 
   const resetToAutoTheme = useCallback(() => {
     try {
+      localStorage.removeItem(THEME_MANUAL_FLAG);
       localStorage.removeItem(THEME_STORAGE_KEY);
     } catch (e) {
       console.warn('Error clearing theme from localStorage:', e);
     }
-    const autoTheme = getInitialTheme();
+    setIsManualTheme(false);
+    const autoTheme = resolveAutoTheme();
     setThemeState(autoTheme);
     applyThemeToDOM(autoTheme);
   }, []);
@@ -206,6 +205,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     toggleTheme,
     setTheme,
     resetToAutoTheme,
+    isManualTheme,
   };
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
