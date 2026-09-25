@@ -991,23 +991,23 @@ export const BankTransfersTab: React.FC = () => {
             </h3>
           </div>
 
-          {/* TARJETAS DE ESTADO DE DEUDA / SALDO PENDIENTE POR MONEDA */}
+          {/* TARJETAS DE ESTADO DE CUENTA / BALANCE POR MONEDA */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
                   <CreditCard className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Estado de Deuda / Saldo Pendiente por Moneda</span>
+                  <span>Estado de Cuenta / Balance por Moneda</span>
                 </h4>
                 <p className="text-[11px] text-slate-400">
-                  Consulta en tiempo real cuánto debes en cada moneda asignada antes de registrar tu transferencia o pago bancario.
+                  Consulta en tiempo real si tienes deuda pendiente por transferir o saldo a favor de la taquilla.
                 </p>
               </div>
               <button
                 onClick={() => loadDebtMetrics(true)}
                 disabled={loadingMetrics}
                 className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
-                title="Actualizar saldos de deuda"
+                title="Actualizar balance de monedas"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${loadingMetrics ? 'animate-spin' : ''}`} />
               </button>
@@ -1039,12 +1039,18 @@ export const BankTransfersTab: React.FC = () => {
                   ? '🟢 SALDO A FAVOR'
                   : '⚪ AL DÍA / SOLVENTE';
 
-                const displayAmount = isFavor ? Math.abs(saldoDeuda) : saldoDeuda;
+                const displayAmount = Math.abs(saldoDeuda);
 
                 return (
                   <div
                     key={normCur}
-                    className="bg-[#0D1B22] border border-slate-800 rounded-2xl p-4 shadow-md flex flex-col justify-between"
+                    className={`bg-[#0D1B22] border rounded-2xl p-4 shadow-md flex flex-col justify-between transition-all ${
+                      isDeuda
+                        ? 'border-rose-500/30 bg-gradient-to-b from-[#16121b] to-[#0D1B22]'
+                        : isFavor
+                        ? 'border-emerald-500/30 bg-gradient-to-b from-[#0c1e1c] to-[#0D1B22]'
+                        : 'border-slate-800'
+                    }`}
                   >
                     <div>
                       <div className="flex items-center justify-between mb-2">
@@ -1054,27 +1060,58 @@ export const BankTransfersTab: React.FC = () => {
                         </span>
                       </div>
 
-                      <div className="text-xl sm:text-2xl font-black font-mono my-2 text-white">
-                        {formatCurrency(displayAmount, normCur)}
+                      <div className="my-2">
+                        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">
+                          {isDeuda 
+                            ? 'Monto por transferir (Deuda con Operadora)' 
+                            : isFavor 
+                            ? 'Saldo a favor de la Taquilla (Operadora te debe)' 
+                            : 'Balance al Día'}
+                        </div>
+                        <div className={`text-xl sm:text-2xl font-black font-mono tracking-tight ${
+                          isDeuda ? 'text-rose-400' : isFavor ? 'text-emerald-400' : 'text-slate-200'
+                        }`}>
+                          {isFavor ? `+${formatCurrency(displayAmount, normCur)}` : formatCurrency(displayAmount, normCur)}
+                        </div>
+                        {isFavor && (
+                          <div className="mt-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[10px] font-medium leading-relaxed">
+                            ✨ <strong>Tienes saldo a favor.</strong> No requieres pagar en esta moneda; la operadora debe reponer este saldo.
+                          </div>
+                        )}
+                        {isDeuda && (
+                          <div className="mt-1.5 px-2.5 py-1 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[10px] font-medium leading-relaxed">
+                            ⚠️ <strong>Deuda pendiente.</strong> Registra tu comprobante bancario abajo para saldar este monto.
+                          </div>
+                        )}
                       </div>
                     </div>
 
-                    <div className="bg-[#071217] rounded-xl p-2.5 space-y-1 text-[11px] font-mono border border-slate-800/80 text-slate-400 mt-2">
-                      <div className="flex justify-between">
+                    <div className="bg-[#071217] rounded-xl p-2.5 space-y-1.5 text-[11px] font-mono border border-slate-800/80 text-slate-400 mt-2">
+                      <div className="flex justify-between items-center">
                         <span>Saldo Anterior:</span>
-                        <span className="text-slate-300">{formatCurrency(saldoAnterior, normCur)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Res. Operativo:</span>
-                        <span className={saldoOperativo >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
-                          {formatCurrency(saldoOperativo, normCur)}
+                        <span className={saldoAnterior < -0.009 ? 'text-emerald-400 font-bold' : saldoAnterior > 0.009 ? 'text-rose-400 font-bold' : 'text-slate-300'}>
+                          {saldoAnterior < -0.009 
+                            ? `+${formatCurrency(Math.abs(saldoAnterior), normCur)} (A favor)` 
+                            : saldoAnterior > 0.009 
+                            ? `${formatCurrency(saldoAnterior, normCur)} (Deuda)` 
+                            : formatCurrency(0, normCur)}
                         </span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex justify-between items-center">
+                        <span>Res. Operativo:</span>
+                        <span className={saldoOperativo < -0.009 ? 'text-emerald-400 font-bold' : saldoOperativo > 0.009 ? 'text-amber-300' : 'text-slate-300'}>
+                          {saldoOperativo < -0.009 
+                            ? `+${formatCurrency(Math.abs(saldoOperativo), normCur)} (Premios a favor)` 
+                            : saldoOperativo > 0.009 
+                            ? `${formatCurrency(saldoOperativo, normCur)} (Venta a pagar)` 
+                            : formatCurrency(0, normCur)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
                         <span>Gastos Aprobados:</span>
                         <span className="text-slate-300">-{formatCurrency(gastos, normCur)}</span>
                       </div>
-                      <div className="flex justify-between border-t border-slate-800 pt-1 text-slate-300">
+                      <div className="flex justify-between items-center border-t border-slate-800 pt-1 text-slate-300">
                         <span>Pagos Abonados:</span>
                         <span className="text-emerald-400">-{formatCurrency(pagosAbonados, normCur)}</span>
                       </div>

@@ -13,40 +13,51 @@ export function normalizarMoneda(mon?: string): string {
 }
 
 export function formatCurrency(amount: number | string, currency = 'USD'): string {
-  const num = typeof amount === 'string' ? parseFloat(amount) || 0 : amount || 0;
+  let num = typeof amount === 'string' ? parseFloat(amount) || 0 : amount || 0;
+  if (Math.abs(num) < 0.005) num = 0;
+  const isNegative = num < 0;
+  const absNum = Math.abs(num);
   const norm = normalizarMoneda(currency);
 
   if (norm === 'USD') {
-    return new Intl.NumberFormat('en-US', {
+    const formatted = new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }).format(num);
+    }).format(absNum);
+    return isNegative ? `-${formatted}` : formatted;
   } else if (norm === 'BS') {
     const formatted = new Intl.NumberFormat('es-VE', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }).format(num);
-    return `${formatted} Bs.`;
+    }).format(absNum);
+    return isNegative ? `-${formatted} Bs.` : `${formatted} Bs.`;
   } else if (norm === 'COP') {
-    return `COP $${new Intl.NumberFormat('es-CO', {
+    const formatted = new Intl.NumberFormat('es-CO', {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(num)}`;
+    }).format(absNum);
+    return isNegative ? `-COP $${formatted}` : `COP $${formatted}`;
   } else {
-    return `${norm} ${num.toFixed(2)}`;
+    return isNegative ? `-${norm} ${absNum.toFixed(2)}` : `${norm} ${absNum.toFixed(2)}`;
   }
 }
 
 export function formatMoney(amount: number | string, currency = 'BS'): string {
-  const num = typeof amount === 'string' ? parseFloat(amount) || 0 : amount || 0;
+  let num = typeof amount === 'string' ? parseFloat(amount) || 0 : amount || 0;
+  if (Math.abs(num) < 0.005) num = 0;
+  const isNegative = num < 0;
+  const absNum = Math.abs(num);
   const norm = normalizarMoneda(currency);
-  const numStr = num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  if (norm === 'BS') return `Bs. ${numStr}`;
-  if (norm === 'USD') return `$${numStr}`;
-  if (norm === 'COP') return `COP $${Math.round(num).toLocaleString('en-US')}`;
-  return `${norm} ${numStr}`;
+  const numStr = absNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (norm === 'BS') return isNegative ? `-Bs. ${numStr}` : `Bs. ${numStr}`;
+  if (norm === 'USD') return isNegative ? `-$${numStr}` : `$${numStr}`;
+  if (norm === 'COP') {
+    const copStr = Math.round(absNum).toLocaleString('en-US');
+    return isNegative ? `-COP $${copStr}` : `COP $${copStr}`;
+  }
+  return isNegative ? `-${norm} ${numStr}` : `${norm} ${numStr}`;
 }
 
 export function formatDate(dateStr?: string | Date): string {

@@ -351,9 +351,13 @@ export const DateRangeReportTab: React.FC = () => {
         <span className="mx-2 text-slate-500 font-bold">=</span>
         <span className="text-slate-400 font-medium">Saldo Actual ({selectedCurrency}):</span>{' '}
         <b className={`text-sm font-black font-mono ml-1 ${
-          (activeMetrics?.saldoActual ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
+          (activeMetrics?.saldoActual ?? 0) > 0.005 ? 'text-rose-400' : (activeMetrics?.saldoActual ?? 0) < -0.005 ? 'text-emerald-400' : 'text-slate-300'
         }`}>
-          {formatMoney(activeMetrics?.saldoActual ?? 0, selectedCurrency)}
+          {(activeMetrics?.saldoActual ?? 0) < -0.005 
+            ? `+${formatMoney(Math.abs(activeMetrics?.saldoActual ?? 0), selectedCurrency)} (A favor)` 
+            : (activeMetrics?.saldoActual ?? 0) > 0.005 
+            ? `${formatMoney(activeMetrics?.saldoActual ?? 0, selectedCurrency)} (Deuda)` 
+            : formatMoney(0, selectedCurrency)}
         </b>
       </div>
 

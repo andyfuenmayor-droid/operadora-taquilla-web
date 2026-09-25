@@ -307,7 +307,8 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = () => {
             const m = metricsByCurrency[curr];
             const bal = m?.saldoActual ?? 0;
             const isSelected = selectedCurrency === curr;
-            const isPositive = bal >= 0;
+            const isDebt = bal > 0.005;
+            const isFavor = bal < -0.005;
 
             return (
               <div
@@ -324,18 +325,28 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = () => {
                     <span className={`w-2 h-2 rounded-full ${isSelected ? 'bg-emerald-400 animate-pulse' : 'bg-slate-600'}`} />
                     Moneda: <strong className="text-white">{curr}</strong>
                   </div>
-                  <div className={`text-2xl font-black font-mono tracking-tight ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {loading ? 'Calculando...' : formatMoney(bal, curr)}
+                  <div className={`text-2xl font-black font-mono tracking-tight ${
+                    isDebt ? 'text-rose-400' : isFavor ? 'text-emerald-400' : 'text-slate-200'
+                  }`}>
+                    {loading ? 'Calculando...' : isFavor ? `+${formatMoney(Math.abs(bal), curr)}` : formatMoney(Math.abs(bal), curr)}
                   </div>
-                  <div className="text-[10px] text-slate-500 mt-1 flex items-center gap-1">
-                    <span className={`w-1.5 h-1.5 rounded-full ${isPositive ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                    {isPositive ? ((user?.rol === 'supervisor' || user?.rol === 'admin') ? 'Saldo a favor / en caja' : 'Saldo a favor') : 'Deuda pendiente'}
+                  <div className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
+                    <span className={`w-1.5 h-1.5 rounded-full ${
+                      isDebt ? 'bg-rose-500' : isFavor ? 'bg-emerald-500' : 'bg-slate-500'
+                    }`} />
+                    {isDebt 
+                      ? 'Deuda pendiente' 
+                      : isFavor 
+                      ? ((user?.rol === 'supervisor' || user?.rol === 'admin') ? 'Saldo a favor / en caja' : 'Saldo a favor') 
+                      : 'Al día / Solvente'}
                   </div>
                 </div>
                 <div className={`p-3 rounded-xl border transition-all ${
-                  isPositive 
+                  isDebt 
+                    ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' 
+                    : isFavor 
                     ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
-                    : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                    : 'bg-slate-800/80 text-slate-400 border-slate-700'
                 }`}>
                   <DollarSign className="w-5 h-5" />
                 </div>
@@ -481,12 +492,18 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = () => {
               <span className="text-slate-600 font-bold px-0.5">=</span>
 
               <span className="text-slate-300 font-bold">Saldo Actual ({selectedCurrency}):</span>
-              <strong className={`text-sm sm:text-base px-2.5 py-0.5 rounded-lg border ${
-                activeMetrics.saldoActual >= 0
+              <strong className={`text-sm sm:text-base px-2.5 py-0.5 rounded-lg border font-mono ${
+                activeMetrics.saldoActual > 0.005
+                  ? 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                  : activeMetrics.saldoActual < -0.005
                   ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                  : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                  : 'bg-slate-700/20 text-slate-300 border-slate-600'
               }`}>
-                {formatMoney(activeMetrics.saldoActual, selectedCurrency)}
+                {activeMetrics.saldoActual < -0.005 
+                  ? `+${formatMoney(Math.abs(activeMetrics.saldoActual), selectedCurrency)} (A favor)` 
+                  : activeMetrics.saldoActual > 0.005 
+                  ? `${formatMoney(activeMetrics.saldoActual, selectedCurrency)} (Deuda)` 
+                  : formatMoney(0, selectedCurrency)}
               </strong>
             </div>
           </div>

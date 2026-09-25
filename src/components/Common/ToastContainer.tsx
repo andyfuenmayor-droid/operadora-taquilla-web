@@ -10,8 +10,7 @@ import {
   Bell, 
   DollarSign, 
   Landmark,
-  Sparkles,
-  Send
+  Sparkles
 } from 'lucide-react';
 
 interface ToastItem extends InAppToastPayload {

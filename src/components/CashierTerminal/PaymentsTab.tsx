@@ -592,18 +592,18 @@ export const PaymentsTab: React.FC = () => {
         </button>
       </div>
 
-      {/* 2. Sección: Estado de Deuda / Saldo Pendiente por Moneda */}
+      {/* 2. Sección: Estado de Cuenta / Balance por Moneda */}
       <div className="space-y-2">
         <div>
           <h3 className="text-sm font-extrabold text-white flex items-center gap-2 tracking-wide">
-            <span>💳 Estado de Deuda / Saldo Pendiente por Moneda</span>
+            <span>💳 Estado de Cuenta / Balance por Moneda</span>
           </h3>
           <p className="text-xs text-slate-400 mt-0.5">
-            Consulta en tiempo real cuánto debes en cada moneda asignada para este periodo operativo antes de registrar tu pago.
+            Consulta en tiempo real si tienes deuda pendiente por transferir o saldo a favor en cada moneda asignada para este periodo operativo.
           </p>
         </div>
 
-        {/* Grid de Tarjetas de Deuda por Moneda */}
+        {/* Grid de Tarjetas de Balance por Moneda */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-1">
           {assignedCurrencies.map((mCode) => {
             const flag = FLAG_MAP[mCode] || '💱';
@@ -625,7 +625,13 @@ export const PaymentsTab: React.FC = () => {
             return (
               <div 
                 key={mCode}
-                className="bg-gradient-to-br from-[#0F172A] to-[#1E293B] border border-slate-700/80 rounded-2xl p-4 shadow-xl flex flex-col justify-between"
+                className={`border rounded-2xl p-4 shadow-xl flex flex-col justify-between transition-all ${
+                  isDebt 
+                    ? 'bg-gradient-to-br from-[#1c121d] to-[#0F172A] border-rose-500/30' 
+                    : isFavor 
+                    ? 'bg-gradient-to-br from-[#0c221d] to-[#0F172A] border-emerald-500/30' 
+                    : 'bg-gradient-to-br from-[#0F172A] to-[#1E293B] border-slate-700/80'
+                }`}
               >
                 {/* Cabecera Tarjeta: Bandera + Moneda + Badge */}
                 <div className="flex items-center justify-between mb-2">
@@ -653,35 +659,57 @@ export const PaymentsTab: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Monto que debes pagar */}
+                {/* Monto que debes pagar o saldo a favor */}
                 <div className="my-2">
                   <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                    {isDebt ? 'Monto que debes pagar (Deuda con Operadora)' : (isFavor ? 'Saldo a favor de la Taquilla' : 'Sin deuda pendiente')}
+                    {isDebt ? 'Monto por transferir (Deuda con Operadora)' : (isFavor ? 'Saldo a favor de la Taquilla (Operadora te debe)' : 'Sin deuda pendiente')}
                   </div>
                   <div className={`text-2xl sm:text-3xl font-black font-mono tracking-tight mt-0.5 ${
-                    isDebt ? 'text-rose-500' : (isFavor ? 'text-emerald-400' : 'text-slate-300')
+                    isDebt ? 'text-rose-400' : (isFavor ? 'text-emerald-400' : 'text-slate-200')
                   }`}>
-                    {sym} {Math.abs(saldoAct).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {isFavor ? `+${sym} ${Math.abs(saldoAct).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `${sym} ${Math.abs(saldoAct).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                   </div>
+                  {isFavor && (
+                    <div className="mt-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[10px] font-medium">
+                      ✨ Tienes saldo a favor. No necesitas transferir en esta moneda; la operadora debe abonarte este monto.
+                    </div>
+                  )}
+                  {isDebt && (
+                    <div className="mt-1.5 px-2.5 py-1 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[10px] font-medium">
+                      ⚠️ Registra tu pago abajo para liquidar este saldo con la administración.
+                    </div>
+                  )}
                 </div>
 
                 {/* Desglose de 4 Conceptos */}
                 <div className="border-t border-slate-700/60 pt-2.5 mt-2 space-y-1 text-xs">
                   <div className="flex justify-between items-center">
                     <span className="text-slate-400">Saldo Anterior:</span>
-                    <b className="text-slate-200 font-mono">{sym} {saldoAnt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b>
+                    <b className={`font-mono ${saldoAnt < -0.005 ? 'text-emerald-400' : saldoAnt > 0.005 ? 'text-rose-400' : 'text-slate-200'}`}>
+                      {saldoAnt < -0.005 
+                        ? `+${sym} ${Math.abs(saldoAnt).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (A favor)` 
+                        : saldoAnt > 0.005 
+                        ? `${sym} ${saldoAnt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Deuda)` 
+                        : `${sym} 0.00`}
+                    </b>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-slate-400">Resultado Operativo:</span>
-                    <b className="text-slate-200 font-mono">{sym} {saldoOp.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b>
+                    <b className={`font-mono ${saldoOp < -0.005 ? 'text-emerald-400' : 'text-slate-200'}`}>
+                      {saldoOp < -0.005 
+                        ? `+${sym} ${Math.abs(saldoOp).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Premios a favor)` 
+                        : saldoOp > 0.005 
+                        ? `${sym} ${saldoOp.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` 
+                        : `${sym} 0.00`}
+                    </b>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-slate-400">Gastos:</span>
-                    <b className="text-slate-200 font-mono">{sym} {gastos.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b>
+                    <b className="text-slate-200 font-mono">-{sym} {gastos.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-slate-400">Pagos Abonados:</span>
-                    <b className="text-slate-200 font-mono">{sym} {pagosAbonados.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b>
+                    <b className="text-emerald-400 font-mono">-{sym} {pagosAbonados.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b>
                   </div>
                 </div>
 
