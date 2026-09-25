@@ -66,15 +66,21 @@ html.light .bg-\[\#0D1B22\]\/80 {
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05) !important;
 }
 
-/* Sub-tarjetas, contenedores internos y desgloses */
+/* Sub-tarjetas, contenedores internos y pozos (wells) */
 html.light .bg-\[\#071217\],
 html.light .bg-\[\#0a1820\],
 html.light .bg-\[\#0B161B\],
 html.light .bg-\[\#0c1e1c\],
 html.light .bg-\[\#16121b\],
-html.light .bg-\[\#0B221A\] {
+html.light .bg-\[\#0B221A\],
+html.light .bg-slate-950,
+html.light .bg-slate-900,
+html.light .bg-slate-900\/90,
+html.light .bg-slate-900\/80,
+html.light .bg-slate-900\/70,
+html.light .bg-slate-900\/50 {
   background-color: #f1f5f9 !important;
-  border-color: #e2e8f0 !important;
+  border-color: #cbd5e1 !important;
   color: #0f172a !important;
 }
 
@@ -91,16 +97,76 @@ html.light nav.bg-\[\#071217\] {
   border-color: #e2e8f0 !important;
 }
 
+/* Botones Secundarios, Acciones y Filtros (bg-slate-800 / bg-slate-900) */
+html.light button.bg-slate-800,
+html.light button.bg-slate-800\/90,
+html.light button.bg-slate-800\/80,
+html.light button.bg-slate-800\/70,
+html.light button.bg-slate-800\/50,
+html.light button.bg-slate-900,
+html.light button.bg-slate-900\/90,
+html.light a.bg-slate-800 {
+  background-color: #f1f5f9 !important;
+  color: #1e293b !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04) !important;
+}
+
+html.light button.bg-slate-800:hover,
+html.light button.bg-slate-800\/90:hover,
+html.light button.bg-slate-800\/80:hover,
+html.light button.bg-slate-900:hover,
+html.light button.bg-slate-900\/90:hover,
+html.light button.hover\:bg-slate-700:hover,
+html.light button.hover\:bg-slate-800:hover,
+html.light a.bg-slate-800:hover {
+  background-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+/* Badges, Etiquetas y Pastillas (Pills) en Tablas y Tarjetas */
+html.light span.bg-slate-800,
+html.light span.bg-slate-900,
+html.light div.rounded-md.bg-slate-800,
+html.light div.rounded-full.bg-slate-800,
+html.light .bg-slate-800:not(button):not(a) {
+  background-color: #f1f5f9 !important;
+  color: #334155 !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* Píldoras contenedoras de Subtabs */
+html.light .bg-slate-900\/90.border,
+html.light .bg-slate-900\/80.border,
+html.light .bg-slate-900.border {
+  background-color: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+}
+
 /* Bordes en general */
 html.light .border-slate-800,
 html.light .border-slate-800\/80,
 html.light .border-slate-800\/50,
 html.light .border-slate-700,
 html.light .border-slate-700\/80,
+html.light .border-slate-700\/60,
+html.light .border-slate-700\/50,
 html.light .border-slate-900,
 html.light .divide-slate-800\/50,
 html.light .divide-slate-800 {
   border-color: #e2e8f0 !important;
+}
+
+/* Efectos Hover Globales en Modo Claro */
+html.light .hover\:bg-slate-800\/50:hover,
+html.light .hover\:bg-slate-800\/30:hover,
+html.light .hover\:bg-slate-800:hover,
+html.light .hover\:bg-slate-700:hover {
+  background-color: #f1f5f9 !important;
+}
+
+html.light .hover\:text-white:hover {
+  color: #0f172a !important;
 }
 
 /* Tipografía de Alto Contraste */
@@ -120,6 +186,33 @@ html.light .text-slate-400 {
 
 html.light .text-slate-500 {
   color: #64748b !important;
+}
+
+/* Enriquecimiento de Colores de Acento para Fondo Claro */
+html.light .text-emerald-400 {
+  color: #059669 !important;
+}
+
+html.light .text-cyan-400 {
+  color: #0891b2 !important;
+}
+
+html.light .text-sky-400 {
+  color: #0284c7 !important;
+}
+
+html.light .text-amber-400,
+html.light .text-amber-300 {
+  color: #b45309 !important;
+}
+
+html.light .text-rose-400,
+html.light .text-rose-300 {
+  color: #e11d48 !important;
+}
+
+html.light .text-yellow-400 {
+  color: #ca8a04 !important;
 }
 
 /* Formularios: Inputs, Selects, Textareas */
