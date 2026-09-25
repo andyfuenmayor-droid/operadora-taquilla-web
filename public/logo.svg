@@ -15,6 +15,14 @@
         <feMergeNode in="SourceGraphic" />
       </feMerge>
     </filter>
+    <style>
+      .logo-brand-name { fill: #ffffff; }
+      .logo-brand-sub { fill: #00e676; }
+      @media (prefers-color-scheme: light) {
+        .logo-brand-name { fill: #0f172a; }
+        .logo-brand-sub { fill: #059669; }
+      }
+    </style>
   </defs>
 
   <!-- Stylized Neon M Icon -->
@@ -28,6 +36,6 @@
   </g>
 
   <!-- Typography: Multibanca Express -->
-  <text x="76" y="27" font-family="'Plus Jakarta Sans', 'Outfit', sans-serif" font-size="21" font-weight="800" fill="#ffffff" letter-spacing="-0.02em">Multibanca</text>
-  <text x="76" y="47" font-family="'Plus Jakarta Sans', 'Outfit', sans-serif" font-size="19" font-weight="800" fill="#00e676" letter-spacing="-0.01em">Express</text>
+  <text x="76" y="27" font-family="'Plus Jakarta Sans', 'Outfit', sans-serif" font-size="21" font-weight="800" class="logo-brand-name" letter-spacing="-0.02em">Multibanca</text>
+  <text x="76" y="47" font-family="'Plus Jakarta Sans', 'Outfit', sans-serif" font-size="19" font-weight="800" class="logo-brand-sub" letter-spacing="-0.01em">Express</text>
 </svg>
