@@ -13,6 +13,7 @@ import {
   BarChart3, 
   History 
 } from 'lucide-react';
+import { ThemeToggle } from './Common/ThemeToggle';
 
 interface HeaderProps {
   currentTab: string;
@@ -317,6 +318,9 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                 </div>
               </div>
             </div>
+
+            {/* Selector de Tema Claro / Oscuro */}
+            <ThemeToggle />
 
             <button
               onClick={logout}
