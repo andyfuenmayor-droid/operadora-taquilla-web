@@ -61,11 +61,26 @@ html.light .bg-\[\#0D1B22\]\/95,
 html.light .bg-\[\#0D1B22\]\/90,
 html.light .bg-\[\#0D1B22\]\/80,
 html.light .bg-\[\#0B151A\],
-html.light .bg-\[\#071510\] {
+html.light .bg-\[\#0B151A\]\/95,
+html.light .bg-\[\#0B151A\]\/90,
+html.light .bg-\[\#0B151A\]\/80,
+html.light .bg-\[\#071510\],
+html.light .bg-\[\#071510\]\/95,
+html.light .bg-\[\#071510\]\/90,
+html.light .bg-\[\#071510\]\/80 {
   background-color: #ffffff !important;
   border-color: #e2e8f0 !important;
   color: #0f172a !important;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Encabezados de Modales */
+html.light div[class*="max-w-"][class*="rounded-3xl"] > div:first-child[class*="border-b"],
+html.light div[class*="max-w-"][class*="rounded-3xl"] > div[class*="bg-\[\#0B151A\]\/95"],
+html.light div[class*="max-w-"][class*="rounded-3xl"] > div[class*="bg-\[\#071510\]\/95"],
+html.light div[class*="max-w-"][class*="rounded-3xl"] > div[class*="bg-\[\#0D1B22\]\/95"] {
+  background: linear-gradient(to right, #ffffff, #f8fafc) !important;
+  border-bottom-color: #e2e8f0 !important;
 }
 
 /* Modal Backdrop para Modo Claro y Oscuro */
@@ -74,7 +89,10 @@ html.light .bg-\[\#071510\] {
   backdrop-filter: blur(4px);
 }
 
-html.light [data-modal-backdrop] {
+html.light [data-modal-backdrop],
+html.light .bg-black\/80,
+html.light .bg-black\/70,
+html.light .bg-black\/60 {
   background-color: rgba(15, 23, 42, 0.45) !important;
   backdrop-filter: blur(4px) !important;
 }
@@ -89,10 +107,12 @@ html.light .bg-\[\#0B221A\],
 html.light .bg-\[\#071318\],
 html.light .bg-\[\#08151D\],
 html.light .bg-slate-950,
+html.light .bg-slate-950\/60,
 html.light .bg-slate-900,
 html.light .bg-slate-900\/90,
 html.light .bg-slate-900\/80,
 html.light .bg-slate-900\/70,
+html.light .bg-slate-900\/60,
 html.light .bg-slate-900\/50,
 html.light .bg-slate-700 {
   background-color: #f1f5f9 !important;
@@ -118,9 +138,13 @@ html.light button.bg-slate-800,
 html.light button.bg-slate-800\/90,
 html.light button.bg-slate-800\/80,
 html.light button.bg-slate-800\/70,
+html.light button.bg-slate-800\/60,
 html.light button.bg-slate-800\/50,
 html.light button.bg-slate-900,
 html.light button.bg-slate-900\/90,
+html.light button.bg-slate-900\/80,
+html.light button.bg-slate-900\/60,
+html.light button.bg-slate-700,
 html.light a.bg-slate-800 {
   background-color: #f1f5f9 !important;
   color: #1e293b !important;
@@ -131,8 +155,12 @@ html.light a.bg-slate-800 {
 html.light button.bg-slate-800:hover,
 html.light button.bg-slate-800\/90:hover,
 html.light button.bg-slate-800\/80:hover,
+html.light button.bg-slate-800\/70:hover,
+html.light button.bg-slate-800\/60:hover,
 html.light button.bg-slate-900:hover,
 html.light button.bg-slate-900\/90:hover,
+html.light button.bg-slate-900\/60:hover,
+html.light button.bg-slate-700:hover,
 html.light button.hover\:bg-slate-700:hover,
 html.light button.hover\:bg-slate-800:hover,
 html.light a.bg-slate-800:hover {
@@ -142,21 +170,60 @@ html.light a.bg-slate-800:hover {
 
 /* Badges, Etiquetas y Pastillas (Pills) en Tablas y Tarjetas */
 html.light span.bg-slate-800,
+html.light span.bg-slate-800\/90,
+html.light span.bg-slate-800\/80,
+html.light span.bg-slate-800\/70,
+html.light span.bg-slate-800\/60,
 html.light span.bg-slate-900,
+html.light span.bg-slate-900\/90,
+html.light span.bg-slate-900\/80,
+html.light span.bg-slate-900\/60,
 html.light div.rounded-md.bg-slate-800,
 html.light div.rounded-full.bg-slate-800,
-html.light .bg-slate-800:not(button):not(a) {
+html.light div.rounded-full.bg-slate-800\/80,
+html.light .bg-slate-800:not(button):not(a),
+html.light .bg-slate-800\/80:not(button):not(a) {
   background-color: #f1f5f9 !important;
   color: #334155 !important;
   border-color: #cbd5e1 !important;
 }
 
-/* Píldoras contenedoras de Subtabs */
+/* Píldoras contenedoras de Subtabs y Filtros */
 html.light .bg-slate-900\/90.border,
 html.light .bg-slate-900\/80.border,
-html.light .bg-slate-900.border {
-  background-color: #f1f5f9 !important;
-  border-color: #cbd5e1 !important;
+html.light .bg-slate-900.border,
+html.light .bg-slate-900\/90.border-b {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* Declaraciones Juradas y Certificaciones de Conformidad en Actas (Armonía con Screenshot 5) */
+html.light .p-3\.5.rounded-2xl.bg-slate-900\/60,
+html.light div[class*="rounded-2xl"].bg-slate-900\/60,
+html.light .statement-card {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%) !important;
+  border: 1px solid #fde68a !important;
+  color: #334155 !important;
+  box-shadow: 0 1px 3px rgba(245, 158, 11, 0.08) !important;
+}
+
+html.light .p-3\.5.rounded-2xl.bg-slate-900\/60 strong,
+html.light div[class*="rounded-2xl"].bg-slate-900\/60 strong,
+html.light .statement-card strong {
+  color: #92400e !important;
+}
+
+html.light .p-3\.5.rounded-2xl.bg-slate-900\/60 p,
+html.light .p-3\.5.rounded-2xl.bg-slate-900\/60 .text-slate-300,
+html.light div[class*="rounded-2xl"].bg-slate-900\/60 p,
+html.light div[class*="rounded-2xl"].bg-slate-900\/60 .text-slate-300,
+html.light .statement-card p {
+  color: #475569 !important;
+}
+
+/* Líneas divisorias de firma en Actas */
+html.light .border-slate-500 {
+  border-color: #94a3b8 !important;
 }
 
 /* Bordes en general */
