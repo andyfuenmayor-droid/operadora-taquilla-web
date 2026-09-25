@@ -28,8 +28,8 @@
 
 /* Animaciones suaves */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .animate-fade-in {
@@ -55,15 +55,28 @@ html.light .min-h-screen.bg-\[\#071217\] {
   color: #0f172a !important;
 }
 
-/* Superficies de Tarjetas Principales */
+/* Superficies de Tarjetas Principales y Modales */
 html.light .bg-\[\#0D1B22\],
 html.light .bg-\[\#0D1B22\]\/95,
 html.light .bg-\[\#0D1B22\]\/90,
-html.light .bg-\[\#0D1B22\]\/80 {
+html.light .bg-\[\#0D1B22\]\/80,
+html.light .bg-\[\#0B151A\],
+html.light .bg-\[\#071510\] {
   background-color: #ffffff !important;
   border-color: #e2e8f0 !important;
   color: #0f172a !important;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Modal Backdrop para Modo Claro y Oscuro */
+[data-modal-backdrop] {
+  background-color: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+}
+
+html.light [data-modal-backdrop] {
+  background-color: rgba(15, 23, 42, 0.45) !important;
+  backdrop-filter: blur(4px) !important;
 }
 
 /* Sub-tarjetas, contenedores internos y pozos (wells) */
