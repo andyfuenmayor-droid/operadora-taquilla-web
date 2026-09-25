@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { 
   fetchFullCycleMetrics, 
   clearMetricsCache,
@@ -49,6 +50,7 @@ const FLAG_MAP: Record<string, string> = {
 
 export const PaymentsTab: React.FC = () => {
   const { user, agency, systemCycle, assignedCurrencies, assignedSystems, isDayClosed } = useAuth();
+  const { isLight } = useTheme();
   
   // Fecha seleccionada para ver pagos (por defecto hoy o hasta del ciclo)
   const defaultFecha = systemCycle?.hasta || getTodayDateString();
@@ -546,10 +548,12 @@ export const PaymentsTab: React.FC = () => {
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
       {/* 1. Encabezado de Página y Filtros */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-[#0D1B22] p-4 rounded-2xl border border-slate-800 shadow-md">
+      <div className={`flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl border shadow-md ${
+        isLight ? 'bg-white border-slate-200' : 'bg-[#0D1B22] border-slate-800'
+      }`}>
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
-            <label className="text-xs font-bold text-slate-300">
+            <label className={`text-xs font-bold ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>
               📅 Ver pagos del día:
             </label>
             <input
@@ -559,17 +563,21 @@ export const PaymentsTab: React.FC = () => {
                 setFechaFiltro(e.target.value);
                 setFechaPago(e.target.value);
               }}
-              className="bg-[#071217] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono font-bold"
+              className={`border rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-emerald-500 font-mono font-bold ${
+                isLight ? 'bg-slate-50 border-slate-300 text-slate-900' : 'bg-[#071217] border-slate-700 text-white'
+              }`}
             />
           </div>
 
           {isSupervisor && (
             <div className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-sky-400" />
+              <Users className="w-4 h-4 text-sky-500" />
               <select
                 value={selectedCashier}
                 onChange={(e) => setSelectedCashier(e.target.value)}
-                className="bg-[#071217] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-semibold cursor-pointer"
+                className={`border rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-emerald-500 font-semibold cursor-pointer ${
+                  isLight ? 'bg-slate-50 border-slate-300 text-slate-900' : 'bg-[#071217] border-slate-700 text-white'
+                }`}
               >
                 <option value="all">👥 TODOS LOS CAJEROS</option>
                 {cashiersList.map((c) => (
@@ -585,9 +593,11 @@ export const PaymentsTab: React.FC = () => {
         <button
           onClick={handleRefreshAll}
           disabled={loadingPayments || loadingMetrics}
-          className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 transition-colors cursor-pointer disabled:opacity-50"
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer disabled:opacity-50 border ${
+            isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300' : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+          }`}
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${(loadingPayments || loadingMetrics) ? 'animate-spin text-emerald-400' : ''}`} />
+          <RefreshCw className={`w-3.5 h-3.5 ${(loadingPayments || loadingMetrics) ? 'animate-spin text-emerald-500' : ''}`} />
           <span>Actualizar</span>
         </button>
       </div>
@@ -595,10 +605,12 @@ export const PaymentsTab: React.FC = () => {
       {/* 2. Sección: Estado de Cuenta / Balance por Moneda */}
       <div className="space-y-2">
         <div>
-          <h3 className="text-sm font-extrabold text-white flex items-center gap-2 tracking-wide">
+          <h3 className={`text-sm font-extrabold flex items-center gap-2 tracking-wide ${
+            isLight ? 'text-slate-900' : 'text-white'
+          }`}>
             <span>💳 Estado de Cuenta / Balance por Moneda</span>
           </h3>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <p className={`text-xs mt-0.5 ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
             Consulta en tiempo real si tienes deuda pendiente por transferir o saldo a favor en cada moneda asignada para este periodo operativo.
           </p>
         </div>
@@ -627,32 +639,46 @@ export const PaymentsTab: React.FC = () => {
                 key={mCode}
                 className={`border rounded-2xl p-4 shadow-xl flex flex-col justify-between transition-all ${
                   isDebt 
-                    ? 'bg-gradient-to-br from-[#1c121d] to-[#0F172A] border-rose-500/30' 
+                    ? isLight
+                      ? 'bg-gradient-to-br from-rose-50/80 to-white border-rose-300 shadow-sm'
+                      : 'bg-gradient-to-br from-[#1c121d] to-[#0F172A] border-rose-500/30' 
                     : isFavor 
-                    ? 'bg-gradient-to-br from-[#0c221d] to-[#0F172A] border-emerald-500/30' 
+                    ? isLight
+                      ? 'bg-gradient-to-br from-emerald-50/80 to-white border-emerald-300 shadow-sm'
+                      : 'bg-gradient-to-br from-[#0c221d] to-[#0F172A] border-emerald-500/30' 
+                    : isLight
+                    ? 'bg-white border-slate-200 shadow-sm'
                     : 'bg-gradient-to-br from-[#0F172A] to-[#1E293B] border-slate-700/80'
                 }`}
               >
                 {/* Cabecera Tarjeta: Bandera + Moneda + Badge */}
                 <div className="flex items-center justify-between mb-2">
-                  <div className="font-black text-base text-white flex items-center gap-1.5">
+                  <div className={`font-black text-base flex items-center gap-1.5 ${
+                    isLight ? 'text-slate-900' : 'text-white'
+                  }`}>
                     <span>{flag}</span>
                     <span>{mCode}</span>
                   </div>
 
                   <div>
                     {isDebt && (
-                      <span className="bg-rose-500/15 text-rose-400 border border-rose-500/35 rounded-full px-2.5 py-0.5 text-[11px] font-bold">
+                      <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold border ${
+                        isLight ? 'bg-rose-100 text-rose-800 border-rose-300' : 'bg-rose-500/15 text-rose-400 border-rose-500/35'
+                      }`}>
                         🔴 DEUDA PENDIENTE
                       </span>
                     )}
                     {isFavor && (
-                      <span className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/35 rounded-full px-2.5 py-0.5 text-[11px] font-bold">
+                      <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold border ${
+                        isLight ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/35'
+                      }`}>
                         🟢 SALDO A FAVOR
                       </span>
                     )}
                     {!isDebt && !isFavor && (
-                      <span className="bg-slate-700/40 text-slate-300 border border-slate-600/40 rounded-full px-2.5 py-0.5 text-[11px] font-bold">
+                      <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold border ${
+                        isLight ? 'bg-slate-100 text-slate-700 border-slate-300' : 'bg-slate-700/40 text-slate-300 border-slate-600/40'
+                      }`}>
                         ⚪ AL DÍA / SOLVENTE
                       </span>
                     )}
@@ -661,31 +687,49 @@ export const PaymentsTab: React.FC = () => {
 
                 {/* Monto que debes pagar o saldo a favor */}
                 <div className="my-2">
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  <div className={`text-[11px] font-bold uppercase tracking-wider ${
+                    isLight ? 'text-slate-600' : 'text-slate-400'
+                  }`}>
                     {isDebt ? 'Monto por transferir (Deuda con Operadora)' : (isFavor ? 'Saldo a favor de la Taquilla (Operadora te debe)' : 'Sin deuda pendiente')}
                   </div>
                   <div className={`text-2xl sm:text-3xl font-black font-mono tracking-tight mt-0.5 ${
-                    isDebt ? 'text-rose-400' : (isFavor ? 'text-emerald-400' : 'text-slate-200')
+                    isDebt
+                      ? (isLight ? 'text-rose-700' : 'text-rose-400')
+                      : isFavor
+                      ? (isLight ? 'text-emerald-700' : 'text-emerald-400')
+                      : (isLight ? 'text-slate-900' : 'text-slate-200')
                   }`}>
                     {isFavor ? `+${sym} ${Math.abs(saldoAct).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `${sym} ${Math.abs(saldoAct).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                   </div>
                   {isFavor && (
-                    <div className="mt-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[10px] font-medium">
+                    <div className={`mt-1.5 px-2.5 py-1 rounded-lg text-[10px] font-medium border ${
+                      isLight ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+                    }`}>
                       ✨ Tienes saldo a favor. No necesitas transferir en esta moneda; la operadora debe abonarte este monto.
                     </div>
                   )}
                   {isDebt && (
-                    <div className="mt-1.5 px-2.5 py-1 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[10px] font-medium">
+                    <div className={`mt-1.5 px-2.5 py-1 rounded-lg text-[10px] font-medium border ${
+                      isLight ? 'bg-rose-50 text-rose-800 border-rose-200' : 'bg-rose-500/10 border-rose-500/20 text-rose-300'
+                    }`}>
                       ⚠️ Registra tu pago abajo para liquidar este saldo con la administración.
                     </div>
                   )}
                 </div>
 
                 {/* Desglose de 4 Conceptos */}
-                <div className="border-t border-slate-700/60 pt-2.5 mt-2 space-y-1 text-xs">
+                <div className={`border-t pt-2.5 mt-2 space-y-1 text-xs ${
+                  isLight ? 'border-slate-200' : 'border-slate-700/60'
+                }`}>
                   <div className="flex justify-between items-center">
-                    <span className="text-slate-400">Saldo Anterior:</span>
-                    <b className={`font-mono ${saldoAnt < -0.005 ? 'text-emerald-400' : saldoAnt > 0.005 ? 'text-rose-400' : 'text-slate-200'}`}>
+                    <span className={isLight ? 'text-slate-600' : 'text-slate-400'}>Saldo Anterior:</span>
+                    <b className={`font-mono ${
+                      saldoAnt < -0.005
+                        ? (isLight ? 'text-emerald-700' : 'text-emerald-400')
+                        : saldoAnt > 0.005
+                        ? (isLight ? 'text-rose-700' : 'text-rose-400')
+                        : (isLight ? 'text-slate-800' : 'text-slate-200')
+                    }`}>
                       {saldoAnt < -0.005 
                         ? `+${sym} ${Math.abs(saldoAnt).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (A favor)` 
                         : saldoAnt > 0.005 
@@ -694,8 +738,12 @@ export const PaymentsTab: React.FC = () => {
                     </b>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-slate-400">Resultado Operativo:</span>
-                    <b className={`font-mono ${saldoOp < -0.005 ? 'text-emerald-400' : 'text-slate-200'}`}>
+                    <span className={isLight ? 'text-slate-600' : 'text-slate-400'}>Resultado Operativo:</span>
+                    <b className={`font-mono ${
+                      saldoOp < -0.005
+                        ? (isLight ? 'text-emerald-700' : 'text-emerald-400')
+                        : (isLight ? 'text-slate-800' : 'text-slate-200')
+                    }`}>
                       {saldoOp < -0.005 
                         ? `+${sym} ${Math.abs(saldoOp).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Premios a favor)` 
                         : saldoOp > 0.005 
@@ -704,34 +752,42 @@ export const PaymentsTab: React.FC = () => {
                     </b>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-slate-400">Gastos:</span>
-                    <b className="text-slate-200 font-mono">-{sym} {gastos.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b>
+                    <span className={isLight ? 'text-slate-600' : 'text-slate-400'}>Gastos:</span>
+                    <b className={`font-mono ${isLight ? 'text-slate-800' : 'text-slate-200'}`}>-{sym} {gastos.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-slate-400">Pagos Abonados:</span>
-                    <b className="text-emerald-400 font-mono">-{sym} {pagosAbonados.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b>
+                    <span className={isLight ? 'text-slate-600' : 'text-slate-400'}>Pagos Abonados:</span>
+                    <b className={`font-mono ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`}>-{sym} {pagosAbonados.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b>
                   </div>
                 </div>
 
                 {/* 🏦 Bloque Destacado: Efectivo Físico en Caja (Exclusivo Rol Supervisor) */}
                 {isSupervisor && (
-                  <div className="mt-3 bg-[#0B221A] border border-emerald-500/30 rounded-xl p-3 flex items-center justify-between shadow-inner">
+                  <div className={`mt-3 border rounded-xl p-3 flex items-center justify-between ${
+                    isLight ? 'bg-emerald-50 border-emerald-200 shadow-xs' : 'bg-[#0B221A] border-emerald-500/30 shadow-inner'
+                  }`}>
                     <div>
-                      <div className="text-[10px] font-extrabold uppercase text-emerald-300 tracking-wider flex items-center gap-1">
+                      <div className={`text-[10px] font-extrabold uppercase tracking-wider flex items-center gap-1 ${
+                        isLight ? 'text-emerald-800' : 'text-emerald-300'
+                      }`}>
                         <span>🏦</span>
                         <span>Efectivo Disponible en Caja</span>
                       </div>
-                      <div className="text-lg font-black font-mono text-emerald-400 mt-0.5">
+                      <div className={`text-lg font-black font-mono mt-0.5 ${
+                        isLight ? 'text-emerald-700' : 'text-emerald-400'
+                      }`}>
                         {sym} {saldoEnCaja.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </div>
-                      <div className="text-[9px] text-emerald-300/70 font-sans">
+                      <div className={`text-[9px] font-sans ${
+                        isLight ? 'text-emerald-700' : 'text-emerald-300/70'
+                      }`}>
                         {saldoEnCaja > 0 ? 'Para pago de premios a clientes, gastos y entregas' : 'Sin efectivo en custodia / Caja al día'}
                       </div>
                     </div>
                     <span className={`text-[10px] font-bold px-2.5 py-1 rounded-md border font-mono ${
                       saldoEnCaja > 0 
-                        ? 'text-emerald-300 bg-emerald-500/20 border-emerald-500/40' 
-                        : 'text-slate-400 bg-slate-800 border-slate-700'
+                        ? isLight ? 'text-emerald-800 bg-emerald-100 border-emerald-300' : 'text-emerald-300 bg-emerald-500/20 border-emerald-500/40' 
+                        : isLight ? 'text-slate-600 bg-slate-100 border-slate-300' : 'text-slate-400 bg-slate-800 border-slate-700'
                     }`}>
                       {saldoEnCaja > 0 ? '🟢 En Caja' : '⚪ $0.00'}
                     </span>
@@ -745,42 +801,42 @@ export const PaymentsTab: React.FC = () => {
 
       {/* 3. Comprobante PIN de Entrega a Cobrador Activo (si se generó uno) */}
       {activeDelivery && (
-        <div className="bg-gradient-to-r from-emerald-950/80 via-[#0D1B22] to-sky-950/80 border-2 border-emerald-500 rounded-3xl p-6 shadow-2xl relative text-center animate-fadeIn">
+        <div className={`${isLight ? 'bg-gradient-to-r from-emerald-50 via-white to-sky-50 border-2 border-emerald-500 shadow-xl' : 'bg-gradient-to-r from-emerald-950/80 via-[#0D1B22] to-sky-950/80 border-2 border-emerald-500 shadow-2xl'} rounded-3xl p-6 relative text-center animate-fadeIn`}>
           <button
             onClick={() => setActiveDelivery(null)}
-            className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800 transition-colors cursor-pointer"
+            className={`absolute top-4 right-4 p-2 rounded-xl transition-colors cursor-pointer ${isLight ? 'text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200' : 'text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700'}`}
           >
             <X className="w-4 h-4" />
           </button>
 
           <div className="flex items-center justify-between mb-2">
-            <h4 className="text-base font-extrabold text-emerald-400 flex items-center gap-2">
+            <h4 className={`text-base font-extrabold flex items-center gap-2 ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`}>
               <span>🛵 Comprobante de Entrega a Cobrador</span>
             </h4>
-            <span className="bg-emerald-500/20 text-emerald-400 px-2.5 py-0.5 rounded-md text-xs font-black border border-emerald-500/30">
+            <span className={`${isLight ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'} px-2.5 py-0.5 rounded-md text-xs font-black border`}>
               PIN ACTIVO
             </span>
           </div>
 
-          <p className="text-xs text-slate-300 mt-1 max-w-md mx-auto">
+          <p className={`text-xs mt-1 max-w-md mx-auto ${isLight ? 'text-slate-600' : 'text-slate-300'}`}>
             Díctale este PIN de 6 dígitos al Cobrador de Ruta para validar la recepción del efectivo en 1 segundo:
           </p>
 
-          <div className="bg-slate-900 border-2 border-emerald-400 rounded-2xl py-3 px-6 max-w-xs mx-auto my-4 shadow-xl">
-            <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest block">
+          <div className={`${isLight ? 'bg-white border-2 border-emerald-500 shadow-md' : 'bg-slate-900 border-2 border-emerald-400 shadow-xl'} rounded-2xl py-3 px-6 max-w-xs mx-auto my-4`}>
+            <span className={`text-[10px] font-bold uppercase tracking-widest block ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`}>
               🔢 CÓDIGO PIN (6 DÍGITOS)
             </span>
-            <span className="text-4xl font-black font-mono tracking-[0.25em] text-white">
+            <span className={`text-4xl font-black font-mono tracking-[0.25em] ${isLight ? 'text-slate-900' : 'text-white'}`}>
               {activeDelivery.pin}
             </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 text-xs text-slate-300 max-w-md mx-auto">
+          <div className={`grid grid-cols-2 gap-2 text-xs max-w-md mx-auto ${isLight ? 'text-slate-600' : 'text-slate-300'}`}>
             <div><b>🏢 Agencia:</b> {activeDelivery.agencia}</div>
             <div><b>📅 Fecha:</b> {activeDelivery.fecha}</div>
             <div className="col-span-2 text-sm mt-1">
               <b>💰 Monto:</b>{' '}
-              <span className="text-emerald-400 font-black font-mono text-base">
+              <span className={`${isLight ? 'text-emerald-700' : 'text-emerald-400'} font-black font-mono text-base`}>
                 {activeDelivery.moneda} {activeDelivery.monto.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
@@ -789,7 +845,7 @@ export const PaymentsTab: React.FC = () => {
           <div className="mt-4">
             <button
               onClick={() => setActiveDelivery(null)}
-              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 transition-colors cursor-pointer"
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer ${isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-700' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'}`}
             >
               ❌ Cerrar Comprobante
             </button>
@@ -800,14 +856,14 @@ export const PaymentsTab: React.FC = () => {
       {/* 4. Tabla de Pagos del Día o Mensaje Vacío */}
       <div className="space-y-2">
         {payments.length === 0 ? (
-          <div className="bg-sky-500/10 border border-sky-500/20 text-sky-400 p-4 rounded-2xl text-xs flex items-center gap-2">
+          <div className={`${isLight ? 'bg-sky-50 border-sky-200 text-sky-800' : 'bg-sky-500/10 border-sky-500/20 text-sky-400'} border p-4 rounded-2xl text-xs flex items-center gap-2`}>
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>ℹ️ No hay pagos en este día.</span>
           </div>
         ) : (
-          <div className="bg-[#0D1B22] border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
-            <div className="p-4 border-b border-slate-800 flex justify-between items-center">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-white">
+          <div className={`${isLight ? 'bg-white border-slate-200 shadow-sm' : 'bg-[#0D1B22] border-slate-800 shadow-lg'} border rounded-2xl overflow-hidden`}>
+            <div className={`p-4 border-b flex justify-between items-center ${isLight ? 'border-slate-200 bg-slate-50/50' : 'border-slate-800'}`}>
+              <h3 className={`text-xs font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white'}`}>
                 📋 Pagos del Día ({payments.length})
               </h3>
             </div>
@@ -815,7 +871,7 @@ export const PaymentsTab: React.FC = () => {
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="border-b border-slate-800 bg-[#071217] text-slate-400 font-bold uppercase tracking-wider">
+                  <tr className={`border-b font-bold uppercase tracking-wider ${isLight ? 'border-slate-200 bg-slate-100 text-slate-700' : 'border-slate-800 bg-[#071217] text-slate-400'}`}>
                     <th className="py-3 px-4">Fecha</th>
                     <th className="py-3 px-4">Agencia</th>
                     <th className="py-3 px-4">Cajero</th>
@@ -828,21 +884,21 @@ export const PaymentsTab: React.FC = () => {
                     )}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/60 font-mono">
+                <tbody className={`divide-y font-mono ${isLight ? 'divide-slate-200 text-slate-700' : 'divide-slate-800/60'}`}>
                   {payments.map((p) => (
-                    <tr key={p.id} className="hover:bg-slate-800/30 transition-colors">
-                      <td className="py-2.5 px-4 text-slate-300 font-sans">{p.fecha}</td>
-                      <td className="py-2.5 px-4 text-slate-400 font-sans">{p.agencia}</td>
-                      <td className="py-2.5 px-4 text-slate-300 font-sans">
+                    <tr key={p.id} className={`${isLight ? 'hover:bg-slate-50' : 'hover:bg-slate-800/30'} transition-colors`}>
+                      <td className={`py-2.5 px-4 font-sans ${isLight ? 'text-slate-800' : 'text-slate-300'}`}>{p.fecha}</td>
+                      <td className={`py-2.5 px-4 font-sans ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>{p.agencia}</td>
+                      <td className={`py-2.5 px-4 font-sans ${isLight ? 'text-slate-800' : 'text-slate-300'}`}>
                         👤 {p.cajero_id 
                           ? (cashiersList.find((c) => String(c.id) === String(p.cajero_id))?.nombre || p.nombre_cajero || p.cajero || 'Cajero')
                           : (p.tipo_pago?.includes('Cobrador') 
                               ? (p.supervisor_nombre ? `${p.supervisor_nombre} (Supervisor)` : 'Supervisor') 
                               : (p.supervisor_nombre || agency?.usuario_taquilla || 'Taquilla'))}
                       </td>
-                      <td className="py-2.5 px-4 text-white font-sans font-medium">{p.tipo_pago}</td>
-                      <td className="py-2.5 px-4 text-slate-400">{p.moneda}</td>
-                      <td className="py-2.5 px-4 text-right font-bold text-emerald-400">
+                      <td className={`py-2.5 px-4 font-sans font-medium ${isLight ? 'text-slate-900' : 'text-white'}`}>{p.tipo_pago}</td>
+                      <td className={`py-2.5 px-4 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>{p.moneda}</td>
+                      <td className={`py-2.5 px-4 text-right font-bold ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`}>
                         {formatMoney(p.monto, p.moneda)}
                       </td>
                       <td className="py-2.5 px-4 text-center font-sans">
@@ -863,14 +919,14 @@ export const PaymentsTab: React.FC = () => {
                               <button
                                 disabled={processingId === p.id}
                                 onClick={() => handleRejectPayment(p)}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[10px] font-bold cursor-pointer disabled:opacity-50"
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[10px] font-bold cursor-pointer disabled:opacity-50 ${isLight ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-300' : 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border-rose-500/30'}`}
                               >
                                 <XCircle className="w-3 h-3" />
                                 <span>Rechazar</span>
                               </button>
                             </div>
                           ) : (
-                            <span className="text-[11px] text-slate-500">
+                            <span className={`text-[11px] ${isLight ? 'text-slate-500' : 'text-slate-500'}`}>
                               {p.confirmado ? '✅ Recibido' : 'Rechazado'}
                             </span>
                           )}
@@ -887,22 +943,22 @@ export const PaymentsTab: React.FC = () => {
 
       {/* 5. Formulario: Registrar Nuevo Pago */}
       {(!isDayClosed || isSupervisor) ? (
-        <div className="bg-[#0D1B22] border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
-          <div className="border-b border-slate-800 pb-2">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-white">
+        <div className={`${isLight ? 'bg-white border-slate-200 shadow-sm' : 'bg-[#0D1B22] border-slate-800 shadow-lg'} border rounded-2xl p-5 space-y-4`}>
+          <div className={`border-b pb-2 ${isLight ? 'border-slate-200' : 'border-slate-800'}`}>
+            <h3 className={`text-sm font-bold uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white'}`}>
               📝 Registrar Nuevo Pago
             </h3>
           </div>
 
           {errorMsg && (
-            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2">
+            <div className={`p-3 rounded-xl border text-xs flex items-center gap-2 ${isLight ? 'bg-rose-50 border-rose-200 text-rose-800' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'}`}>
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{errorMsg}</span>
             </div>
           )}
 
           {successMsg && (
-            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs flex items-center gap-2">
+            <div className={`p-3 rounded-xl border text-xs flex items-center gap-2 ${isLight ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'}`}>
               <CheckCircle2 className="w-4 h-4 shrink-0" />
               <span>{successMsg}</span>
             </div>
@@ -912,7 +968,7 @@ export const PaymentsTab: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {/* Col 1: Fecha */}
               <div>
-                <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                <label className={`block text-[11px] font-semibold mb-1 ${isLight ? 'text-slate-700' : 'text-slate-400'}`}>
                   Fecha
                 </label>
                 <input
@@ -920,19 +976,19 @@ export const PaymentsTab: React.FC = () => {
                   value={fechaPago}
                   onChange={(e) => setFechaPago(e.target.value)}
                   required
-                  className="w-full bg-[#071217] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono font-bold"
+                  className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-500 font-mono font-bold ${isLight ? 'bg-slate-50 border-slate-300 text-slate-900 focus:bg-white' : 'bg-[#071217] border-slate-700 text-white'}`}
                 />
               </div>
 
               {/* Col 2: Moneda */}
               <div>
-                <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                <label className={`block text-[11px] font-semibold mb-1 ${isLight ? 'text-slate-700' : 'text-slate-400'}`}>
                   Moneda
                 </label>
                 <select
                   value={monedaPago}
                   onChange={(e) => setMonedaPago(e.target.value)}
-                  className="w-full bg-[#071217] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-bold cursor-pointer"
+                  className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-500 font-bold cursor-pointer ${isLight ? 'bg-slate-50 border-slate-300 text-slate-900 focus:bg-white' : 'bg-[#071217] border-slate-700 text-white'}`}
                 >
                   {assignedCurrencies.map((m) => (
                     <option key={m} value={m}>{m}</option>
@@ -943,7 +999,7 @@ export const PaymentsTab: React.FC = () => {
               {/* Col 3: Monto */}
               <div>
                 <div className="flex justify-between items-center mb-1">
-                  <label className="text-[11px] font-semibold text-slate-400">
+                  <label className={`text-[11px] font-semibold ${isLight ? 'text-slate-700' : 'text-slate-400'}`}>
                     Monto
                   </label>
                   {(() => {
@@ -953,7 +1009,7 @@ export const PaymentsTab: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setMontoPago(currentSaldoEnCaja)}
-                        className="text-[10px] text-emerald-400 hover:underline font-bold cursor-pointer"
+                        className={`text-[10px] font-bold cursor-pointer hover:underline ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`}
                       >
                         Llenar en Caja: {formatMoney(currentSaldoEnCaja, monedaPago)}
                       </button>
@@ -968,19 +1024,19 @@ export const PaymentsTab: React.FC = () => {
                   value={montoPago}
                   onChange={(e) => setMontoPago(e.target.value === '' ? '' : parseFloat(e.target.value))}
                   placeholder="0.00"
-                  className="w-full bg-[#071217] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono font-bold"
+                  className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-500 font-mono font-bold ${isLight ? 'bg-slate-50 border-slate-300 text-slate-900 focus:bg-white' : 'bg-[#071217] border-slate-700 text-white'}`}
                 />
               </div>
 
               {/* Col 4: Tipo Pago / Concepto */}
               <div>
-                <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                <label className={`block text-[11px] font-semibold mb-1 ${isLight ? 'text-slate-700' : 'text-slate-400'}`}>
                   Tipo Pago / Concepto
                 </label>
                 <select
                   value={tipoPago}
                   onChange={(e) => setTipoPago(e.target.value)}
-                  className="w-full bg-[#071217] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-semibold cursor-pointer"
+                  className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-500 font-semibold cursor-pointer ${isLight ? 'bg-slate-50 border-slate-300 text-slate-900 focus:bg-white' : 'bg-[#071217] border-slate-700 text-white'}`}
                 >
                   {paymentTypeOptions.map((opt) => (
                     <option key={opt} value={opt}>{opt}</option>
@@ -989,16 +1045,16 @@ export const PaymentsTab: React.FC = () => {
               </div>
 
               {tipoPago.includes('Cobrador') && (
-                <div className="sm:col-span-2 lg:col-span-4 bg-slate-900/70 p-3 rounded-xl border border-sky-500/30 flex flex-wrap items-center justify-between gap-3">
+                <div className={`sm:col-span-2 lg:col-span-4 p-3 rounded-xl border flex flex-wrap items-center justify-between gap-3 ${isLight ? 'bg-sky-50/80 border-sky-200' : 'bg-slate-900/70 border-sky-500/30'}`}>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-sky-400">🛵 Seleccione el Cobrador de Ruta:</span>
-                    <span className="text-[11px] text-slate-400">Se generará un PIN de 6 dígitos para validar la entrega en ruta</span>
+                    <span className={`text-xs font-bold ${isLight ? 'text-sky-800' : 'text-sky-400'}`}>🛵 Seleccione el Cobrador de Ruta:</span>
+                    <span className={`text-[11px] ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>Se generará un PIN de 6 dígitos para validar la entrega en ruta</span>
                   </div>
                   <select
                     value={selectedCobradorId}
                     onChange={(e) => setSelectedCobradorId(e.target.value)}
                     required
-                    className="bg-[#071217] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-semibold cursor-pointer min-w-[240px]"
+                    className={`border rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-emerald-500 font-semibold cursor-pointer min-w-[240px] ${isLight ? 'bg-white border-slate-300 text-slate-900' : 'bg-[#071217] border-slate-700 text-white'}`}
                   >
                     {cobradoresList.length === 0 ? (
                       <option value="">No hay cobradores activos</option>

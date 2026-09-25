@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { formatCurrency, formatDate, normalizarMoneda } from '../../utils/formatters';
 import {
   Layers,
@@ -130,6 +131,7 @@ const sortMovementsDesc = (a: DetailedMovement, b: DetailedMovement) => {
 
 export const AgencyCycleHistoryTab: React.FC = () => {
   const { agency, systemCycle } = useAuth();
+  const { isLight } = useTheme();
 
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCurrency, setSelectedCurrency] = useState<'BS' | 'USD' | 'COP'>('COP');
@@ -272,6 +274,24 @@ export const AgencyCycleHistoryTab: React.FC = () => {
 
   // Helper para clases de badge por categoría
   const getCategoryBadgeClass = (tipo: DetailedMovement['tipo_categoria']) => {
+    if (isLight) {
+      switch (tipo) {
+        case 'EFECTIVO':
+          return 'bg-emerald-100 text-emerald-800 border border-emerald-300';
+        case 'COBRADOR':
+          return 'bg-amber-100 text-amber-800 border border-amber-300';
+        case 'BANCO':
+          return 'bg-sky-100 text-sky-800 border border-sky-300';
+        case 'GASTO':
+          return 'bg-rose-100 text-rose-800 border border-rose-300';
+        case 'PREMIO':
+          return 'bg-purple-100 text-purple-800 border border-purple-300';
+        case 'VENTA':
+          return 'bg-teal-100 text-teal-800 border border-teal-300';
+        default:
+          return 'bg-slate-100 text-slate-700 border border-slate-300';
+      }
+    }
     switch (tipo) {
       case 'EFECTIVO':
         return 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
@@ -1141,20 +1161,28 @@ export const AgencyCycleHistoryTab: React.FC = () => {
   return (
     <div className="space-y-5 max-w-7xl mx-auto">
       {/* Top Controls Card */}
-      <div className="bg-[#0D1B22] border border-slate-800 rounded-3xl p-4 sm:p-6 shadow-xl space-y-4">
+      <div className={`border rounded-3xl p-4 sm:p-6 shadow-xl space-y-4 ${
+        isLight ? 'bg-white border-slate-200' : 'bg-[#0D1B22] border-slate-800'
+      }`}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <div className={`p-2.5 rounded-2xl border ${
+              isLight ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+            }`}>
               <Layers className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-lg sm:text-xl font-black text-white flex items-center gap-2">
+              <h2 className={`text-lg sm:text-xl font-black flex items-center gap-2 ${
+                isLight ? 'text-slate-900' : 'text-white'
+              }`}>
                 <span>Historial de Movimientos</span>
-                <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                <span className={`text-xs px-2.5 py-0.5 rounded-full border ${
+                  isLight ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                }`}>
                   {targetAgencyName}
                 </span>
               </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className={`text-xs mt-0.5 ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
                 Auditoría detallada movimiento por movimiento con ID individual, pagos en efectivo, transferencias y gastos.
               </p>
             </div>
@@ -1163,7 +1191,9 @@ export const AgencyCycleHistoryTab: React.FC = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={handlePrintThermalTicket}
-              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-all border border-slate-700 cursor-pointer"
+              className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all border cursor-pointer ${
+                isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300' : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+              }`}
             >
               <Printer className="w-3.5 h-3.5" />
               Imprimir Ticket
@@ -1172,7 +1202,9 @@ export const AgencyCycleHistoryTab: React.FC = () => {
             <button
               onClick={loadData}
               disabled={isLoading}
-              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-all border border-slate-700 cursor-pointer disabled:opacity-50"
+              className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all border cursor-pointer disabled:opacity-50 ${
+                isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+              }`}
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
               Actualizar
@@ -1181,10 +1213,14 @@ export const AgencyCycleHistoryTab: React.FC = () => {
         </div>
 
         {/* Currency, Periodicity & View Mode Switch */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-3 border-t border-slate-800">
+        <div className={`flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-3 border-t ${
+          isLight ? 'border-slate-200' : 'border-slate-800'
+        }`}>
           <div className="flex flex-wrap items-center gap-3">
             {/* Currency Tabs */}
-            <div className="flex items-center bg-[#071217] p-1 rounded-xl border border-slate-700">
+            <div className={`flex items-center p-1 rounded-xl border ${
+              isLight ? 'bg-slate-100 border-slate-200' : 'bg-[#071217] border-slate-700'
+            }`}>
               {(['COP', 'BS', 'USD'] as const).map((m) => (
                 <button
                   key={m}
@@ -1192,7 +1228,7 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                   className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                     selectedCurrency === m
                       ? 'bg-emerald-500 text-slate-950 shadow font-black'
-                      : 'text-slate-400 hover:text-white'
+                      : isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-white'
                   }`}
                 >
                   {m === 'COP' ? '🟡 COP' : m === 'BS' ? '🔵 BS' : '🟢 USD'}
@@ -1201,13 +1237,15 @@ export const AgencyCycleHistoryTab: React.FC = () => {
             </div>
 
             {/* Periodicity Switch */}
-            <div className="flex items-center bg-[#071217] p-1 rounded-xl border border-slate-700">
+            <div className={`flex items-center p-1 rounded-xl border ${
+              isLight ? 'bg-slate-100 border-slate-200' : 'bg-[#071217] border-slate-700'
+            }`}>
               <button
                 onClick={() => setPeriodicity('semanal')}
                 className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   periodicity === 'semanal'
                     ? 'bg-emerald-500 text-slate-950 shadow font-black'
-                    : 'text-slate-400 hover:text-white'
+                    : isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-white'
                 }`}
               >
                 📅 Semanal
@@ -1217,7 +1255,7 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                 className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   periodicity === 'mensual'
                     ? 'bg-emerald-500 text-slate-950 shadow font-black'
-                    : 'text-slate-400 hover:text-white'
+                    : isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-white'
                 }`}
               >
                 🗓️ Mensual
@@ -1226,13 +1264,15 @@ export const AgencyCycleHistoryTab: React.FC = () => {
           </div>
 
           {/* View Mode Selector: Resumen vs Movimientos por separado (1 por ID) */}
-          <div className="flex items-center bg-[#071217] p-1 rounded-xl border border-slate-700">
+          <div className={`flex items-center p-1 rounded-xl border ${
+            isLight ? 'bg-slate-100 border-slate-200' : 'bg-[#071217] border-slate-700'
+          }`}>
             <button
               onClick={() => setViewMode('resumen')}
               className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                 viewMode === 'resumen'
-                  ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 shadow font-black'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-emerald-500 text-slate-950 shadow font-black'
+                  : isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-white'
               }`}
             >
               <BarChart3 className="w-3.5 h-3.5" />
@@ -1242,13 +1282,15 @@ export const AgencyCycleHistoryTab: React.FC = () => {
               onClick={() => setViewMode('movimientos')}
               className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                 viewMode === 'movimientos'
-                  ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 shadow font-black'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-emerald-500 text-slate-950 shadow font-black'
+                  : isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-white'
               }`}
             >
               <Hash className="w-3.5 h-3.5" />
               <span>🧾 Movimientos por Separado (1 por ID)</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-900/60 font-mono">
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                isLight ? 'bg-slate-200 text-slate-800' : 'bg-slate-900/60 text-slate-200'
+              }`}>
                 {allMovements.length}
               </span>
             </button>
@@ -1258,24 +1300,32 @@ export const AgencyCycleHistoryTab: React.FC = () => {
 
       {/* VISTA 1: RESUMEN POR CICLO (CON ACORDEÓN EXPANDIBLE INLINE) */}
       {viewMode === 'resumen' && (
-        <div className="bg-[#0D1B22] border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
-          <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between">
+        <div className={`border rounded-3xl overflow-hidden shadow-xl ${
+          isLight ? 'bg-white border-slate-200' : 'bg-[#0D1B22] border-slate-800'
+        }`}>
+          <div className={`p-4 sm:p-5 border-b flex items-center justify-between ${
+            isLight ? 'bg-slate-50/50 border-slate-200' : 'border-slate-800'
+          }`}>
             <div>
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+              <h3 className={`text-xs font-bold uppercase tracking-wider ${
+                isLight ? 'text-slate-900' : 'text-white'
+              }`}>
                 {periodicity === 'semanal' ? '📜 Liquidaciones Semanales' : '🗓️ Consolidado Mensual'}
               </h3>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                Haz clic en cualquier período o en la flecha <ChevronRight className="w-3 h-3 inline text-emerald-400" /> para ver todos sus movimientos individuales por ID.
+              <p className={`text-[11px] mt-0.5 ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                Haz clic en cualquier período o en la flecha <ChevronRight className="w-3 h-3 inline text-emerald-500" /> para ver todos sus movimientos individuales por ID.
               </p>
             </div>
-            <span className="text-xs font-bold text-slate-400 font-mono">
+            <span className={`text-xs font-bold font-mono ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
               {activeRows.length} registros en {selectedCurrency}
             </span>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-[#071217] text-slate-400 border-b border-slate-800 font-bold uppercase tracking-wider">
+              <thead className={`border-b font-bold uppercase tracking-wider text-[11px] ${
+                isLight ? 'bg-slate-100 text-slate-700 border-slate-200' : 'bg-[#071217] text-slate-400 border-slate-800'
+              }`}>
                 <tr>
                   <th className="py-3 px-4">Período</th>
                   <th className="py-3 px-4 text-right">Arrastre Inicial</th>
@@ -1288,7 +1338,7 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                   <th className="py-3 px-3 text-center">Detalle</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/80 font-mono">
+              <tbody className={`divide-y font-mono ${isLight ? 'divide-slate-200' : 'divide-slate-800/80'}`}>
                 {activeRows.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="py-10 text-center text-slate-500 font-sans">
@@ -1302,15 +1352,25 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                       <React.Fragment key={row.id}>
                         <tr
                           onClick={() => setExpandedRowId(isExpanded ? null : row.id)}
-                          className={`hover:bg-slate-800/40 transition-colors cursor-pointer group ${
-                            isExpanded ? 'bg-slate-800/50 border-l-2 border-emerald-400' : ''
+                          className={`transition-colors cursor-pointer group ${
+                            isLight ? 'hover:bg-slate-50' : 'hover:bg-slate-800/40'
+                          } ${
+                            isExpanded
+                              ? isLight
+                                ? 'bg-emerald-50/70 border-l-4 border-emerald-500'
+                                : 'bg-slate-800/50 border-l-2 border-emerald-400'
+                              : ''
                           }`}
                         >
                           <td className="py-3.5 px-4 font-sans">
-                            <div className="font-bold text-white flex items-center gap-1.5">
+                            <div className={`font-bold flex items-center gap-1.5 ${
+                              isLight ? 'text-slate-900' : 'text-white'
+                            }`}>
                               {row.periodo_label}
                               {row.is_active_cycle && (
-                                <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase border ${
+                                  isLight ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                                }`}>
                                   Activo
                                 </span>
                               )}
@@ -1318,32 +1378,32 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                             <span className="text-[10px] text-slate-500 block">{row.rango_fechas}</span>
                           </td>
 
-                          <td className="py-3.5 px-4 text-right text-slate-400">
+                          <td className={`py-3.5 px-4 text-right ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
                             {formatCurrency(row.arrastre_inicial, selectedCurrency)}
                           </td>
 
                           <td
                             className={`py-3.5 px-4 text-right font-semibold ${
                               row.venta_neta > 0
-                                ? 'text-emerald-400'
+                                ? (isLight ? 'text-emerald-700' : 'text-emerald-400')
                                 : row.venta_neta < 0
-                                ? 'text-rose-400'
-                                : 'text-slate-400'
+                                ? (isLight ? 'text-rose-700' : 'text-rose-400')
+                                : (isLight ? 'text-slate-500' : 'text-slate-400')
                             }`}
                           >
                             {row.venta_neta > 0 ? '+' : ''}
                             {formatCurrency(row.venta_neta, selectedCurrency)}
                           </td>
 
-                          <td className="py-3.5 px-4 text-right text-rose-400">
+                          <td className={`py-3.5 px-4 text-right ${isLight ? 'text-rose-700' : 'text-rose-400'}`}>
                             {row.efectivo_qr > 0 ? `-${formatCurrency(row.efectivo_qr, selectedCurrency)}` : '0.00'}
                           </td>
 
-                          <td className="py-3.5 px-4 text-right text-sky-400">
+                          <td className={`py-3.5 px-4 text-right ${isLight ? 'text-sky-700' : 'text-sky-400'}`}>
                             {row.bancos > 0 ? `-${formatCurrency(row.bancos, selectedCurrency)}` : '0.00'}
                           </td>
 
-                          <td className="py-3.5 px-4 text-right text-amber-400">
+                          <td className={`py-3.5 px-4 text-right ${isLight ? 'text-amber-700' : 'text-amber-400'}`}>
                             {row.reposicion_premios > 0
                               ? `+${formatCurrency(row.reposicion_premios, selectedCurrency)}`
                               : '0.00'}
@@ -1352,10 +1412,10 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                           <td
                             className={`py-3.5 px-4 text-right font-black ${
                               row.saldo_final > 0
-                                ? 'text-rose-400'
+                                ? (isLight ? 'text-rose-700' : 'text-rose-400')
                                 : row.saldo_final < 0
-                                ? 'text-cyan-400'
-                                : 'text-emerald-400'
+                                ? (isLight ? 'text-cyan-700' : 'text-cyan-400')
+                                : (isLight ? 'text-emerald-700' : 'text-emerald-400')
                             }`}
                           >
                             {formatCurrency(row.saldo_final, selectedCurrency)}
@@ -1363,15 +1423,21 @@ export const AgencyCycleHistoryTab: React.FC = () => {
 
                           <td className="py-3.5 px-4 text-center font-sans">
                             {row.status === 'pagado' ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                                isLight ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                              }`}>
                                 <CheckCircle2 className="w-3 h-3" /> Solvente
                               </span>
                             ) : row.status === 'pendiente' ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                                isLight ? 'bg-rose-100 text-rose-800 border-rose-300' : 'bg-rose-500/20 text-rose-400 border-rose-500/30'
+                              }`}>
                                 <AlertTriangle className="w-3 h-3" /> Por Pagar
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                                isLight ? 'bg-cyan-100 text-cyan-800 border-cyan-300' : 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30'
+                              }`}>
                                 A Favor
                               </span>
                             )}
@@ -1384,12 +1450,14 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                                 setExpandedRowId(isExpanded ? null : row.id);
                               }}
                               title={isExpanded ? 'Ocultar movimientos' : 'Ver movimientos por separado (1 por ID)'}
-                              className="p-1 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+                              className={`p-1 rounded-lg transition-colors ${
+                                isLight ? 'hover:bg-slate-200 text-slate-500 hover:text-slate-800' : 'hover:bg-slate-700 text-slate-400 hover:text-white'
+                              }`}
                             >
                               {isExpanded ? (
-                                <ChevronDown className="w-4 h-4 text-emerald-400 mx-auto" />
+                                <ChevronDown className="w-4 h-4 text-emerald-500 mx-auto" />
                               ) : (
-                                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-emerald-400 transition-colors mx-auto" />
+                                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-500 transition-colors mx-auto" />
                               )}
                             </button>
                           </td>
@@ -1397,15 +1465,23 @@ export const AgencyCycleHistoryTab: React.FC = () => {
 
                         {/* ACORDEÓN EXPANDIBLE INLINE: MOVIMIENTOS POR SEPARADO 1 A 1 CON ID */}
                         {isExpanded && (
-                          <tr className="bg-[#08151D] border-b border-slate-800 animate-fadeIn">
+                          <tr className={`border-b animate-fadeIn ${
+                            isLight ? 'bg-slate-50 border-slate-200' : 'bg-[#08151D] border-slate-800'
+                          }`}>
                             <td colSpan={9} className="p-4 sm:p-5">
                               <div className="space-y-3 font-sans">
-                                <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-slate-800">
+                                <div className={`flex flex-wrap items-center justify-between gap-3 pb-2 border-b ${
+                                  isLight ? 'border-slate-200' : 'border-slate-800'
+                                }`}>
                                   <div className="flex items-center gap-2">
-                                    <span className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 font-black text-xs">
+                                    <span className={`p-1.5 rounded-lg font-black text-xs ${
+                                      isLight ? 'bg-emerald-100 text-emerald-800' : 'bg-emerald-500/20 text-emerald-400'
+                                    }`}>
                                       📋 {row.periodo_label}
                                     </span>
-                                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                                    <h4 className={`text-xs font-bold uppercase tracking-wider ${
+                                      isLight ? 'text-slate-800' : 'text-white'
+                                    }`}>
                                       Extracto y Movimientos del Período ({row.movements.length} operaciones &bull; 1 ID por movimiento)
                                     </h4>
                                   </div>
@@ -1415,10 +1491,12 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                                         e.stopPropagation();
                                         setCycleExtractSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'));
                                       }}
-                                      className="px-2.5 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 hover:text-white font-bold flex items-center gap-1.5 border border-slate-700 transition-all cursor-pointer"
+                                      className={`px-2.5 py-1 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all cursor-pointer ${
+                                        isLight ? 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300 shadow-xs' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border-slate-700'
+                                      }`}
                                       title="Alternar orden de transacciones"
                                     >
-                                      <ArrowUpDown className="w-3.5 h-3.5 text-emerald-400" />
+                                      <ArrowUpDown className="w-3.5 h-3.5 text-emerald-500" />
                                       <span>{cycleExtractSortOrder === 'desc' ? '🔽 Última transacción arriba' : '🔼 Más antigua primero'}</span>
                                     </button>
                                     <button
@@ -1426,7 +1504,9 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                                         e.stopPropagation();
                                         setSelectedDrilldownRow(row);
                                       }}
-                                      className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1.5 border border-slate-700 transition-all cursor-pointer"
+                                      className={`px-3 py-1 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all cursor-pointer ${
+                                        isLight ? 'bg-white hover:bg-slate-100 text-emerald-700 border-slate-300 shadow-xs' : 'bg-slate-800 hover:bg-slate-700 text-emerald-400 hover:text-emerald-300 border-slate-700'
+                                      }`}
                                     >
                                       <Eye className="w-3.5 h-3.5" /> Abrir en Modal Completo
                                     </button>
@@ -1434,29 +1514,49 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                                 </div>
 
                                 {/* Mini-Barra Resumen de Extracto del Período */}
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-2.5 rounded-xl bg-[#061015] border border-slate-800 text-xs">
+                                <div className={`grid grid-cols-2 sm:grid-cols-4 gap-2 p-2.5 rounded-xl border text-xs ${
+                                  isLight ? 'bg-white border-slate-200 shadow-xs' : 'bg-[#061015] border-slate-800'
+                                }`}>
                                   <div>
-                                    <span className="text-[10px] text-slate-400 font-bold block uppercase">🏁 Viene con (Saldo Ant.)</span>
-                                    <span className="font-mono font-bold text-slate-200">
+                                    <span className={`text-[10px] font-bold block uppercase ${
+                                      isLight ? 'text-slate-500' : 'text-slate-400'
+                                    }`}>🏁 Viene con (Saldo Ant.)</span>
+                                    <span className={`font-mono font-bold ${
+                                      isLight ? 'text-slate-800' : 'text-slate-200'
+                                    }`}>
                                       {formatCurrency(row.arrastre_inicial, selectedCurrency)}
                                     </span>
                                   </div>
                                   <div>
-                                    <span className="text-[10px] text-emerald-400 font-bold block uppercase">➕ Total Sumas (+ Cargos)</span>
-                                    <span className="font-mono font-bold text-emerald-400">
+                                    <span className={`text-[10px] font-bold block uppercase ${
+                                      isLight ? 'text-emerald-700' : 'text-emerald-400'
+                                    }`}>➕ Total Sumas (+ Cargos)</span>
+                                    <span className={`font-mono font-bold ${
+                                      isLight ? 'text-emerald-700' : 'text-emerald-400'
+                                    }`}>
                                       +{formatCurrency(row.venta_neta + row.reposicion_premios, selectedCurrency)}
                                     </span>
                                   </div>
                                   <div>
-                                    <span className="text-[10px] text-rose-400 font-bold block uppercase">➖ Total Restas (- Abonos)</span>
-                                    <span className="font-mono font-bold text-rose-400">
+                                    <span className={`text-[10px] font-bold block uppercase ${
+                                      isLight ? 'text-rose-700' : 'text-rose-400'
+                                    }`}>➖ Total Restas (- Abonos)</span>
+                                    <span className={`font-mono font-bold ${
+                                      isLight ? 'text-rose-700' : 'text-rose-400'
+                                    }`}>
                                       -{formatCurrency(row.efectivo_qr + row.bancos + row.gastos, selectedCurrency)}
                                     </span>
                                   </div>
                                   <div>
-                                    <span className="text-[10px] text-cyan-400 font-bold block uppercase">💳 Saldo Resultante</span>
+                                    <span className={`text-[10px] font-bold block uppercase ${
+                                      isLight ? 'text-cyan-700' : 'text-cyan-400'
+                                    }`}>💳 Saldo Resultante</span>
                                     <span className={`font-mono font-black ${
-                                      row.saldo_final > 0 ? 'text-rose-400' : row.saldo_final < 0 ? 'text-cyan-400' : 'text-emerald-400'
+                                      row.saldo_final > 0
+                                        ? (isLight ? 'text-rose-700' : 'text-rose-400')
+                                        : row.saldo_final < 0
+                                        ? (isLight ? 'text-cyan-700' : 'text-cyan-400')
+                                        : (isLight ? 'text-emerald-700' : 'text-emerald-400')
                                     }`}>
                                       {formatCurrency(row.saldo_final, selectedCurrency)}
                                     </span>
@@ -1468,12 +1568,18 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                                     No hay movimientos individuales registrados para este ciclo en {selectedCurrency}.
                                   </p>
                                 ) : (
-                                  <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-[#071217]">
+                                  <div className={`overflow-x-auto rounded-2xl border ${
+                                    isLight ? 'border-slate-200 bg-white shadow-xs' : 'border-slate-800 bg-[#071217]'
+                                  }`}>
                                     <table className="w-full text-left text-xs border-collapse">
-                                      <thead className="bg-slate-900/90 text-slate-400 font-bold uppercase text-[10px] tracking-wider border-b border-slate-800">
+                                      <thead className={`border-b font-bold uppercase text-[10px] tracking-wider ${
+                                        isLight ? 'bg-slate-100 text-slate-700 border-slate-200' : 'bg-slate-900/90 text-slate-400 border-slate-800'
+                                      }`}>
                                         <tr>
                                           <th
-                                            className="py-2.5 px-3 cursor-pointer select-none hover:text-white transition-colors"
+                                            className={`py-2.5 px-3 cursor-pointer select-none transition-colors ${
+                                              isLight ? 'hover:text-slate-900' : 'hover:text-white'
+                                            }`}
                                             onClick={() => setCycleExtractSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'))}
                                             title="Ordenar por ID / Transacción"
                                           >
@@ -1482,7 +1588,9 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                                             </span>
                                           </th>
                                           <th
-                                            className="py-2.5 px-3 cursor-pointer select-none hover:text-white transition-colors"
+                                            className={`py-2.5 px-3 cursor-pointer select-none transition-colors ${
+                                              isLight ? 'hover:text-slate-900' : 'hover:text-white'
+                                            }`}
                                             onClick={() => setCycleExtractSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'))}
                                             title="Ordenar por Fecha"
                                           >
@@ -1500,18 +1608,24 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                                           <th className="py-2.5 px-3 text-center">Estado</th>
                                         </tr>
                                       </thead>
-                                      <tbody className="divide-y divide-slate-800/60 font-mono">
+                                      <tbody className={`divide-y font-mono ${isLight ? 'divide-slate-200' : 'divide-slate-800/60'}`}>
                                         {[...row.movements]
                                           .sort(cycleExtractSortOrder === 'desc' ? sortMovementsDesc : sortMovementsAsc)
                                           .map((m, idx) => (
-                                          <tr key={`${m.origen_tabla}_${m.id}_${idx}`} className="hover:bg-slate-800/40 transition-colors">
+                                          <tr key={`${m.origen_tabla}_${m.id}_${idx}`} className={`transition-colors ${
+                                            isLight ? 'hover:bg-slate-50' : 'hover:bg-slate-800/40'
+                                          }`}>
                                             <td className="py-2.5 px-3">
-                                              <span className="px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700 text-emerald-300 font-bold font-mono text-[11px] inline-flex items-center gap-1">
+                                              <span className={`px-2 py-0.5 rounded-md border font-bold font-mono text-[11px] inline-flex items-center gap-1 ${
+                                                isLight ? 'bg-slate-100 border-slate-300 text-emerald-700' : 'bg-slate-800 border-slate-700 text-emerald-300'
+                                              }`}>
                                                 <Hash className="w-3 h-3 text-slate-400" />
                                                 {m.id_display.replace('#', '')}
                                               </span>
                                             </td>
-                                            <td className="py-2.5 px-3 text-slate-300 font-sans text-[11px] whitespace-nowrap">
+                                            <td className={`py-2.5 px-3 font-sans text-[11px] whitespace-nowrap ${
+                                              isLight ? 'text-slate-600' : 'text-slate-300'
+                                            }`}>
                                               {formatDate(m.fecha)}
                                             </td>
                                             <td className="py-2.5 px-3 font-sans">
@@ -1519,32 +1633,48 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                                                 {m.categoria_label}
                                               </span>
                                             </td>
-                                            <td className="py-2.5 px-3 font-sans text-slate-200 font-semibold">
+                                            <td className={`py-2.5 px-3 font-sans font-semibold ${
+                                              isLight ? 'text-slate-900' : 'text-slate-200'
+                                            }`}>
                                               {m.concepto}
                                             </td>
-                                            <td className="py-2.5 px-3 text-slate-400 text-[11px]">
+                                            <td className={`py-2.5 px-3 text-[11px] ${
+                                              isLight ? 'text-slate-500' : 'text-slate-400'
+                                            }`}>
                                               {m.referencia}
                                             </td>
-                                            <td className="py-2.5 px-3 font-sans text-slate-300 text-[11px]">
-                                              <span className="px-2 py-0.5 rounded bg-slate-800/60 border border-slate-700/60">
+                                            <td className={`py-2.5 px-3 font-sans text-[11px] ${
+                                              isLight ? 'text-slate-700' : 'text-slate-300'
+                                            }`}>
+                                              <span className={`px-2 py-0.5 rounded border ${
+                                                isLight ? 'bg-slate-100 border-slate-300 text-slate-700' : 'bg-slate-800/60 border-slate-700/60'
+                                              }`}>
                                                 {m.cajero}
                                               </span>
                                             </td>
-                                            <td className="py-2.5 px-3 text-right font-bold text-xs text-slate-300 whitespace-nowrap">
+                                            <td className={`py-2.5 px-3 text-right font-bold text-xs whitespace-nowrap ${
+                                              isLight ? 'text-slate-700' : 'text-slate-300'
+                                            }`}>
                                               {formatCurrency(m.saldo_anterior, selectedCurrency)}
                                             </td>
                                             <td className="py-2.5 px-3 text-center whitespace-nowrap">
                                               {m.rechazado ? (
-                                                <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-800 text-slate-500 line-through">
+                                                <span className={`px-2 py-0.5 rounded text-[11px] font-bold line-through ${
+                                                  isLight ? 'bg-slate-200 text-slate-400' : 'bg-slate-800 text-slate-500'
+                                                }`}>
                                                   {formatCurrency(m.monto, selectedCurrency)}
                                                 </span>
                                               ) : m.tipo_impacto === 'SUMA' ? (
-                                                <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-xs font-black">
+                                                <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-lg border text-xs font-black ${
+                                                  isLight ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                                                }`}>
                                                   <ArrowUpRight className="w-3 h-3" />
                                                   +{formatCurrency(m.monto, selectedCurrency)}
                                                 </span>
                                               ) : (
-                                                <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-lg bg-rose-500/15 text-rose-400 border border-rose-500/30 text-xs font-black">
+                                                <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-lg border text-xs font-black ${
+                                                  isLight ? 'bg-rose-100 text-rose-800 border-rose-300' : 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+                                                }`}>
                                                   <ArrowDownRight className="w-3 h-3" />
                                                   -{formatCurrency(m.monto, selectedCurrency)}
                                                 </span>
@@ -1553,25 +1683,31 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                                             <td className="py-2.5 px-3 text-right whitespace-nowrap">
                                               <span className={`inline-flex items-center px-2 py-0.5 rounded-lg font-black text-xs border ${
                                                 m.saldo_resultante > 0
-                                                  ? 'bg-rose-500/10 text-rose-300 border-rose-500/25'
+                                                  ? (isLight ? 'bg-rose-100 text-rose-800 border-rose-300' : 'bg-rose-500/10 text-rose-300 border-rose-500/25')
                                                   : m.saldo_resultante < 0
-                                                  ? 'bg-cyan-500/10 text-cyan-300 border-cyan-500/25'
-                                                  : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/25'
+                                                  ? (isLight ? 'bg-cyan-100 text-cyan-800 border-cyan-300' : 'bg-cyan-500/10 text-cyan-300 border-cyan-500/25')
+                                                  : (isLight ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/25')
                                               }`}>
                                                 {formatCurrency(m.saldo_resultante, selectedCurrency)}
                                               </span>
                                             </td>
                                             <td className="py-2.5 px-3 text-center font-sans">
                                               {m.rechazado ? (
-                                                <span className="px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-400 text-[10px] font-bold">
+                                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                                  isLight ? 'bg-rose-100 text-rose-800' : 'bg-rose-500/15 text-rose-400'
+                                                }`}>
                                                   Rechazado
                                                 </span>
                                               ) : m.confirmado ? (
-                                                <span className="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 text-[10px] font-bold">
+                                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                                  isLight ? 'bg-emerald-100 text-emerald-800' : 'bg-emerald-500/15 text-emerald-400'
+                                                }`}>
                                                   Confirmado
                                                 </span>
                                               ) : (
-                                                <span className="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 text-[10px] font-bold">
+                                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                                  isLight ? 'bg-amber-100 text-amber-800' : 'bg-amber-500/15 text-amber-400'
+                                                }`}>
                                                   En Tránsito
                                                 </span>
                                               )}
@@ -1600,7 +1736,9 @@ export const AgencyCycleHistoryTab: React.FC = () => {
       {viewMode === 'movimientos' && (
         <div className="space-y-4 animate-fadeIn">
           {/* Barra de Filtros y Búsqueda */}
-          <div className="bg-[#0D1B22] border border-slate-800 rounded-3xl p-4 sm:p-5 shadow-xl space-y-3">
+          <div className={`border rounded-3xl p-4 sm:p-5 shadow-xl space-y-3 ${
+            isLight ? 'bg-white border-slate-200' : 'bg-[#0D1B22] border-slate-800'
+          }`}>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="relative flex-1 max-w-md">
                 <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -1609,17 +1747,23 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Buscar por ID (#104), concepto, referencia, cajero..."
-                  className="w-full bg-[#071217] border border-slate-700/80 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-sans"
+                  className={`w-full border rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:border-emerald-500 font-sans ${
+                    isLight ? 'bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400' : 'bg-[#071217] border-slate-700/80 text-white placeholder-slate-500'
+                  }`}
                 />
               </div>
 
-              <span className="text-xs text-slate-400 font-mono font-bold self-end sm:self-auto">
+              <span className={`text-xs font-mono font-bold self-end sm:self-auto ${
+                isLight ? 'text-slate-500' : 'text-slate-400'
+              }`}>
                 Mostrando {filteredMovements.length} de {allMovements.length} movimientos
               </span>
             </div>
 
             {/* Píldoras de Categoría */}
-            <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-800">
+            <div className={`flex flex-wrap items-center gap-1.5 pt-2 border-t ${
+              isLight ? 'border-slate-200' : 'border-slate-800'
+            }`}>
               {[
                 { key: 'all', label: 'Todos', count: categoryCounts.all },
                 { key: 'EFECTIVO', label: '💵 Efectivo Taquilla', count: categoryCounts.EFECTIVO },
@@ -1635,12 +1779,14 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                   className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                     categoryFilter === c.key
                       ? 'bg-emerald-500 text-slate-950 shadow font-black'
+                      : isLight
+                      ? 'bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-300 hover:border-slate-400'
                       : 'bg-[#071217] text-slate-400 hover:text-white border border-slate-800 hover:border-slate-700'
                   }`}
                 >
                   <span>{c.label}</span>
                   <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                    categoryFilter === c.key ? 'bg-slate-900/40 text-slate-950' : 'bg-slate-800 text-slate-300'
+                    categoryFilter === c.key ? 'bg-slate-900/40 text-slate-950' : isLight ? 'bg-slate-200 text-slate-700' : 'bg-slate-800 text-slate-300'
                   }`}>
                     {c.count}
                   </span>
@@ -1650,44 +1796,74 @@ export const AgencyCycleHistoryTab: React.FC = () => {
           </div>
 
           {/* Resumen Superior de Extracto Bancario */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 p-4 bg-[#0D1B22] border border-slate-800 rounded-3xl shadow-xl">
-            <div className="p-3.5 rounded-2xl bg-[#071217] border border-slate-800">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">🏁 Viene con (Saldo Inicial)</span>
-              <span className="text-base sm:text-lg font-black font-mono text-white mt-1 block">
+          <div className={`grid grid-cols-2 lg:grid-cols-4 gap-3 p-4 border rounded-3xl shadow-xl ${
+            isLight ? 'bg-white border-slate-200' : 'bg-[#0D1B22] border-slate-800'
+          }`}>
+            <div className={`p-3.5 rounded-2xl border ${
+              isLight ? 'bg-slate-50 border-slate-200' : 'bg-[#071217] border-slate-800'
+            }`}>
+              <span className={`text-[10px] uppercase font-bold tracking-wider block ${
+                isLight ? 'text-slate-500' : 'text-slate-400'
+              }`}>🏁 Viene con (Saldo Inicial)</span>
+              <span className={`text-base sm:text-lg font-black font-mono mt-1 block ${
+                isLight ? 'text-slate-900' : 'text-white'
+              }`}>
                 {formatCurrency(bankExtractSummary.initialBalance, selectedCurrency)}
               </span>
-              <span className="text-[10px] text-slate-500">Arrastre al corte de inicio</span>
+              <span className={`text-[10px] ${isLight ? 'text-slate-500' : 'text-slate-500'}`}>Arrastre al corte de inicio</span>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-[#071217] border border-emerald-500/20">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-400 block">➕ Total Sumas (+ Cargos)</span>
-              <span className="text-base sm:text-lg font-black font-mono text-emerald-400 mt-1 block">
+            <div className={`p-3.5 rounded-2xl border ${
+              isLight ? 'bg-emerald-50/70 border-emerald-200' : 'bg-[#071217] border-emerald-500/20'
+            }`}>
+              <span className={`text-[10px] uppercase font-bold tracking-wider block ${
+                isLight ? 'text-emerald-700' : 'text-emerald-400'
+              }`}>➕ Total Sumas (+ Cargos)</span>
+              <span className={`text-base sm:text-lg font-black font-mono mt-1 block ${
+                isLight ? 'text-emerald-700' : 'text-emerald-400'
+              }`}>
                 +{formatCurrency(bankExtractSummary.totalSumas, selectedCurrency)}
               </span>
-              <span className="text-[10px] text-slate-500">Ventas netas y reposiciones</span>
+              <span className={`text-[10px] ${isLight ? 'text-emerald-600' : 'text-slate-500'}`}>Ventas netas y reposiciones</span>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-[#071217] border border-rose-500/20">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-rose-400 block">➖ Total Restas (- Abonos)</span>
-              <span className="text-base sm:text-lg font-black font-mono text-rose-400 mt-1 block">
+            <div className={`p-3.5 rounded-2xl border ${
+              isLight ? 'bg-rose-50/70 border-rose-200' : 'bg-[#071217] border-rose-500/20'
+            }`}>
+              <span className={`text-[10px] uppercase font-bold tracking-wider block ${
+                isLight ? 'text-rose-700' : 'text-rose-400'
+              }`}>➖ Total Restas (- Abonos)</span>
+              <span className={`text-base sm:text-lg font-black font-mono mt-1 block ${
+                isLight ? 'text-rose-700' : 'text-rose-400'
+              }`}>
                 -{formatCurrency(bankExtractSummary.totalRestas, selectedCurrency)}
               </span>
-              <span className="text-[10px] text-slate-500">Efectivo, cobradores, bancos y gastos</span>
+              <span className={`text-[10px] ${isLight ? 'text-rose-600' : 'text-slate-500'}`}>Efectivo, cobradores, bancos y gastos</span>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-[#071217] border border-slate-800">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-cyan-400 block">💳 Saldo Resultante en Cuenta</span>
+            <div className={`p-3.5 rounded-2xl border ${
+              isLight ? 'bg-slate-50 border-slate-200' : 'bg-[#071217] border-slate-800'
+            }`}>
+              <span className={`text-[10px] uppercase font-bold tracking-wider block ${
+                isLight ? 'text-cyan-700' : 'text-cyan-400'
+              }`}>💳 Saldo Resultante en Cuenta</span>
               <span className={`text-base sm:text-lg font-black font-mono mt-1 block ${
-                bankExtractSummary.saldoResultante > 0 ? 'text-rose-400' : bankExtractSummary.saldoResultante < 0 ? 'text-cyan-400' : 'text-emerald-400'
+                bankExtractSummary.saldoResultante > 0
+                  ? (isLight ? 'text-rose-700' : 'text-rose-400')
+                  : bankExtractSummary.saldoResultante < 0
+                  ? (isLight ? 'text-cyan-700' : 'text-cyan-400')
+                  : (isLight ? 'text-emerald-700' : 'text-emerald-400')
               }`}>
                 {formatCurrency(bankExtractSummary.saldoResultante, selectedCurrency)}
               </span>
-              <span className="text-[10px] text-slate-500">Posición actual consolidada</span>
+              <span className={`text-[10px] ${isLight ? 'text-slate-500' : 'text-slate-500'}`}>Posición actual consolidada</span>
             </div>
           </div>
 
           {/* Barra de Filtros, Búsqueda y Ordenamiento */}
-          <div className="bg-[#0D1B22] border border-slate-800 rounded-3xl p-4 sm:p-5 shadow-xl space-y-3">
+          <div className={`border rounded-3xl p-4 sm:p-5 shadow-xl space-y-3 ${
+            isLight ? 'bg-white border-slate-200' : 'bg-[#0D1B22] border-slate-800'
+          }`}>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="relative flex-1 max-w-md">
                 <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -1696,28 +1872,36 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Buscar por ID (#60), concepto, referencia, cajero..."
-                  className="w-full bg-[#071217] border border-slate-700/80 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-sans"
+                  className={`w-full border rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:border-emerald-500 font-sans ${
+                    isLight ? 'bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400' : 'bg-[#071217] border-slate-700/80 text-white placeholder-slate-500'
+                  }`}
                 />
               </div>
 
               <div className="flex items-center gap-2 self-end sm:self-auto">
                 <button
                   onClick={() => setMovementSortOrder(movementSortOrder === 'desc' ? 'asc' : 'desc')}
-                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1.5 border border-slate-700 transition-all cursor-pointer"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all cursor-pointer ${
+                    isLight ? 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300 shadow-xs' : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+                  }`}
                   title="Alternar orden cronológico"
                 >
-                  <ArrowUpDown className="w-3.5 h-3.5 text-emerald-400" />
+                  <ArrowUpDown className="w-3.5 h-3.5 text-emerald-500" />
                   <span>{movementSortOrder === 'desc' ? '⏱️ Más reciente primero' : '📅 Cronológico (Antiguo a Reciente)'}</span>
                 </button>
 
-                <span className="text-xs text-slate-400 font-mono font-bold">
+                <span className={`text-xs font-mono font-bold ${
+                  isLight ? 'text-slate-500' : 'text-slate-400'
+                }`}>
                   {filteredMovements.length} / {allMovements.length} mov.
                 </span>
               </div>
             </div>
 
             {/* Píldoras de Categoría */}
-            <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-800">
+            <div className={`flex flex-wrap items-center gap-1.5 pt-2 border-t ${
+              isLight ? 'border-slate-200' : 'border-slate-800'
+            }`}>
               {[
                 { key: 'all', label: 'Todos', count: categoryCounts.all },
                 { key: 'EFECTIVO', label: '💵 Efectivo Taquilla', count: categoryCounts.EFECTIVO },
@@ -1733,12 +1917,14 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                   className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                     categoryFilter === c.key
                       ? 'bg-emerald-500 text-slate-950 shadow font-black'
+                      : isLight
+                      ? 'bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-300 hover:border-slate-400'
                       : 'bg-[#071217] text-slate-400 hover:text-white border border-slate-800 hover:border-slate-700'
                   }`}
                 >
                   <span>{c.label}</span>
                   <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                    categoryFilter === c.key ? 'bg-slate-900/40 text-slate-950' : 'bg-slate-800 text-slate-300'
+                    categoryFilter === c.key ? 'bg-slate-900/40 text-slate-950' : isLight ? 'bg-slate-200 text-slate-700' : 'bg-slate-800 text-slate-300'
                   }`}>
                     {c.count}
                   </span>
@@ -1748,10 +1934,14 @@ export const AgencyCycleHistoryTab: React.FC = () => {
           </div>
 
           {/* Tabla de Extracto Bancario (1 Movimiento = 1 ID) */}
-          <div className="bg-[#0D1B22] border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
+          <div className={`border rounded-3xl overflow-hidden shadow-xl ${
+            isLight ? 'bg-white border-slate-200' : 'bg-[#0D1B22] border-slate-800'
+          }`}>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-[#071217] text-slate-400 border-b border-slate-800 font-bold uppercase tracking-wider text-[10px]">
+                <thead className={`border-b font-bold uppercase tracking-wider text-[10px] ${
+                  isLight ? 'bg-slate-100 text-slate-700 border-slate-200' : 'bg-[#071217] text-slate-400 border-slate-800'
+                }`}>
                   <tr>
                     <th className="py-3 px-3">ID</th>
                     <th className="py-3 px-3">Fecha</th>
@@ -1765,7 +1955,7 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                     <th className="py-3 px-3 text-center">Estado</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/80 font-mono">
+                <tbody className={`divide-y font-mono ${isLight ? 'divide-slate-200' : 'divide-slate-800/80'}`}>
                   {filteredMovements.length === 0 ? (
                     <tr>
                       <td colSpan={10} className="py-12 text-center text-slate-500 font-sans">
@@ -1776,16 +1966,20 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                     filteredMovements.map((m, idx) => (
                       <tr
                         key={`${m.origen_tabla}_${m.id}_${idx}`}
-                        className="hover:bg-slate-800/40 transition-colors"
+                        className={`transition-colors ${isLight ? 'hover:bg-slate-50' : 'hover:bg-slate-800/40'}`}
                       >
                         <td className="py-3 px-3 font-mono font-bold">
-                          <span className="px-2 py-0.5 rounded-lg bg-slate-800/90 border border-slate-700 text-emerald-300 inline-flex items-center gap-1 shadow-sm text-xs">
-                            <Hash className="w-3 h-3 text-slate-500" />
+                          <span className={`px-2 py-0.5 rounded-lg border inline-flex items-center gap-1 shadow-xs text-xs ${
+                            isLight ? 'bg-slate-100 border-slate-300 text-emerald-700' : 'bg-slate-800/90 border-slate-700 text-emerald-300'
+                          }`}>
+                            <Hash className="w-3 h-3 text-slate-400" />
                             {m.id_display.replace('#', '')}
                           </span>
                         </td>
 
-                        <td className="py-3 px-3 font-sans text-slate-300 text-xs whitespace-nowrap">
+                        <td className={`py-3 px-3 font-sans text-xs whitespace-nowrap ${
+                          isLight ? 'text-slate-600' : 'text-slate-300'
+                        }`}>
                           {formatDate(m.fecha)}
                         </td>
 
@@ -1795,38 +1989,50 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                           </span>
                         </td>
 
-                        <td className="py-3 px-4 font-sans text-slate-200 font-semibold text-xs">
+                        <td className={`py-3 px-4 font-sans font-semibold text-xs ${
+                          isLight ? 'text-slate-900' : 'text-slate-200'
+                        }`}>
                           {m.concepto}
                         </td>
 
-                        <td className="py-3 px-4 text-slate-400 text-xs">
+                        <td className={`py-3 px-4 text-xs ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
                           {m.referencia}
                         </td>
 
-                        <td className="py-3 px-3 font-sans text-slate-300 text-xs">
-                          <span className="px-2 py-0.5 rounded bg-slate-800/60 border border-slate-700/60 inline-block">
+                        <td className={`py-3 px-3 font-sans text-xs ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>
+                          <span className={`px-2 py-0.5 rounded border inline-block ${
+                            isLight ? 'bg-slate-100 border-slate-300' : 'bg-slate-800/60 border-slate-700/60'
+                          }`}>
                             {m.cajero}
                           </span>
                         </td>
 
                         {/* Viene con (Saldo Ant.) */}
-                        <td className="py-3 px-4 text-right font-mono font-bold text-slate-300 text-xs whitespace-nowrap">
+                        <td className={`py-3 px-4 text-right font-mono font-bold text-xs whitespace-nowrap ${
+                          isLight ? 'text-slate-700' : 'text-slate-300'
+                        }`}>
                           {formatCurrency(m.saldo_anterior, selectedCurrency)}
                         </td>
 
                         {/* Movimiento (+ / -) */}
                         <td className="py-3 px-4 text-center font-mono whitespace-nowrap">
                           {m.rechazado ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-slate-800 text-slate-500 line-through">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold line-through ${
+                              isLight ? 'bg-slate-200 text-slate-400' : 'bg-slate-800 text-slate-500'
+                            }`}>
                               {formatCurrency(m.monto, selectedCurrency)}
                             </span>
                           ) : m.tipo_impacto === 'SUMA' ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-xs font-black">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-black ${
+                              isLight ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                            }`}>
                               <ArrowUpRight className="w-3.5 h-3.5" />
                               +{formatCurrency(m.monto, selectedCurrency)}
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/15 text-rose-400 border border-rose-500/30 text-xs font-black">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-black ${
+                              isLight ? 'bg-rose-100 text-rose-800 border-rose-300' : 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+                            }`}>
                               <ArrowDownRight className="w-3.5 h-3.5" />
                               -{formatCurrency(m.monto, selectedCurrency)}
                             </span>
@@ -1837,10 +2043,10 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                         <td className="py-3 px-4 text-right font-mono whitespace-nowrap">
                           <span className={`inline-flex items-center px-2.5 py-1 rounded-lg font-black text-xs border ${
                             m.saldo_resultante > 0
-                              ? 'bg-rose-500/10 text-rose-300 border-rose-500/25'
+                              ? (isLight ? 'bg-rose-100 text-rose-800 border-rose-300' : 'bg-rose-500/10 text-rose-300 border-rose-500/25')
                               : m.saldo_resultante < 0
-                              ? 'bg-cyan-500/10 text-cyan-300 border-cyan-500/25'
-                              : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/25'
+                              ? (isLight ? 'bg-cyan-100 text-cyan-800 border-cyan-300' : 'bg-cyan-500/10 text-cyan-300 border-cyan-500/25')
+                              : (isLight ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/25')
                           }`}>
                             {formatCurrency(m.saldo_resultante, selectedCurrency)}
                           </span>
@@ -1848,15 +2054,21 @@ export const AgencyCycleHistoryTab: React.FC = () => {
 
                         <td className="py-3 px-3 text-center font-sans">
                           {m.rechazado ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                              isLight ? 'bg-rose-100 text-rose-800 border-rose-300' : 'bg-rose-500/20 text-rose-400 border-rose-500/30'
+                            }`}>
                               Rechazado
                             </span>
                           ) : m.confirmado ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                              isLight ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                            }`}>
                               <CheckCircle2 className="w-3 h-3" /> Confirmado
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                              isLight ? 'bg-amber-100 text-amber-800 border-amber-300' : 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                            }`}>
                               En Tránsito
                             </span>
                           )}
@@ -1874,47 +2086,59 @@ export const AgencyCycleHistoryTab: React.FC = () => {
       {/* Drilldown Modal: Movimientos Detallados 1 a 1 por ID */}
       {selectedDrilldownRow && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-[#0D1B22] border border-slate-800 rounded-3xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
-            <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/60">
+          <div className={`border rounded-3xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden ${
+            isLight ? 'bg-white border-slate-200' : 'bg-[#0D1B22] border-slate-800'
+          }`}>
+            <div className={`p-4 sm:p-5 border-b flex items-center justify-between ${
+              isLight ? 'bg-slate-50 border-slate-200' : 'border-slate-800 bg-slate-900/60'
+            }`}>
               <div className="flex items-center gap-2.5">
-                <Receipt className="w-5 h-5 text-emerald-400" />
+                <Receipt className="w-5 h-5 text-emerald-500" />
                 <div>
-                  <h3 className="text-sm font-bold text-white">Extracto de Comprobantes y Movimientos Bancarios</h3>
-                  <p className="text-[11px] text-slate-400 font-mono">{selectedDrilldownRow.periodo_label} &bull; {selectedCurrency}</p>
+                  <h3 className={`text-sm font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>Extracto de Comprobantes y Movimientos Bancarios</h3>
+                  <p className={`text-[11px] font-mono ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>{selectedDrilldownRow.periodo_label} &bull; {selectedCurrency}</p>
                 </div>
               </div>
               <button
                 onClick={() => setSelectedDrilldownRow(null)}
-                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 cursor-pointer transition-colors"
+                className={`p-1.5 rounded-lg cursor-pointer transition-colors ${
+                  isLight ? 'text-slate-500 hover:text-slate-800 hover:bg-slate-200' : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }`}
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Mini-Barra Resumen en Modal */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 px-5 py-2.5 bg-[#071217] border-b border-slate-800 text-xs">
+            <div className={`grid grid-cols-2 sm:grid-cols-4 gap-2 px-5 py-2.5 border-b text-xs ${
+              isLight ? 'bg-slate-50 border-slate-200' : 'bg-[#071217] border-slate-800'
+            }`}>
               <div>
-                <span className="text-[10px] text-slate-400 font-bold block uppercase">🏁 Viene con</span>
-                <span className="font-mono font-bold text-slate-200">
+                <span className={`text-[10px] font-bold block uppercase ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>🏁 Viene con</span>
+                <span className={`font-mono font-bold ${isLight ? 'text-slate-900' : 'text-slate-200'}`}>
                   {formatCurrency(selectedDrilldownRow.arrastre_inicial, selectedCurrency)}
                 </span>
               </div>
               <div>
-                <span className="text-[10px] text-emerald-400 font-bold block uppercase">➕ Total Sumas</span>
-                <span className="font-mono font-bold text-emerald-400">
+                <span className={`text-[10px] font-bold block uppercase ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`}>➕ Total Sumas</span>
+                <span className={`font-mono font-bold ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`}>
                   +{formatCurrency(selectedDrilldownRow.venta_neta + selectedDrilldownRow.reposicion_premios, selectedCurrency)}
                 </span>
               </div>
               <div>
-                <span className="text-[10px] text-rose-400 font-bold block uppercase">➖ Total Restas</span>
-                <span className="font-mono font-bold text-rose-400">
+                <span className={`text-[10px] font-bold block uppercase ${isLight ? 'text-rose-700' : 'text-rose-400'}`}>➖ Total Restas</span>
+                <span className={`font-mono font-bold ${isLight ? 'text-rose-700' : 'text-rose-400'}`}>
                   -{formatCurrency(selectedDrilldownRow.efectivo_qr + selectedDrilldownRow.bancos + selectedDrilldownRow.gastos, selectedCurrency)}
                 </span>
               </div>
               <div>
-                <span className="text-[10px] text-cyan-400 font-bold block uppercase">💳 Saldo Resultante</span>
+                <span className={`text-[10px] font-bold block uppercase ${isLight ? 'text-cyan-700' : 'text-cyan-400'}`}>💳 Saldo Resultante</span>
                 <span className={`font-mono font-black ${
-                  selectedDrilldownRow.saldo_final > 0 ? 'text-rose-400' : selectedDrilldownRow.saldo_final < 0 ? 'text-cyan-400' : 'text-emerald-400'
+                  selectedDrilldownRow.saldo_final > 0
+                    ? (isLight ? 'text-rose-700' : 'text-rose-400')
+                    : selectedDrilldownRow.saldo_final < 0
+                    ? (isLight ? 'text-cyan-700' : 'text-cyan-400')
+                    : (isLight ? 'text-emerald-700' : 'text-emerald-400')
                 }`}>
                   {formatCurrency(selectedDrilldownRow.saldo_final, selectedCurrency)}
                 </span>
@@ -1922,7 +2146,9 @@ export const AgencyCycleHistoryTab: React.FC = () => {
             </div>
 
             {/* Filtros dentro del modal */}
-            <div className="px-5 pt-3 pb-2 border-b border-slate-800/80 bg-[#071217] flex items-center justify-between gap-2 overflow-x-auto">
+            <div className={`px-5 pt-3 pb-2 border-b flex items-center justify-between gap-2 overflow-x-auto ${
+              isLight ? 'bg-slate-50/70 border-slate-200' : 'border-slate-800/80 bg-[#071217]'
+            }`}>
               <div className="flex items-center gap-1.5">
                 {[
                   { key: 'all', label: 'Todos' },
@@ -1939,6 +2165,8 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                     className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
                       modalCategoryFilter === f.key
                         ? 'bg-emerald-500 text-slate-950 font-black'
+                        : isLight
+                        ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
                         : 'text-slate-400 hover:text-white hover:bg-slate-800'
                     }`}
                   >
@@ -1949,13 +2177,17 @@ export const AgencyCycleHistoryTab: React.FC = () => {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setCycleExtractSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'))}
-                  className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 flex items-center gap-1.5 cursor-pointer transition-all"
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer transition-all border ${
+                    isLight ? 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300 shadow-xs' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border-slate-700'
+                  }`}
                   title="Alternar orden de movimientos"
                 >
-                  <ArrowUpDown className="w-3 h-3 text-emerald-400" />
+                  <ArrowUpDown className="w-3 h-3 text-emerald-500" />
                   <span>{cycleExtractSortOrder === 'desc' ? '🔽 Última arriba' : '🔼 Antigua primero'}</span>
                 </button>
-                <span className="text-[11px] text-slate-400 font-mono whitespace-nowrap font-bold">
+                <span className={`text-[11px] font-mono whitespace-nowrap font-bold ${
+                  isLight ? 'text-slate-500' : 'text-slate-400'
+                }`}>
                   {selectedDrilldownRow.movements.filter((m) => modalCategoryFilter === 'all' || m.tipo_categoria === modalCategoryFilter).length} mov.
                 </span>
               </div>
@@ -1976,43 +2208,51 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                   .map((m, i) => (
                     <div
                       key={i}
-                      className="p-3 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-slate-700 transition-colors"
+                      className={`p-3 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${
+                        isLight ? 'bg-slate-50 border-slate-200 hover:border-slate-300' : 'bg-slate-900 border-slate-800 hover:border-slate-700'
+                      }`}
                     >
                       <div className="flex items-start gap-3">
-                        <span className="px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700 text-emerald-300 font-mono font-bold text-xs inline-flex items-center gap-0.5 mt-0.5">
+                        <span className={`px-2 py-0.5 rounded-md border font-mono font-bold text-xs inline-flex items-center gap-0.5 mt-0.5 ${
+                          isLight ? 'bg-slate-100 border-slate-300 text-emerald-700' : 'bg-slate-800 border-slate-700 text-emerald-300'
+                        }`}>
                           <Hash className="w-3 h-3 text-slate-400" />
                           {m.id_display.replace('#', '')}
                         </span>
                         <div>
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-white text-xs">{m.concepto}</span>
+                            <span className={`font-bold text-xs ${isLight ? 'text-slate-900' : 'text-white'}`}>{m.concepto}</span>
                             <span className={`px-2 py-0.2 rounded-full text-[9px] font-bold ${getCategoryBadgeClass(m.tipo_categoria)}`}>
                               {m.categoria_label}
                             </span>
                           </div>
-                          <div className="text-[11px] text-slate-400 mt-1 flex flex-wrap items-center gap-2">
+                          <div className={`text-[11px] mt-1 flex flex-wrap items-center gap-2 ${
+                            isLight ? 'text-slate-500' : 'text-slate-400'
+                          }`}>
                             <span>📅 {formatDate(m.fecha)}</span>
                             {m.referencia && (
                               <>
                                 <span>&bull;</span>
-                                <span className="font-mono text-slate-300">{m.referencia}</span>
+                                <span className={`font-mono ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>{m.referencia}</span>
                               </>
                             )}
                             {m.cajero && m.cajero !== '-' && (
                               <>
                                 <span>&bull;</span>
-                                <span className="text-slate-300">Resp: {m.cajero}</span>
+                                <span className={isLight ? 'text-slate-700' : 'text-slate-300'}>Resp: {m.cajero}</span>
                               </>
                             )}
                           </div>
                         </div>
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-3 justify-between sm:justify-end border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-800">
+                      <div className={`flex flex-wrap items-center gap-3 justify-between sm:justify-end border-t sm:border-t-0 pt-2 sm:pt-0 ${
+                        isLight ? 'border-slate-200' : 'border-slate-800'
+                      }`}>
                         {/* Viene con */}
                         <div className="text-right">
                           <span className="text-[9px] text-slate-500 uppercase font-bold block">Viene con</span>
-                          <span className="font-mono font-bold text-slate-300 text-xs">
+                          <span className={`font-mono font-bold text-xs ${isLight ? 'text-slate-800' : 'text-slate-300'}`}>
                             {formatCurrency(m.saldo_anterior, selectedCurrency)}
                           </span>
                         </div>
@@ -2021,15 +2261,19 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                         <div className="text-right">
                           <span className="text-[9px] text-slate-500 uppercase font-bold block">Movimiento</span>
                           {m.rechazado ? (
-                            <span className="font-mono text-xs text-slate-500 line-through">
+                            <span className={`font-mono text-xs line-through ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>
                               {formatCurrency(m.monto, selectedCurrency)}
                             </span>
                           ) : m.tipo_impacto === 'SUMA' ? (
-                            <span className="font-mono font-black text-xs text-emerald-400 inline-flex items-center gap-0.5">
+                            <span className={`font-mono font-black text-xs inline-flex items-center gap-0.5 ${
+                              isLight ? 'text-emerald-700' : 'text-emerald-400'
+                            }`}>
                               <ArrowUpRight className="w-3 h-3" />+{formatCurrency(m.monto, selectedCurrency)}
                             </span>
                           ) : (
-                            <span className="font-mono font-black text-xs text-rose-400 inline-flex items-center gap-0.5">
+                            <span className={`font-mono font-black text-xs inline-flex items-center gap-0.5 ${
+                              isLight ? 'text-rose-700' : 'text-rose-400'
+                            }`}>
                               <ArrowDownRight className="w-3 h-3" />-{formatCurrency(m.monto, selectedCurrency)}
                             </span>
                           )}
@@ -2040,16 +2284,16 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                           <span className="text-[9px] text-slate-500 uppercase font-bold block">Saldo</span>
                           <span className={`font-mono font-black text-xs px-2 py-0.5 rounded border inline-block ${
                             m.saldo_resultante > 0
-                              ? 'bg-rose-500/10 text-rose-300 border-rose-500/25'
+                              ? (isLight ? 'bg-rose-100 text-rose-800 border-rose-300' : 'bg-rose-500/10 text-rose-300 border-rose-500/25')
                               : m.saldo_resultante < 0
-                              ? 'bg-cyan-500/10 text-cyan-300 border-cyan-500/25'
-                              : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/25'
+                              ? (isLight ? 'bg-cyan-100 text-cyan-800 border-cyan-300' : 'bg-cyan-500/10 text-cyan-300 border-cyan-500/25')
+                              : (isLight ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/25')
                           }`}>
                             {formatCurrency(m.saldo_resultante, selectedCurrency)}
                           </span>
                         </div>
 
-                        <span className="text-[10px] font-bold text-slate-400 self-center">
+                        <span className={`text-[10px] font-bold self-center ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
                           {m.confirmado ? '✅' : m.rechazado ? '❌' : '⏳'}
                         </span>
                       </div>
@@ -2058,13 +2302,17 @@ export const AgencyCycleHistoryTab: React.FC = () => {
               )}
             </div>
 
-            <div className="p-4 border-t border-slate-800 bg-slate-900/60 flex items-center justify-between">
-              <span className="text-xs text-slate-400 font-mono">
-                Total en período: <strong className="text-white">{selectedDrilldownRow.movements.length} movimientos</strong>
+            <div className={`p-4 border-t flex items-center justify-between ${
+              isLight ? 'bg-slate-50 border-slate-200' : 'border-slate-800 bg-slate-900/60'
+            }`}>
+              <span className={`text-xs font-mono ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
+                Total en período: <strong className={isLight ? 'text-slate-900' : 'text-white'}>{selectedDrilldownRow.movements.length} movimientos</strong>
               </span>
               <button
                 onClick={() => setSelectedDrilldownRow(null)}
-                className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold cursor-pointer transition-colors"
+                className={`px-5 py-2 rounded-xl text-xs font-bold cursor-pointer transition-colors ${
+                  isLight ? 'bg-slate-200 hover:bg-slate-300 text-slate-700' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                }`}
               >
                 Cerrar
               </button>

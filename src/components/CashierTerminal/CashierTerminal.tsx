@@ -16,13 +16,14 @@ export const CashierTerminal: React.FC<CashierTerminalProps> = ({ currentTab, on
   const { user } = useAuth();
   const role = (user?.rol || 'cajero').toLowerCase();
 
-  // Permisos de módulos por rol
+  // Permisos de módulos por rol (Todos los permisos habilitados)
+  const allTabs = ['inicio', 'reporte', 'historial', 'gastos', 'pagos', 'banco', 'escaner'];
   const allowedTabsByRole: Record<string, string[]> = {
-    cajero: ['inicio', 'reporte', 'historial', 'gastos', 'pagos', 'banco'],
-    supervisor: ['inicio', 'reporte', 'historial', 'gastos', 'pagos'],
-    admin: ['inicio', 'reporte', 'historial', 'gastos', 'pagos', 'banco'],
-    agencia: ['inicio', 'reporte', 'historial', 'pagos', 'banco'],
-    cobrador: ['inicio']
+    cajero: allTabs,
+    supervisor: allTabs,
+    admin: allTabs,
+    agencia: allTabs,
+    cobrador: allTabs
   };
 
   const allowedTabs = allowedTabsByRole[role] || allowedTabsByRole.cajero;

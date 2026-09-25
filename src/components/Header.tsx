@@ -236,6 +236,18 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                 </button>
 
                 <button
+                  onClick={() => onTabChange('gastos')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    currentTab === 'gastos'
+                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  }`}
+                >
+                  <Receipt className="w-3.5 h-3.5" />
+                  <span>Gastos</span>
+                </button>
+
+                <button
                   onClick={() => onTabChange('pagos')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     currentTab === 'pagos'
@@ -457,6 +469,14 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                 }`}
               >
                 Historial
+              </button>
+              <button
+                onClick={() => onTabChange('gastos')}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                  currentTab === 'gastos' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Gastos
               </button>
               <button
                 onClick={() => onTabChange('pagos')}

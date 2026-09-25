@@ -3,7 +3,6 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Lock, User, ArrowRight, Zap } from 'lucide-react';
 import { Logo } from './Common/Logo';
-import { ThemeToggle } from './Common/ThemeToggle';
 
 export const Login: React.FC = () => {
   const { login } = useAuth();
@@ -36,11 +35,6 @@ export const Login: React.FC = () => {
         isLight ? 'bg-slate-50 text-slate-800' : 'bg-[#071217] text-slate-100'
       }`}
     >
-      {/* Floating Theme Switcher */}
-      <div className="fixed top-4 right-4 sm:top-6 sm:right-6 z-50">
-        <ThemeToggle showLabel />
-      </div>
-
       {/* Ambient background glow */}
       <div
         className={`absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full blur-3xl pointer-events-none transition-opacity ${

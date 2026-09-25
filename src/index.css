@@ -98,6 +98,7 @@ html.light .bg-black\/60 {
 }
 
 /* Sub-tarjetas, contenedores internos y pozos (wells) */
+html.light .bg-\[\#061015\],
 html.light .bg-\[\#071217\],
 html.light .bg-\[\#0a1820\],
 html.light .bg-\[\#0B161B\],
@@ -224,6 +225,81 @@ html.light .statement-card p {
 /* Líneas divisorias de firma en Actas */
 html.light .border-slate-500 {
   border-color: #94a3b8 !important;
+}
+
+/* ==========================================================================
+   ARMONIZACIÓN VISUAL EN TAQUILLA POS (HOME, REPORTES, BALANCE Y DEUDA)
+   ========================================================================== */
+
+/* 1. Welcome Banner en Home (Screenshot 1 - Flecha 1) */
+html.light .from-\[\#0B1325\]\/95,
+html.light .from-\[\#0B1325\] {
+  background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 50%, #f8fafc 100%) !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* 2. Barras de Balance Acumulado / Ecuación Matemática (Screenshot 1 Flecha 2, Screenshot 2 Flecha 1) */
+html.light .via-\[\#0A161C\],
+html.light .to-\[\#0A161C\],
+html.light .bg-\[\#0D1B22\]\/60,
+html.light .bg-\[\#0D1B22\]\/70,
+html.light div[class*="shadow-lg"][class*="rounded-2xl"].bg-gradient-to-r,
+html.light div[class*="shadow-inner"][class*="rounded-2xl"][class*="bg-\[\#0D1B22\]\/60"] {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%) !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* 3. Fila de Totales en Tablas de Reporte (Screenshot 2 Flecha 2) */
+html.light tr.bg-\[\#071217\]\/90,
+html.light tr.bg-\[\#071217\]\/80,
+html.light tr.bg-\[\#071217\] {
+  background-color: #f1f5f9 !important;
+  border-top-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+html.light tr.bg-\[\#071217\]\/90 td,
+html.light tr.bg-\[\#071217\]\/80 td {
+  border-top-color: #cbd5e1 !important;
+}
+
+/* 4. Tarjetas de Deuda / Saldo Pendiente por Moneda (Screenshots 3 y 4) */
+html.light .from-\[\#1c121d\],
+html.light .from-\[\#16121b\] {
+  background: linear-gradient(135deg, #ffffff 0%, #fff1f2 100%) !important;
+  border-color: #fecdd3 !important;
+  box-shadow: 0 4px 6px -1px rgba(225, 29, 72, 0.05) !important;
+}
+
+html.light .from-\[\#0c221d\],
+html.light .from-\[\#0c1e1c\],
+html.light .from-\[\#0B221A\] {
+  background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%) !important;
+  border-color: #a7f3d0 !important;
+  box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.05) !important;
+}
+
+html.light .from-\[\#0F172A\].to-\[\#1E293B\],
+html.light .from-\[\#0F172A\] {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%) !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Cajas de Aviso internas en Tarjetas de Deuda y A Favor */
+html.light .bg-rose-500\/10.border-rose-500\/20 {
+  background-color: #fff1f2 !important;
+  border-color: #fecdd3 !important;
+  color: #9f1239 !important;
+}
+
+html.light .bg-emerald-500\/10.border-emerald-500\/20 {
+  background-color: #f0fdf4 !important;
+  border-color: #a7f3d0 !important;
+  color: #065f46 !important;
 }
 
 /* Bordes en general */

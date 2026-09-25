@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { supabase } from '../../lib/supabase';
 import { 
   fetchFullCycleMetrics, 
@@ -35,6 +36,7 @@ interface CashierOption {
 
 export const DateRangeReportTab: React.FC = () => {
   const { user, agency, systemCycle, assignedCurrencies, assignedSystems } = useAuth();
+  const { isLight } = useTheme();
   const [desde, setDesde] = useState(systemCycle?.desde || getTodayDateString());
   const [hasta, setHasta] = useState(systemCycle?.hasta || getTodayDateString());
 
@@ -179,40 +181,48 @@ export const DateRangeReportTab: React.FC = () => {
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
       {/* 1. Header de Filtros: Fechas y Rol */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-[#0D1B22] p-4 rounded-2xl border border-slate-800 shadow-xl">
+      <div className={`flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl border ${
+        isLight ? 'bg-white border-slate-200 shadow-sm' : 'bg-[#0D1B22] border-slate-800 shadow-xl'
+      }`}>
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
+            <label className={`text-xs font-bold uppercase tracking-wider ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
               📅 Desde:
             </label>
             <input
               type="date"
               value={desde}
               onChange={(e) => setDesde(e.target.value)}
-              className="bg-[#071217] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono font-bold"
+              className={`rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-emerald-500 font-mono font-bold border ${
+                isLight ? 'bg-slate-50 border-slate-300 text-slate-800' : 'bg-[#071217] border-slate-700 text-white'
+              }`}
             />
           </div>
 
           <div className="flex items-center gap-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
+            <label className={`text-xs font-bold uppercase tracking-wider ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
               📅 Hasta:
             </label>
             <input
               type="date"
               value={hasta}
               onChange={(e) => setHasta(e.target.value)}
-              className="bg-[#071217] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono font-bold"
+              className={`rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-emerald-500 font-mono font-bold border ${
+                isLight ? 'bg-slate-50 border-slate-300 text-slate-800' : 'bg-[#071217] border-slate-700 text-white'
+              }`}
             />
           </div>
 
           {/* Selector de cajero para Supervisor */}
           {isSupervisor && (
             <div className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-sky-400" />
+              <Users className="w-4 h-4 text-sky-500" />
               <select
                 value={selectedCashier}
                 onChange={(e) => setSelectedCashier(e.target.value)}
-                className="bg-[#071217] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-semibold cursor-pointer"
+                className={`rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-emerald-500 font-semibold cursor-pointer border ${
+                  isLight ? 'bg-slate-50 border-slate-300 text-slate-800' : 'bg-[#071217] border-slate-700 text-white'
+                }`}
               >
                 <option value="all">👥 TODOS LOS CAJEROS</option>
                 {cashiersList.map((c) => (
@@ -226,7 +236,7 @@ export const DateRangeReportTab: React.FC = () => {
 
           {/* Badge para Agencia */}
           {isAgencia && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-500/10 border border-sky-500/20 text-xs text-sky-400 font-semibold">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-500/10 border border-sky-500/20 text-xs text-sky-600 font-semibold">
               <Building2 className="w-3.5 h-3.5" />
               <span>Consolidado General (Agencia)</span>
             </div>
@@ -234,7 +244,7 @@ export const DateRangeReportTab: React.FC = () => {
 
           {/* Badge para Cajero */}
           {isCajero && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400 font-semibold">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-600 font-semibold">
               <UserCheck className="w-3.5 h-3.5" />
               <span>Mi Caja ({user?.nombre || user?.usuario})</span>
             </div>
@@ -252,7 +262,7 @@ export const DateRangeReportTab: React.FC = () => {
       </div>
 
       {/* 2. Selector de Pestañas Multimoneda */}
-      <div className="flex items-center gap-2 border-b border-slate-800 pb-2 overflow-x-auto">
+      <div className={`flex items-center gap-2 border-b pb-2 overflow-x-auto ${isLight ? 'border-slate-200' : 'border-slate-800'}`}>
         {assignedCurrencies.map((curr) => {
           const isActive = selectedCurrency === curr;
           return (
@@ -262,6 +272,8 @@ export const DateRangeReportTab: React.FC = () => {
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 isActive
                   ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/20'
+                  : isLight
+                  ? 'bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 border border-slate-200 shadow-xs'
                   : 'bg-[#0D1B22] text-slate-400 hover:text-white hover:bg-slate-800/60 border border-slate-800/80'
               }`}
             >
@@ -273,53 +285,55 @@ export const DateRangeReportTab: React.FC = () => {
 
       {/* 3. Métricas Principales (Resumen General) */}
       <div className="space-y-3">
-        <div className="flex items-center gap-2 text-sm font-extrabold text-white tracking-wide">
-          <TrendingUp className="w-4 h-4 text-emerald-400" />
+        <div className={`flex items-center gap-2 text-sm font-extrabold tracking-wide ${isLight ? 'text-slate-900' : 'text-white'}`}>
+          <TrendingUp className="w-4 h-4 text-emerald-500" />
           <span>📈 Resumen General ({selectedCurrency})</span>
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {/* Ventas */}
-          <div className="bg-[#0D1B22] border border-slate-800 p-4 rounded-2xl shadow-md">
-            <div className="text-slate-400 text-xs font-semibold mb-1 flex items-center justify-between">
+          <div className={`border p-4 rounded-2xl shadow-sm ${isLight ? 'bg-white border-slate-200 hover:border-slate-300' : 'bg-[#0D1B22] border-slate-800 shadow-md'}`}>
+            <div className={`text-xs font-semibold mb-1 flex items-center justify-between ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
               <span>Ventas</span>
-              <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
+              <DollarSign className="w-3.5 h-3.5 text-emerald-500" />
             </div>
-            <div className="text-lg sm:text-xl font-black text-emerald-400 font-mono">
+            <div className={`text-lg sm:text-xl font-black font-mono ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`}>
               {formatMoney(activeMetrics?.ventas ?? 0, selectedCurrency)}
             </div>
           </div>
 
           {/* Comisión */}
-          <div className="bg-[#0D1B22] border border-slate-800 p-4 rounded-2xl shadow-md">
-            <div className="text-slate-400 text-xs font-semibold mb-1 flex items-center justify-between">
+          <div className={`border p-4 rounded-2xl shadow-sm ${isLight ? 'bg-white border-slate-200 hover:border-slate-300' : 'bg-[#0D1B22] border-slate-800 shadow-md'}`}>
+            <div className={`text-xs font-semibold mb-1 flex items-center justify-between ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
               <span>Comisión</span>
-              <Receipt className="w-3.5 h-3.5 text-sky-400" />
+              <Receipt className="w-3.5 h-3.5 text-sky-500" />
             </div>
-            <div className="text-lg sm:text-xl font-black text-sky-400 font-mono">
+            <div className={`text-lg sm:text-xl font-black font-mono ${isLight ? 'text-sky-700' : 'text-sky-400'}`}>
               {formatMoney(activeMetrics?.comisiones ?? 0, selectedCurrency)}
             </div>
           </div>
 
           {/* Premios */}
-          <div className="bg-[#0D1B22] border border-slate-800 p-4 rounded-2xl shadow-md">
-            <div className="text-slate-400 text-xs font-semibold mb-1 flex items-center justify-between">
+          <div className={`border p-4 rounded-2xl shadow-sm ${isLight ? 'bg-white border-slate-200 hover:border-slate-300' : 'bg-[#0D1B22] border-slate-800 shadow-md'}`}>
+            <div className={`text-xs font-semibold mb-1 flex items-center justify-between ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
               <span>Premios</span>
-              <Award className="w-3.5 h-3.5 text-amber-400" />
+              <Award className="w-3.5 h-3.5 text-amber-500" />
             </div>
-            <div className="text-lg sm:text-xl font-black text-amber-400 font-mono">
+            <div className={`text-lg sm:text-xl font-black font-mono ${isLight ? 'text-amber-700' : 'text-amber-400'}`}>
               {formatMoney(activeMetrics?.premios ?? 0, selectedCurrency)}
             </div>
           </div>
 
           {/* Saldo Operativo */}
-          <div className="bg-[#0D1B22] border border-slate-800 p-4 rounded-2xl shadow-md">
-            <div className="text-slate-400 text-xs font-semibold mb-1 flex items-center justify-between">
+          <div className={`border p-4 rounded-2xl shadow-sm ${isLight ? 'bg-white border-slate-200 hover:border-slate-300' : 'bg-[#0D1B22] border-slate-800 shadow-md'}`}>
+            <div className={`text-xs font-semibold mb-1 flex items-center justify-between ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
               <span>Saldo Operativo</span>
-              <CreditCard className="w-3.5 h-3.5 text-purple-400" />
+              <CreditCard className="w-3.5 h-3.5 text-purple-500" />
             </div>
             <div className={`text-lg sm:text-xl font-black font-mono ${
-              (activeMetrics?.resultadoOp ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
+              (activeMetrics?.resultadoOp ?? 0) >= 0 
+                ? (isLight ? 'text-emerald-700' : 'text-emerald-400') 
+                : (isLight ? 'text-rose-700' : 'text-rose-400')
             }`}>
               {formatMoney(activeMetrics?.resultadoOp ?? 0, selectedCurrency)}
             </div>
@@ -327,31 +341,37 @@ export const DateRangeReportTab: React.FC = () => {
         </div>
       </div>
 
-      {/* 4. Barra de Fórmula de Balance Acumulado */}
-      <div className="bg-[#0D1B22]/60 border border-slate-800/80 rounded-2xl p-3.5 text-xs text-center shadow-inner overflow-x-auto whitespace-nowrap">
-        <span className="text-slate-400 font-medium">Saldo Anterior ({selectedCurrency}):</span>{' '}
-        <b className="text-white font-mono">{formatMoney(activeMetrics?.saldoAnterior ?? 0, selectedCurrency)}</b>
-        <span className="mx-2 text-slate-500 font-bold">+</span>
-        <span className="text-slate-400 font-medium">Resultado Hoy / Periodo:</span>{' '}
-        <b className={`font-mono ${(activeMetrics?.resultadoOp ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+      {/* 4. Barra de Fórmula de Balance Acumulado (Flecha 1 Screenshot 2) */}
+      <div className={`border rounded-2xl p-3.5 text-xs text-center overflow-x-auto whitespace-nowrap ${
+        isLight ? 'bg-slate-50/90 border-slate-200 text-slate-700 shadow-xs' : 'bg-[#0D1B22]/60 border-slate-800/80 shadow-inner'
+      }`}>
+        <span className={isLight ? 'text-slate-600 font-medium' : 'text-slate-400 font-medium'}>Saldo Anterior ({selectedCurrency}):</span>{' '}
+        <b className={`font-mono ${isLight ? 'text-slate-900' : 'text-white'}`}>{formatMoney(activeMetrics?.saldoAnterior ?? 0, selectedCurrency)}</b>
+        <span className={`mx-2 font-bold ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>+</span>
+        <span className={isLight ? 'text-slate-600 font-medium' : 'text-slate-400 font-medium'}>Resultado Hoy / Periodo:</span>{' '}
+        <b className={`font-mono ${(activeMetrics?.resultadoOp ?? 0) >= 0 ? (isLight ? 'text-emerald-700' : 'text-emerald-400') : (isLight ? 'text-rose-700' : 'text-rose-400')}`}>
           {formatMoney(activeMetrics?.resultadoOp ?? 0, selectedCurrency)}
         </b>
-        <span className="mx-2 text-slate-500 font-bold">-</span>
-        <span className="text-slate-400 font-medium">Gastos:</span>{' '}
-        <b className="text-white font-mono">{formatMoney(activeMetrics?.gastos ?? 0, selectedCurrency)}</b>
-        <span className="mx-2 text-slate-500 font-bold">-</span>
-        <span className="text-slate-400 font-medium">Pagos Bancos:</span>{' '}
-        <b className="text-white font-mono">{formatMoney(activeMetrics?.pagoBanco ?? 0, selectedCurrency)}</b>
-        <span className="mx-2 text-slate-500 font-bold">-</span>
-        <span className="text-slate-400 font-medium">Pago Efectivo:</span>{' '}
-        <b className="text-white font-mono">{formatMoney(activeMetrics?.pagoEfectivo ?? 0, selectedCurrency)}</b>
-        <span className="mx-2 text-slate-500 font-bold">+</span>
-        <span className="text-slate-400 font-medium">Pago Pérdidas / Premios:</span>{' '}
-        <b className="text-emerald-400 font-mono">{formatMoney(activeMetrics?.pagoPremios ?? 0, selectedCurrency)}</b>
-        <span className="mx-2 text-slate-500 font-bold">=</span>
-        <span className="text-slate-400 font-medium">Saldo Actual ({selectedCurrency}):</span>{' '}
+        <span className={`mx-2 font-bold ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>-</span>
+        <span className={isLight ? 'text-slate-600 font-medium' : 'text-slate-400 font-medium'}>Gastos:</span>{' '}
+        <b className={`font-mono ${isLight ? 'text-slate-900' : 'text-white'}`}>{formatMoney(activeMetrics?.gastos ?? 0, selectedCurrency)}</b>
+        <span className={`mx-2 font-bold ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>-</span>
+        <span className={isLight ? 'text-slate-600 font-medium' : 'text-slate-400 font-medium'}>Pagos Bancos:</span>{' '}
+        <b className={`font-mono ${isLight ? 'text-slate-900' : 'text-white'}`}>{formatMoney(activeMetrics?.pagoBanco ?? 0, selectedCurrency)}</b>
+        <span className={`mx-2 font-bold ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>-</span>
+        <span className={isLight ? 'text-slate-600 font-medium' : 'text-slate-400 font-medium'}>Pago Efectivo:</span>{' '}
+        <b className={`font-mono ${isLight ? 'text-slate-900' : 'text-white'}`}>{formatMoney(activeMetrics?.pagoEfectivo ?? 0, selectedCurrency)}</b>
+        <span className={`mx-2 font-bold ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>+</span>
+        <span className={isLight ? 'text-slate-600 font-medium' : 'text-slate-400 font-medium'}>Pago Pérdidas / Premios:</span>{' '}
+        <b className={`font-mono ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`}>{formatMoney(activeMetrics?.pagoPremios ?? 0, selectedCurrency)}</b>
+        <span className={`mx-2 font-bold ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>=</span>
+        <span className={isLight ? 'text-slate-700 font-medium' : 'text-slate-400 font-medium'}>Saldo Actual ({selectedCurrency}):</span>{' '}
         <b className={`text-sm font-black font-mono ml-1 ${
-          (activeMetrics?.saldoActual ?? 0) > 0.005 ? 'text-rose-400' : (activeMetrics?.saldoActual ?? 0) < -0.005 ? 'text-emerald-400' : 'text-slate-300'
+          (activeMetrics?.saldoActual ?? 0) > 0.005 
+            ? (isLight ? 'text-rose-700' : 'text-rose-400') 
+            : (activeMetrics?.saldoActual ?? 0) < -0.005 
+            ? (isLight ? 'text-emerald-700' : 'text-emerald-400') 
+            : (isLight ? 'text-slate-800' : 'text-slate-300')
         }`}>
           {(activeMetrics?.saldoActual ?? 0) < -0.005 
             ? `+${formatMoney(Math.abs(activeMetrics?.saldoActual ?? 0), selectedCurrency)} (A favor)` 
@@ -362,21 +382,21 @@ export const DateRangeReportTab: React.FC = () => {
       </div>
 
       {/* 5. Tabla: Detalle por Día */}
-      <div className="bg-[#0D1B22] border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
-        <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+      <div className={`border rounded-2xl overflow-hidden shadow-sm ${isLight ? 'bg-white border-slate-200' : 'bg-[#0D1B22] border-slate-800 shadow-lg'}`}>
+        <div className={`p-4 border-b flex items-center justify-between ${isLight ? 'border-slate-200' : 'border-slate-800'}`}>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-white tracking-wider uppercase">
+            <span className={`text-xs font-bold tracking-wider uppercase ${isLight ? 'text-slate-900' : 'text-white'}`}>
               📋 Detalle por Día ({selectedCurrency})
             </span>
           </div>
-          <span className="text-[11px] text-slate-400 font-mono">
+          <span className={`text-[11px] font-mono ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
             {activeMetrics?.ventasDetalle?.length || 0} registros
           </span>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-[#071217] text-slate-400 font-bold uppercase tracking-wider border-b border-slate-800">
+            <thead className={`font-bold uppercase tracking-wider border-b text-[10px] ${isLight ? 'bg-slate-50 text-slate-500 border-slate-200' : 'bg-[#071217] text-slate-400 border-slate-800'}`}>
               <tr>
                 <th className="py-3 px-4">Fecha</th>
                 <th className="py-3 px-4">Sistema</th>
@@ -387,7 +407,7 @@ export const DateRangeReportTab: React.FC = () => {
                 <th className="py-3 px-4 text-right">Neto</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60 font-mono">
+            <tbody className={`divide-y font-mono ${isLight ? 'divide-slate-100' : 'divide-slate-800/60'}`}>
               {!activeMetrics?.ventasDetalle || activeMetrics.ventasDetalle.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-slate-500 font-sans">
@@ -397,39 +417,43 @@ export const DateRangeReportTab: React.FC = () => {
               ) : (
                 <>
                   {activeMetrics.ventasDetalle.map((row, idx) => (
-                    <tr key={idx} className="hover:bg-slate-800/30 transition-colors">
-                      <td className="py-2.5 px-4 text-slate-300 font-sans font-medium">{row.fecha || desde}</td>
-                      <td className="py-2.5 px-4 font-bold text-sky-400">{row.sistema}</td>
-                      <td className="py-2.5 px-4 text-slate-400">{row.moneda}</td>
-                      <td className="py-2.5 px-4 text-right font-bold text-emerald-400">
+                    <tr key={idx} className={`transition-colors ${isLight ? 'hover:bg-slate-50/80' : 'hover:bg-slate-800/30'}`}>
+                      <td className={`py-2.5 px-4 font-sans font-medium ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>{row.fecha || desde}</td>
+                      <td className="py-2.5 px-4 font-bold text-sky-500">{row.sistema}</td>
+                      <td className={`py-2.5 px-4 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>{row.moneda}</td>
+                      <td className={`py-2.5 px-4 text-right font-bold ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`}>
                         {formatMoney(row.venta, selectedCurrency)}
                       </td>
-                      <td className="py-2.5 px-4 text-right text-slate-300">
+                      <td className={`py-2.5 px-4 text-right ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>
                         {formatMoney(row.comision, selectedCurrency)}
                       </td>
-                      <td className="py-2.5 px-4 text-right text-amber-400">
+                      <td className={`py-2.5 px-4 text-right ${isLight ? 'text-amber-700' : 'text-amber-400'}`}>
                         {formatMoney(row.premios, selectedCurrency)}
                       </td>
-                      <td className="py-2.5 px-4 text-right font-bold text-white">
+                      <td className={`py-2.5 px-4 text-right font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>
                         {formatMoney(row.neto, selectedCurrency)}
                       </td>
                     </tr>
                   ))}
-                  {/* Fila de Totales */}
-                  <tr className="bg-[#071217]/90 font-bold border-t-2 border-slate-700">
-                    <td colSpan={3} className="py-3 px-4 text-white font-sans uppercase">
+                  {/* Fila de Totales (Flecha 2 Screenshot 2) */}
+                  <tr className={`font-bold border-t-2 ${isLight ? 'bg-slate-100/90 border-slate-300' : 'bg-[#071217]/90 border-slate-700'}`}>
+                    <td colSpan={3} className={`py-3 px-4 font-sans uppercase ${isLight ? 'text-slate-900' : 'text-white'}`}>
                       Total Ciclo ({selectedCurrency})
                     </td>
-                    <td className="py-3 px-4 text-right text-emerald-400 font-black">
+                    <td className={`py-3 px-4 text-right font-black ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`}>
                       {formatMoney(activeMetrics.ventas, selectedCurrency)}
                     </td>
-                    <td className="py-3 px-4 text-right text-sky-400 font-black">
+                    <td className={`py-3 px-4 text-right font-black ${isLight ? 'text-sky-700' : 'text-sky-400'}`}>
                       {formatMoney(activeMetrics.comisiones, selectedCurrency)}
                     </td>
-                    <td className="py-3 px-4 text-right text-amber-400 font-black">
+                    <td className={`py-3 px-4 text-right font-black ${isLight ? 'text-amber-700' : 'text-amber-400'}`}>
                       {formatMoney(activeMetrics.premios, selectedCurrency)}
                     </td>
-                    <td className="py-3 px-4 text-right text-purple-400 font-black">
+                    <td className={`py-3 px-4 text-right font-black ${
+                      activeMetrics.resultadoOp >= 0 
+                        ? (isLight ? 'text-emerald-700' : 'text-emerald-400') 
+                        : (isLight ? 'text-rose-700' : 'text-rose-400')
+                    }`}>
                       {formatMoney(activeMetrics.resultadoOp, selectedCurrency)}
                     </td>
                   </tr>
@@ -440,24 +464,28 @@ export const DateRangeReportTab: React.FC = () => {
         </div>
       </div>
 
-      {/* 6. Acordeones Desplegables de Actividad del Periodo (solo si hay registros) */}
+      {/* 6. Acordeones Desplegables de Actividad del Periodo */}
       {((activeMetrics?.gastosDetalle?.length || 0) > 0 ||
         (activeMetrics?.pagosOrdinariosDetalle?.length || 0) > 0 ||
         (activeMetrics?.pagosPremiosDetalle?.length || 0) > 0) && (
         <div className="space-y-3">
           {/* Acordeón: Gastos */}
           {(activeMetrics?.gastosDetalle?.length || 0) > 0 && (
-            <div className="bg-[#0D1B22] border border-slate-800 rounded-2xl overflow-hidden shadow-md">
+            <div className={`border rounded-2xl overflow-hidden shadow-sm ${isLight ? 'bg-white border-slate-200' : 'bg-[#0D1B22] border-slate-800 shadow-md'}`}>
               <button
                 onClick={() => setOpenGastos(!openGastos)}
-                className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-800/40 transition-colors cursor-pointer"
+                className={`w-full p-4 flex items-center justify-between text-left transition-colors cursor-pointer ${
+                  isLight ? 'hover:bg-slate-50' : 'hover:bg-slate-800/40'
+                }`}
               >
                 <div className="flex items-center gap-2">
-                  <Receipt className="w-4 h-4 text-rose-400" />
-                  <span className="text-xs font-bold text-white tracking-wide">
+                  <Receipt className="w-4 h-4 text-rose-500" />
+                  <span className={`text-xs font-bold tracking-wide ${isLight ? 'text-slate-900' : 'text-white'}`}>
                     💸 Gastos ({selectedCurrency})
                   </span>
-                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-mono font-bold">
+                  <span className={`text-[11px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                    isLight ? 'bg-slate-100 text-slate-600' : 'bg-slate-800 text-slate-400'
+                  }`}>
                     {activeMetrics?.gastosDetalle?.length || 0}
                   </span>
                 </div>
@@ -465,9 +493,9 @@ export const DateRangeReportTab: React.FC = () => {
               </button>
 
               {openGastos && (
-                <div className="border-t border-slate-800/80 overflow-x-auto">
+                <div className={`border-t overflow-x-auto ${isLight ? 'border-slate-200' : 'border-slate-800/80'}`}>
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-[#071217] text-slate-400 font-bold uppercase tracking-wider border-b border-slate-800">
+                    <thead className={`font-bold uppercase tracking-wider border-b text-[10px] ${isLight ? 'bg-slate-50 text-slate-500 border-slate-200' : 'bg-[#071217] text-slate-400 border-slate-800'}`}>
                       <tr>
                         <th className="py-2.5 px-4">Fecha</th>
                         <th className="py-2.5 px-4">Agencia</th>
@@ -477,14 +505,14 @@ export const DateRangeReportTab: React.FC = () => {
                         <th className="py-2.5 px-4 text-center">Estado</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800/60 font-mono">
+                    <tbody className={`divide-y font-mono ${isLight ? 'divide-slate-100' : 'divide-slate-800/60'}`}>
                       {activeMetrics.gastosDetalle.map((g, idx) => (
-                        <tr key={idx} className="hover:bg-slate-800/20">
-                          <td className="py-2.5 px-4 text-slate-300 font-sans">{g.fecha}</td>
-                          <td className="py-2.5 px-4 text-slate-400 font-sans">{g.agencia}</td>
-                          <td className="py-2.5 px-4 text-slate-300 font-sans">{g.cajero}</td>
-                          <td className="py-2.5 px-4 text-white font-sans font-medium">{g.concepto}</td>
-                          <td className="py-2.5 px-4 text-right font-bold text-rose-400">{formatMoney(g.monto, selectedCurrency)}</td>
+                        <tr key={idx} className={`transition-colors ${isLight ? 'hover:bg-slate-50/80' : 'hover:bg-slate-800/20'}`}>
+                          <td className={`py-2.5 px-4 font-sans ${isLight ? 'text-slate-600' : 'text-slate-300'}`}>{g.fecha}</td>
+                          <td className={`py-2.5 px-4 font-sans ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>{g.agencia}</td>
+                          <td className={`py-2.5 px-4 font-sans ${isLight ? 'text-slate-600' : 'text-slate-300'}`}>{g.cajero}</td>
+                          <td className={`py-2.5 px-4 font-sans font-medium ${isLight ? 'text-slate-800' : 'text-white'}`}>{g.concepto}</td>
+                          <td className={`py-2.5 px-4 text-right font-bold ${isLight ? 'text-rose-700' : 'text-rose-400'}`}>{formatMoney(g.monto, selectedCurrency)}</td>
                           <td className="py-2.5 px-4 text-center">{renderStatusBadge(g.confirmado, g.rechazado)}</td>
                         </tr>
                       ))}
@@ -497,17 +525,21 @@ export const DateRangeReportTab: React.FC = () => {
 
           {/* Acordeón: Pagos a la Operadora (Bancos / Efectivo) */}
           {(activeMetrics?.pagosOrdinariosDetalle?.length || 0) > 0 && (
-            <div className="bg-[#0D1B22] border border-slate-800 rounded-2xl overflow-hidden shadow-md">
+            <div className={`border rounded-2xl overflow-hidden shadow-sm ${isLight ? 'bg-white border-slate-200' : 'bg-[#0D1B22] border-slate-800 shadow-md'}`}>
               <button
                 onClick={() => setOpenPagosOrdinarios(!openPagosOrdinarios)}
-                className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-800/40 transition-colors cursor-pointer"
+                className={`w-full p-4 flex items-center justify-between text-left transition-colors cursor-pointer ${
+                  isLight ? 'hover:bg-slate-50' : 'hover:bg-slate-800/40'
+                }`}
               >
                 <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-sky-400" />
-                  <span className="text-xs font-bold text-white tracking-wide">
+                  <ShieldCheck className="w-4 h-4 text-sky-500" />
+                  <span className={`text-xs font-bold tracking-wide ${isLight ? 'text-slate-900' : 'text-white'}`}>
                     🏦 Pagos a la Operadora (Bancos / Efectivo) ({selectedCurrency})
                   </span>
-                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-mono font-bold">
+                  <span className={`text-[11px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                    isLight ? 'bg-slate-100 text-slate-600' : 'bg-slate-800 text-slate-400'
+                  }`}>
                     {activeMetrics?.pagosOrdinariosDetalle?.length || 0}
                   </span>
                 </div>
@@ -515,9 +547,9 @@ export const DateRangeReportTab: React.FC = () => {
               </button>
 
               {openPagosOrdinarios && (
-                <div className="border-t border-slate-800/80 overflow-x-auto">
+                <div className={`border-t overflow-x-auto ${isLight ? 'border-slate-200' : 'border-slate-800/80'}`}>
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-[#071217] text-slate-400 font-bold uppercase tracking-wider border-b border-slate-800">
+                    <thead className={`font-bold uppercase tracking-wider border-b text-[10px] ${isLight ? 'bg-slate-50 text-slate-500 border-slate-200' : 'bg-[#071217] text-slate-400 border-slate-800'}`}>
                       <tr>
                         <th className="py-2.5 px-4">Fecha</th>
                         <th className="py-2.5 px-4">Agencia</th>
@@ -528,15 +560,15 @@ export const DateRangeReportTab: React.FC = () => {
                         <th className="py-2.5 px-4 text-center">Estado</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800/60 font-mono">
+                    <tbody className={`divide-y font-mono ${isLight ? 'divide-slate-100' : 'divide-slate-800/60'}`}>
                       {activeMetrics.pagosOrdinariosDetalle.map((p, idx) => (
-                        <tr key={idx} className="hover:bg-slate-800/20">
-                          <td className="py-2.5 px-4 text-slate-300 font-sans">{p.fecha}</td>
-                          <td className="py-2.5 px-4 text-slate-400 font-sans">{p.agencia}</td>
-                          <td className="py-2.5 px-4 text-slate-300 font-sans">{p.cajero}</td>
-                          <td className="py-2.5 px-4 text-white font-sans font-medium">{p.tipo_pago}</td>
-                          <td className="py-2.5 px-4 text-sky-400 font-sans">{p.referencia}</td>
-                          <td className="py-2.5 px-4 text-right font-bold text-emerald-400">{formatMoney(p.monto, selectedCurrency)}</td>
+                        <tr key={idx} className={`transition-colors ${isLight ? 'hover:bg-slate-50/80' : 'hover:bg-slate-800/20'}`}>
+                          <td className={`py-2.5 px-4 font-sans ${isLight ? 'text-slate-600' : 'text-slate-300'}`}>{p.fecha}</td>
+                          <td className={`py-2.5 px-4 font-sans ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>{p.agencia}</td>
+                          <td className={`py-2.5 px-4 font-sans ${isLight ? 'text-slate-600' : 'text-slate-300'}`}>{p.cajero}</td>
+                          <td className={`py-2.5 px-4 font-sans font-medium ${isLight ? 'text-slate-800' : 'text-white'}`}>{p.tipo_pago}</td>
+                          <td className="py-2.5 px-4 text-sky-500 font-sans">{p.referencia}</td>
+                          <td className={`py-2.5 px-4 text-right font-bold ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`}>{formatMoney(p.monto, selectedCurrency)}</td>
                           <td className="py-2.5 px-4 text-center">{renderStatusBadge(p.confirmado, p.rechazado)}</td>
                         </tr>
                       ))}
@@ -549,17 +581,21 @@ export const DateRangeReportTab: React.FC = () => {
 
           {/* Acordeón: Pagos de Premios / Reposición de Pérdidas */}
           {(activeMetrics?.pagosPremiosDetalle?.length || 0) > 0 && (
-            <div className="bg-[#0D1B22] border border-slate-800 rounded-2xl overflow-hidden shadow-md">
+            <div className={`border rounded-2xl overflow-hidden shadow-sm ${isLight ? 'bg-white border-slate-200' : 'bg-[#0D1B22] border-slate-800 shadow-md'}`}>
               <button
                 onClick={() => setOpenPagosPremios(!openPagosPremios)}
-                className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-800/40 transition-colors cursor-pointer"
+                className={`w-full p-4 flex items-center justify-between text-left transition-colors cursor-pointer ${
+                  isLight ? 'hover:bg-slate-50' : 'hover:bg-slate-800/40'
+                }`}
               >
                 <div className="flex items-center gap-2">
-                  <Award className="w-4 h-4 text-amber-400" />
-                  <span className="text-xs font-bold text-white tracking-wide">
+                  <Award className="w-4 h-4 text-amber-500" />
+                  <span className={`text-xs font-bold tracking-wide ${isLight ? 'text-slate-900' : 'text-white'}`}>
                     🏆 Pagos de Premios / Reposición de Pérdidas ({selectedCurrency})
                   </span>
-                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-mono font-bold">
+                  <span className={`text-[11px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                    isLight ? 'bg-slate-100 text-slate-600' : 'bg-slate-800 text-slate-400'
+                  }`}>
                     {activeMetrics?.pagosPremiosDetalle?.length || 0}
                   </span>
                 </div>
@@ -567,9 +603,9 @@ export const DateRangeReportTab: React.FC = () => {
               </button>
 
               {openPagosPremios && (
-                <div className="border-t border-slate-800/80 overflow-x-auto">
+                <div className={`border-t overflow-x-auto ${isLight ? 'border-slate-200' : 'border-slate-800/80'}`}>
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-[#071217] text-slate-400 font-bold uppercase tracking-wider border-b border-slate-800">
+                    <thead className={`font-bold uppercase tracking-wider border-b text-[10px] ${isLight ? 'bg-slate-50 text-slate-500 border-slate-200' : 'bg-[#071217] text-slate-400 border-slate-800'}`}>
                       <tr>
                         <th className="py-2.5 px-4">Fecha</th>
                         <th className="py-2.5 px-4">Agencia</th>
@@ -580,15 +616,15 @@ export const DateRangeReportTab: React.FC = () => {
                         <th className="py-2.5 px-4 text-center">Estado</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800/60 font-mono">
+                    <tbody className={`divide-y font-mono ${isLight ? 'divide-slate-100' : 'divide-slate-800/60'}`}>
                       {activeMetrics.pagosPremiosDetalle.map((p, idx) => (
-                        <tr key={idx} className="hover:bg-slate-800/20">
-                          <td className="py-2.5 px-4 text-slate-300 font-sans">{p.fecha}</td>
-                          <td className="py-2.5 px-4 text-slate-400 font-sans">{p.agencia}</td>
-                          <td className="py-2.5 px-4 text-slate-300 font-sans">{p.cajero}</td>
-                          <td className="py-2.5 px-4 text-white font-sans font-medium">{p.tipo_pago}</td>
-                          <td className="py-2.5 px-4 text-amber-400 font-sans">{p.referencia}</td>
-                          <td className="py-2.5 px-4 text-right font-bold text-amber-400">{formatMoney(p.monto, selectedCurrency)}</td>
+                        <tr key={idx} className={`transition-colors ${isLight ? 'hover:bg-slate-50/80' : 'hover:bg-slate-800/20'}`}>
+                          <td className={`py-2.5 px-4 font-sans ${isLight ? 'text-slate-600' : 'text-slate-300'}`}>{p.fecha}</td>
+                          <td className={`py-2.5 px-4 font-sans ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>{p.agencia}</td>
+                          <td className={`py-2.5 px-4 font-sans ${isLight ? 'text-slate-600' : 'text-slate-300'}`}>{p.cajero}</td>
+                          <td className={`py-2.5 px-4 font-sans font-medium ${isLight ? 'text-slate-800' : 'text-white'}`}>{p.tipo_pago}</td>
+                          <td className="py-2.5 px-4 text-amber-500 font-sans">{p.referencia}</td>
+                          <td className={`py-2.5 px-4 text-right font-bold ${isLight ? 'text-amber-700' : 'text-amber-400'}`}>{formatMoney(p.monto, selectedCurrency)}</td>
                           <td className="py-2.5 px-4 text-center">{renderStatusBadge(p.confirmado, p.rechazado)}</td>
                         </tr>
                       ))}
@@ -602,10 +638,10 @@ export const DateRangeReportTab: React.FC = () => {
       )}
 
       {/* 7. Vista Previa de Reporte en Ticket Monoespaciado y WhatsApp */}
-      <div className="bg-[#0D1B22] border border-slate-800 rounded-2xl p-4 shadow-xl space-y-3">
+      <div className={`border rounded-2xl p-4 shadow-sm space-y-3 ${isLight ? 'bg-white border-slate-200' : 'bg-[#0D1B22] border-slate-800 shadow-xl'}`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-white tracking-wide">
+            <span className={`text-xs font-bold tracking-wide ${isLight ? 'text-slate-900' : 'text-white'}`}>
               📄 Vista previa Reporte ({selectedCurrency})
             </span>
           </div>
@@ -613,9 +649,11 @@ export const DateRangeReportTab: React.FC = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={handleCopyTicket}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition-all cursor-pointer"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200' : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
+              }`}
             >
-              {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+              {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
               <span>{copied ? '¡Copiado!' : 'Copiar'}</span>
             </button>
 
@@ -633,7 +671,9 @@ export const DateRangeReportTab: React.FC = () => {
           readOnly
           value={activeMetrics?.rawTicketText || 'Generando reporte...'}
           rows={14}
-          className="w-full bg-[#071217] border border-slate-800 rounded-xl p-3 text-xs font-mono text-slate-300 focus:outline-none resize-y leading-relaxed select-all"
+          className={`w-full rounded-xl p-3 text-xs font-mono focus:outline-none resize-y leading-relaxed select-all border ${
+            isLight ? 'bg-slate-50 border-slate-200 text-slate-800' : 'bg-[#071217] border-slate-800 text-slate-300'
+          }`}
         />
       </div>
     </div>
