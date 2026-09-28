@@ -743,7 +743,7 @@ export const AgencyCycleHistoryTab: React.FC = () => {
       const pastCobTot = histCob.reduce((sum, curr) => sum + Number(curr.monto || 0), 0);
       const pastBankTot = histBank.reduce((sum, curr) => sum + Number(curr.monto || 0), 0);
 
-      // Movimientos de ciclos cerrados (incluyendo cobros, bancos, gastos y la venta neta auditada)
+      // Movimientos de ciclos cerrados (incluyendo cobros, bancos, gastos y la venta neta)
       const closedMovements: DetailedMovement[] = [];
 
       histCob.forEach((p) => {
@@ -822,7 +822,7 @@ export const AgencyCycleHistoryTab: React.FC = () => {
         });
       });
 
-      // Inyección de Venta Neta auditada del ciclo cerrado
+      // Inyección de Venta Neta del ciclo cerrado
       if (Math.abs(vtaPast) > 0.001) {
         closedMovements.push({
           id: `vta_closed_${c.id}`,
@@ -830,9 +830,9 @@ export const AgencyCycleHistoryTab: React.FC = () => {
           fecha: pHasta || String(c.fecha_cierre || '').slice(0, 10),
           created_at: c.fecha_cierre,
           tipo_categoria: 'VENTA',
-          categoria_label: '📊 Venta Neta Auditada',
+          categoria_label: '📊 Venta Neta Oficial',
           concepto: `Utilidad Semanal (${c.periodo || 'Cierre'})`,
-          referencia: `Venta Neta auditada y archivada en cierre`,
+          referencia: `Venta Neta oficial archivada en cierre`,
           cajero: '-',
           monto: Math.abs(vtaPast),
           es_abono: false,
@@ -858,7 +858,7 @@ export const AgencyCycleHistoryTab: React.FC = () => {
           tipo_categoria: 'PREMIO',
           categoria_label: '🏆 Reposición Premios',
           concepto: 'Abono / Reposición de Premios',
-          referencia: 'Reposición auditada por Administración',
+          referencia: 'Reposición aprobada por Administración',
           cajero: '-',
           monto: reposicionPremiosClosed,
           es_abono: false,
@@ -1183,7 +1183,7 @@ export const AgencyCycleHistoryTab: React.FC = () => {
                 </span>
               </h2>
               <p className={`text-xs mt-0.5 ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
-                Auditoría detallada movimiento por movimiento con ID individual, pagos en efectivo, transferencias y gastos.
+                Detalle completo movimiento por movimiento con ID individual, pagos en efectivo, transferencias y gastos.
               </p>
             </div>
           </div>

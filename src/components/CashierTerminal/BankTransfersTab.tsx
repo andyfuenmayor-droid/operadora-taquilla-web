@@ -1406,7 +1406,7 @@ export const BankTransfersTab: React.FC = () => {
                 <span>Historial de Transacciones Bancarias</span>
               </h3>
               <p className={`text-xs mt-1 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
-                Consulta y audita los depósitos y pagos por canal electrónico registrados para este terminal.
+                Consulta y verifica los depósitos y pagos por canal electrónico registrados para este terminal.
               </p>
             </div>
 
