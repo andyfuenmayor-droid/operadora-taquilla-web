@@ -3,7 +3,7 @@ import { Html5Qrcode } from 'html5-qrcode';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import type { DailyPayment } from '../../types';
-import { formatCurrency, formatTime, normalizarMoneda } from '../../utils/formatters';
+import { formatCurrency, formatDate, formatTime, normalizarMoneda } from '../../utils/formatters';
 import { 
   Camera, 
   CameraOff, 
@@ -680,7 +680,9 @@ export const CollectorPortal: React.FC = () => {
                   <tr className="border-b border-slate-800/80 bg-slate-900/40 text-slate-400">
                     <th className="py-3 px-4 font-semibold">Ticket / PIN</th>
                     <th className="py-3 px-4 font-semibold">Agencia</th>
-                    <th className="py-3 px-4 font-semibold">Fecha y Hora</th>
+                    <th className="py-3 px-4 font-semibold">Fecha Taquilla</th>
+                    <th className="py-3 px-4 font-semibold">Fecha Recepción</th>
+                    <th className="py-3 px-4 font-semibold">Fecha de Entrega</th>
                     <th className="py-3 px-4 font-semibold text-right">Monto</th>
                     <th className="py-3 px-4 font-semibold text-center">Estado</th>
                   </tr>
@@ -688,7 +690,7 @@ export const CollectorPortal: React.FC = () => {
                 <tbody className="divide-y divide-slate-800/50">
                   {collectedHistory.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-6 text-center text-slate-500">
+                      <td colSpan={7} className="py-6 text-center text-slate-500">
                         Aún no se han registrado cobros recaudados.
                       </td>
                     </tr>
@@ -703,6 +705,16 @@ export const CollectorPortal: React.FC = () => {
                         </td>
                         <td className="py-3 px-4 text-slate-400 font-mono">
                           {h.fecha} {h.hora ? formatTime(h.hora) : ''}
+                        </td>
+                        <td className="py-3 px-4 text-sky-400 font-mono">
+                          {h.fecha_escaneo_cobrador ? formatDate(h.fecha_escaneo_cobrador) : '-'}
+                        </td>
+                        <td className="py-3 px-4 text-emerald-400 font-mono font-semibold">
+                          {h.fecha_liquidacion_admin ? (
+                            <span>🏛️ {formatDate(h.fecha_liquidacion_admin)}</span>
+                          ) : (
+                            <span className="text-amber-400/80 text-[11px]">🛵 En Ruta</span>
+                          )}
                         </td>
                         <td className="py-3 px-4 text-right font-mono font-bold text-emerald-400">
                           {formatCurrency(h.monto, h.moneda)}
