@@ -576,13 +576,27 @@ export async function fetchFullCycleMetrics(
         const monPs = normalizarMoneda(w.moneda);
 
         const yaExiste = unified.some((u) => {
+          // Si ya es un registro de pagos_semana, nunca deduplicar a menos que sea exactamente el mismo id
+          if (u.origen === 'pagos_semana' || u.tabla === 'pagos_semana') {
+            return u.id === w.id;
+          }
+
           if (normalizarMoneda(u.moneda) !== monPs) return false;
+
+          // Solo deduplicar contra cda_pagos_bancarios si el monto coincide
+          const montoCoincide = Math.abs(Number(u.monto) - montoPs) < 0.01;
+          if (!montoCoincide) return false;
+
           const uRef = String(u.referencia || '').trim().toUpperCase();
-          if (refPs && uRef && refPs !== 'N/A' && uRef !== 'N/A') {
+          const genericWords = ['EFECTIVO', 'BANCO', 'PAGO', 'TRANSFERENCIA', 'PAGO MOVIL', 'POS', 'N/A', ''];
+          const isGeneric = genericWords.includes(refPs) || genericWords.includes(uRef);
+
+          if (!isGeneric && refPs && uRef && refPs !== 'N/A' && uRef !== 'N/A') {
             if (refPs === uRef || refPs.includes(uRef) || uRef.includes(refPs)) return true;
           }
+
           const uFecha = String(u.fecha || u.created_at || '').slice(0, 10);
-          return Math.abs(Number(u.monto) - montoPs) < 0.01 && uFecha && fStr && uFecha === fStr;
+          return uFecha && fStr && uFecha === fStr;
         });
 
         if (!yaExiste) {
@@ -723,10 +737,22 @@ export async function fetchFullCycleMetrics(
   for (const mCode of assignedCurrencies) {
     const sym = mCode === 'BS' ? 'Bs.' : mCode === 'USD' ? '$' : 'COP$';
 
-    // Filtrar ventas por moneda y sistemas permitidos
+    // Filtrar ventas por moneda y sistemas permitidos (con soporte para alias GATO PESOS <-> GATOWEB)
     let vM = salesRows.filter((s) => normalizarMoneda(s.moneda) === mCode);
     if (assignedSystems.length > 0) {
-      vM = vM.filter((s) => assignedSystems.includes(String(s.sistema || '').toUpperCase()));
+      vM = vM.filter((s) => {
+        const sys = String(s.sistema || '').toUpperCase().trim();
+        if (assignedSystems.includes(sys)) return true;
+        // Mapeo de alias flexibles para evitar exclusión de ventas legítimas
+        return assignedSystems.some((as) => {
+          const asUpper = as.toUpperCase().trim();
+          if (asUpper === sys) return true;
+          if (asUpper.includes('GATO') && sys.includes('GATO')) return true;
+          if (asUpper.includes('BET') && sys.includes('BET')) return true;
+          if (asUpper.includes('KENO') && sys.includes('KENO')) return true;
+          return false;
+        });
+      });
     }
     // Las ventas de carga_actual corresponden al total oficial de la agencia y aplican a la taquilla completa
 
