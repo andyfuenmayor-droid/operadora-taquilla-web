@@ -18,6 +18,9 @@ export interface Agency {
   nombre_agencia: string;
   usuario_taquilla?: string;
   clave_taquilla?: string;
+  comision?: number;
+  participacion_ag?: number;
+  condiciones_sistemas?: Record<string, any> | string;
   grupo?: string;
   cuentas_asignadas?: string | string[];
   sistemas?: string; // Comma-separated list of assigned systems (e.g. "BETM3,PARLEY,LOTERIAS")

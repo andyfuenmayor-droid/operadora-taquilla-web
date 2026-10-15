@@ -9,6 +9,8 @@ export interface CurrencyOperationalMetrics {
   ventas: number;
   comisiones: number;
   premios: number;
+  resultadoBruto: number;
+  participacionAgencia: number;
   resultadoOp: number;
   gastos: number;
   pagoEfectivo: number;
@@ -31,6 +33,53 @@ export interface VentasDetalleRow {
   comision: number;
   premios: number;
   neto: number;
+  participacion_pct: number;
+  participacion_monto: number;
+  neto_operadora: number;
+}
+
+export function parseAgencyCondiciones(ag: Agency | any): Record<string, any> {
+  if (!ag || !ag.condiciones_sistemas) return {};
+  try {
+    return typeof ag.condiciones_sistemas === 'string'
+      ? JSON.parse(ag.condiciones_sistemas)
+      : ag.condiciones_sistemas;
+  } catch (e) {
+    console.error('Error parsing condiciones_sistemas', e);
+    return {};
+  }
+}
+
+export function getAgencyCommissionAndParticipation(
+  ag: Agency | any,
+  sistema: string,
+  moneda: string
+): { comPct: number; partPct: number; codigo?: string } {
+  let comPct = Number(ag?.comision ?? 10);
+  let partPct = Number(ag?.participacion_ag ?? 0);
+  let codigo: string | undefined;
+
+  const cond = parseAgencyCondiciones(ag);
+  const sysUpper = String(sistema || '').trim().toUpperCase();
+  const monUpper = normalizarMoneda(moneda);
+
+  // Buscar coincidencia exacta SISTEMA_MONEDA (ej. BETM3_BS) o por SISTEMA
+  const comboKey = `${sysUpper}_${monUpper}`;
+  const entry = cond[comboKey] || cond[sysUpper];
+
+  if (entry) {
+    if (entry.comision !== undefined && entry.comision !== null && entry.comision !== '') {
+      comPct = Number(entry.comision);
+    }
+    if (entry.participacion !== undefined && entry.participacion !== null && entry.participacion !== '') {
+      partPct = Number(entry.participacion);
+    }
+    if (entry.codigo) {
+      codigo = String(entry.codigo).trim();
+    }
+  }
+
+  return { comPct, partPct, codigo };
 }
 
 export interface GastosDetalleRow {
@@ -722,14 +771,38 @@ export async function fetchFullCycleMetrics(
     return balances;
   };
 
-  // 🚀 DISPARO SIMULTÁNEO DE TODAS LAS CONSULTAS (4X MÁS RÁPIDO) 🚀
-  const [salesRows, expensesRows, paymentsRows, ticketsRows, anteriorBalancesMap] = await Promise.all([
-    fetchSales(),
-    fetchExpenses(),
-    fetchPayments(),
-    fetchTickets(),
-    fetchAnteriorBalances()
-  ]);
+    // 6. Subtarea: Datos completos de la agencia (para comisiones y participaciones)
+    const fetchAgencyProfile = async (): Promise<Agency | null> => {
+      if (agencyData && (agencyData.condiciones_sistemas || agencyData.participacion_ag !== undefined)) {
+        return agencyData;
+      }
+      try {
+        let q = supabase.table('agencias').select('*');
+        if (agencyData?.id) {
+          q = q.eq('id', agencyData.id);
+        } else if (agencyName) {
+          q = q.eq('nombre_agencia', agencyName.trim());
+        } else {
+          return agencyData || null;
+        }
+        const { data } = await q.maybeSingle();
+        return (data as Agency) || agencyData || null;
+      } catch (_) {
+        return agencyData || null;
+      }
+    };
+
+    // 🚀 DISPARO SIMULTÁNEO DE TODAS LAS CONSULTAS (4X MÁS RÁPIDO) 🚀
+    const [salesRows, expensesRows, paymentsRows, ticketsRows, anteriorBalancesMap, currentAgencyProfile] = await Promise.all([
+      fetchSales(),
+      fetchExpenses(),
+      fetchPayments(),
+      fetchTickets(),
+      fetchAnteriorBalances(),
+      fetchAgencyProfile()
+    ]);
+
+    const effectiveAgency = currentAgencyProfile || agencyData;
 
   // CALCULAR RESULTADOS POR CADA MONEDA ASIGNADA (SIN RECONSULTAS)
   const results: Record<string, CurrencyOperationalMetrics> = {};
@@ -807,22 +880,42 @@ export async function fetchFullCycleMetrics(
     const pagosPremiosValidos = pMClassified.filter((p) => p.tipo_clasif === 'PREMIO' && Boolean(p.confirmado) && !p.rechazado);
     const totalPagoPremios = pagosPremiosValidos.reduce((acc, p) => acc + (Number(p.monto) || 0), 0);
 
-    // Resultados
-    const saldoOp = totalVenta - totalComision - totalPremios;
-    const saldoNeto = saldoOp - totalGastos - totalPagoEfectivo - totalPagoBanco + totalPagoPremios;
-    const saldoAnt = anteriorBalancesMap[mCode] ?? 0;
-    const saldoActual = saldoAnt + saldoNeto;
+    // Filas para las tablas del ciclo (con cálculo preciso de participación)
+    let totalParticipacion = 0;
+    const ventasDetalle: VentasDetalleRow[] = vM.map((v) => {
+      const sis = v.sistema || 'BETM3';
+      const { partPct } = getAgencyCommissionAndParticipation(effectiveAgency, sis, mCode);
+      const vVenta = Number(v.monto_venta || 0);
+      const vCom = Number(v.comision || 0);
+      const vPrem = Number(v.monto_premios || 0);
+      const vNeto = v.neto !== undefined && v.neto !== null ? Number(v.neto) : Math.round((vVenta - vCom - vPrem) * 100) / 100;
+      const vPartMonto = partPct > 0 ? Math.round(vNeto * (partPct / 100) * 100) / 100 : 0;
+      const vNetoOp = Math.round((vNeto - vPartMonto) * 100) / 100;
 
-    // Filas para las tablas del ciclo
-    const ventasDetalle: VentasDetalleRow[] = vM.map((v) => ({
-      fecha: String(v.fecha || todayStr).slice(0, 10),
-      sistema: v.sistema || 'BETM3',
-      moneda: mCode,
-      venta: Number(v.monto_venta || 0),
-      comision: Number(v.comision || 0),
-      premios: Number(v.monto_premios || 0),
-      neto: Number(v.neto || 0)
-    }));
+      totalParticipacion += vPartMonto;
+
+      return {
+        fecha: String(v.fecha || todayStr).slice(0, 10),
+        sistema: sis,
+        moneda: mCode,
+        venta: vVenta,
+        comision: vCom,
+        premios: vPrem,
+        neto: vNeto,
+        participacion_pct: partPct,
+        participacion_monto: vPartMonto,
+        neto_operadora: vNetoOp
+      };
+    });
+
+    totalParticipacion = Math.round(totalParticipacion * 100) / 100;
+
+    // Resultados
+    const saldoOpBruto = Math.round((totalVenta - totalComision - totalPremios) * 100) / 100;
+    const saldoOp = Math.round((saldoOpBruto - totalParticipacion) * 100) / 100;
+    const saldoNeto = Math.round((saldoOp - totalGastos - totalPagoEfectivo - totalPagoBanco + totalPagoPremios) * 100) / 100;
+    const saldoAnt = anteriorBalancesMap[mCode] ?? 0;
+    const saldoActual = Math.round((saldoAnt + saldoNeto) * 100) / 100;
 
     const gastosDetalle: GastosDetalleRow[] = gM.map((g) => ({
       id: g.id,
@@ -891,6 +984,9 @@ export async function fetchFullCycleMetrics(
     lines.push(`  TOTAL VENTAS:    ${sym} ${totalVenta.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).padStart(10)}`);
     lines.push(`  TOTAL COMISION:  ${sym} ${totalComision.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).padStart(10)}`);
     lines.push(`  TOTAL PREMIOS:   ${sym} ${totalPremios.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).padStart(10)}`);
+    if (totalParticipacion > 0) {
+      lines.push(`  PART. AGENCIA:  -${sym} ${totalParticipacion.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).padStart(10)}`);
+    }
     lines.push(`  TOTAL GASTOS:    ${sym} ${totalGastos.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).padStart(10)}`);
     lines.push(`  PAGO EFECTIVO:   ${sym} ${totalPagoEfectivo.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).padStart(10)}`);
     lines.push(`  PAGOS BANCOS:    ${sym} ${totalPagoBanco.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).padStart(10)}`);
@@ -912,6 +1008,8 @@ export async function fetchFullCycleMetrics(
       ventas: totalVenta,
       comisiones: totalComision,
       premios: totalPremios,
+      resultadoBruto: saldoOpBruto,
+      participacionAgencia: totalParticipacion,
       resultadoOp: saldoOp,
       gastos: totalGastos,
       pagoEfectivo: totalPagoEfectivo,

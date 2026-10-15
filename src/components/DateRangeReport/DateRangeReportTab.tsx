@@ -337,6 +337,11 @@ export const DateRangeReportTab: React.FC = () => {
             }`}>
               {formatMoney(activeMetrics?.resultadoOp ?? 0, selectedCurrency)}
             </div>
+            {(activeMetrics?.participacionAgencia ?? 0) > 0 && (
+              <div className="text-[10px] text-sky-400 font-semibold mt-1">
+                Neto − Part. ({formatMoney(activeMetrics?.participacionAgencia ?? 0, selectedCurrency)})
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -348,10 +353,21 @@ export const DateRangeReportTab: React.FC = () => {
         <span className={isLight ? 'text-slate-600 font-medium' : 'text-slate-400 font-medium'}>Saldo Anterior ({selectedCurrency}):</span>{' '}
         <b className={`font-mono ${isLight ? 'text-slate-900' : 'text-white'}`}>{formatMoney(activeMetrics?.saldoAnterior ?? 0, selectedCurrency)}</b>
         <span className={`mx-2 font-bold ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>+</span>
-        <span className={isLight ? 'text-slate-600 font-medium' : 'text-slate-400 font-medium'}>Resultado Hoy / Periodo:</span>{' '}
-        <b className={`font-mono ${(activeMetrics?.resultadoOp ?? 0) >= 0 ? (isLight ? 'text-emerald-700' : 'text-emerald-400') : (isLight ? 'text-rose-700' : 'text-rose-400')}`}>
-          {formatMoney(activeMetrics?.resultadoOp ?? 0, selectedCurrency)}
+        <span className={isLight ? 'text-slate-600 font-medium' : 'text-slate-400 font-medium'}>
+          {(activeMetrics?.participacionAgencia ?? 0) > 0 ? 'Resultado Neto:' : 'Resultado Hoy / Periodo:'}
+        </span>{' '}
+        <b className={`font-mono ${((activeMetrics?.resultadoBruto ?? activeMetrics?.resultadoOp ?? 0) >= 0) ? (isLight ? 'text-emerald-700' : 'text-emerald-400') : (isLight ? 'text-rose-700' : 'text-rose-400')}`}>
+          {formatMoney(activeMetrics?.resultadoBruto ?? (activeMetrics?.resultadoOp ?? 0), selectedCurrency)}
         </b>
+        {(activeMetrics?.participacionAgencia ?? 0) > 0 && (
+          <>
+            <span className={`mx-2 font-bold ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>-</span>
+            <span className={isLight ? 'text-slate-600 font-medium' : 'text-slate-400 font-medium'}>Part. Agencia:</span>{' '}
+            <b className={`font-mono ${isLight ? 'text-sky-700' : 'text-sky-400'}`}>
+              {formatMoney(activeMetrics?.participacionAgencia ?? 0, selectedCurrency)}
+            </b>
+          </>
+        )}
         <span className={`mx-2 font-bold ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>-</span>
         <span className={isLight ? 'text-slate-600 font-medium' : 'text-slate-400 font-medium'}>Gastos:</span>{' '}
         <b className={`font-mono ${isLight ? 'text-slate-900' : 'text-white'}`}>{formatMoney(activeMetrics?.gastos ?? 0, selectedCurrency)}</b>
@@ -394,74 +410,118 @@ export const DateRangeReportTab: React.FC = () => {
           </span>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className={`font-bold uppercase tracking-wider border-b text-[10px] ${isLight ? 'bg-slate-50 text-slate-500 border-slate-200' : 'bg-[#071217] text-slate-400 border-slate-800'}`}>
-              <tr>
-                <th className="py-3 px-4">Fecha</th>
-                <th className="py-3 px-4">Sistema</th>
-                <th className="py-3 px-4">Moneda</th>
-                <th className="py-3 px-4 text-right">Ventas</th>
-                <th className="py-3 px-4 text-right">Comisión</th>
-                <th className="py-3 px-4 text-right">Premios</th>
-                <th className="py-3 px-4 text-right">Neto</th>
-              </tr>
-            </thead>
-            <tbody className={`divide-y font-mono ${isLight ? 'divide-slate-100' : 'divide-slate-800/60'}`}>
-              {!activeMetrics?.ventasDetalle || activeMetrics.ventasDetalle.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-8 text-center text-slate-500 font-sans">
-                    Sin ventas registradas en {selectedCurrency} para este rango.
-                  </td>
-                </tr>
-              ) : (
-                <>
-                  {activeMetrics.ventasDetalle.map((row, idx) => (
-                    <tr key={idx} className={`transition-colors ${isLight ? 'hover:bg-slate-50/80' : 'hover:bg-slate-800/30'}`}>
-                      <td className={`py-2.5 px-4 font-sans font-medium ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>{row.fecha || desde}</td>
-                      <td className="py-2.5 px-4 font-bold text-sky-500">{row.sistema}</td>
-                      <td className={`py-2.5 px-4 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>{row.moneda}</td>
-                      <td className={`py-2.5 px-4 text-right font-bold ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`}>
-                        {formatMoney(row.venta, selectedCurrency)}
-                      </td>
-                      <td className={`py-2.5 px-4 text-right ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>
-                        {formatMoney(row.comision, selectedCurrency)}
-                      </td>
-                      <td className={`py-2.5 px-4 text-right ${isLight ? 'text-amber-700' : 'text-amber-400'}`}>
-                        {formatMoney(row.premios, selectedCurrency)}
-                      </td>
-                      <td className={`py-2.5 px-4 text-right font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                        {formatMoney(row.neto, selectedCurrency)}
+        {(() => {
+          const hasParticipation = Boolean(activeMetrics?.ventasDetalle?.some((r) => (r.participacion_pct || 0) > 0 || (r.participacion_monto || 0) > 0));
+          return (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className={`font-bold uppercase tracking-wider border-b text-[10px] ${isLight ? 'bg-slate-50 text-slate-500 border-slate-200' : 'bg-[#071217] text-slate-400 border-slate-800'}`}>
+                  <tr>
+                    <th className="py-3 px-4">Fecha</th>
+                    <th className="py-3 px-4">Sistema</th>
+                    <th className="py-3 px-4">Moneda</th>
+                    <th className="py-3 px-4 text-right">Ventas</th>
+                    <th className="py-3 px-4 text-right">Comisión</th>
+                    <th className="py-3 px-4 text-right">Premios</th>
+                    <th className="py-3 px-4 text-right">{hasParticipation ? 'Neto Base' : 'Neto'}</th>
+                    {hasParticipation && (
+                      <>
+                        <th className="py-3 px-4 text-right">% Part.</th>
+                        <th className="py-3 px-4 text-right">Part. Agencia</th>
+                        <th className="py-3 px-4 text-right">Neto Operadora</th>
+                      </>
+                    )}
+                  </tr>
+                </thead>
+                <tbody className={`divide-y font-mono ${isLight ? 'divide-slate-100' : 'divide-slate-800/60'}`}>
+                  {!activeMetrics?.ventasDetalle || activeMetrics.ventasDetalle.length === 0 ? (
+                    <tr>
+                      <td colSpan={hasParticipation ? 10 : 7} className="py-8 text-center text-slate-500 font-sans">
+                        Sin ventas registradas en {selectedCurrency} para este rango.
                       </td>
                     </tr>
-                  ))}
-                  {/* Fila de Totales (Flecha 2 Screenshot 2) */}
-                  <tr className={`font-bold border-t-2 ${isLight ? 'bg-slate-100/90 border-slate-300' : 'bg-[#071217]/90 border-slate-700'}`}>
-                    <td colSpan={3} className={`py-3 px-4 font-sans uppercase ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                      Total Ciclo ({selectedCurrency})
-                    </td>
-                    <td className={`py-3 px-4 text-right font-black ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`}>
-                      {formatMoney(activeMetrics.ventas, selectedCurrency)}
-                    </td>
-                    <td className={`py-3 px-4 text-right font-black ${isLight ? 'text-sky-700' : 'text-sky-400'}`}>
-                      {formatMoney(activeMetrics.comisiones, selectedCurrency)}
-                    </td>
-                    <td className={`py-3 px-4 text-right font-black ${isLight ? 'text-amber-700' : 'text-amber-400'}`}>
-                      {formatMoney(activeMetrics.premios, selectedCurrency)}
-                    </td>
-                    <td className={`py-3 px-4 text-right font-black ${
-                      activeMetrics.resultadoOp >= 0 
-                        ? (isLight ? 'text-emerald-700' : 'text-emerald-400') 
-                        : (isLight ? 'text-rose-700' : 'text-rose-400')
-                    }`}>
-                      {formatMoney(activeMetrics.resultadoOp, selectedCurrency)}
-                    </td>
-                  </tr>
-                </>
-              )}
-            </tbody>
-          </table>
-        </div>
+                  ) : (
+                    <>
+                      {activeMetrics.ventasDetalle.map((row, idx) => (
+                        <tr key={idx} className={`transition-colors ${isLight ? 'hover:bg-slate-50/80' : 'hover:bg-slate-800/30'}`}>
+                          <td className={`py-2.5 px-4 font-sans font-medium ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>{row.fecha || desde}</td>
+                          <td className="py-2.5 px-4 font-bold text-sky-500">{row.sistema}</td>
+                          <td className={`py-2.5 px-4 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>{row.moneda}</td>
+                          <td className={`py-2.5 px-4 text-right font-bold ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`}>
+                            {formatMoney(row.venta, selectedCurrency)}
+                          </td>
+                          <td className={`py-2.5 px-4 text-right ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>
+                            {formatMoney(row.comision, selectedCurrency)}
+                          </td>
+                          <td className={`py-2.5 px-4 text-right ${isLight ? 'text-amber-700' : 'text-amber-400'}`}>
+                            {formatMoney(row.premios, selectedCurrency)}
+                          </td>
+                          <td className={`py-2.5 px-4 text-right font-bold ${
+                            row.neto >= 0 ? (isLight ? 'text-slate-800' : 'text-slate-200') : (isLight ? 'text-rose-700' : 'text-rose-400')
+                          }`}>
+                            {formatMoney(row.neto, selectedCurrency)}
+                          </td>
+                          {hasParticipation && (
+                            <>
+                              <td className="py-2.5 px-4 text-right font-bold text-sky-400">
+                                {row.participacion_pct ? `${row.participacion_pct}%` : '0%'}
+                              </td>
+                              <td className="py-2.5 px-4 text-right font-bold text-sky-400">
+                                {row.participacion_monto > 0 ? `-${formatMoney(row.participacion_monto, selectedCurrency)}` : formatMoney(0, selectedCurrency)}
+                              </td>
+                              <td className={`py-2.5 px-4 text-right font-bold ${
+                                row.neto_operadora >= 0 ? (isLight ? 'text-emerald-700' : 'text-emerald-400') : (isLight ? 'text-rose-700' : 'text-rose-400')
+                              }`}>
+                                {formatMoney(row.neto_operadora, selectedCurrency)}
+                              </td>
+                            </>
+                          )}
+                        </tr>
+                      ))}
+                      {/* Fila de Totales */}
+                      <tr className={`font-bold border-t-2 ${isLight ? 'bg-slate-100/90 border-slate-300' : 'bg-[#071217]/90 border-slate-700'}`}>
+                        <td colSpan={3} className={`py-3 px-4 font-sans uppercase ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                          Total Ciclo ({selectedCurrency})
+                        </td>
+                        <td className={`py-3 px-4 text-right font-black ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`}>
+                          {formatMoney(activeMetrics.ventas, selectedCurrency)}
+                        </td>
+                        <td className={`py-3 px-4 text-right font-black ${isLight ? 'text-sky-700' : 'text-sky-400'}`}>
+                          {formatMoney(activeMetrics.comisiones, selectedCurrency)}
+                        </td>
+                        <td className={`py-3 px-4 text-right font-black ${isLight ? 'text-amber-700' : 'text-amber-400'}`}>
+                          {formatMoney(activeMetrics.premios, selectedCurrency)}
+                        </td>
+                        <td className={`py-3 px-4 text-right font-black ${
+                          (activeMetrics.resultadoBruto ?? activeMetrics.resultadoOp) >= 0 ? (isLight ? 'text-slate-800' : 'text-slate-200') : (isLight ? 'text-rose-700' : 'text-rose-400')
+                        }`}>
+                          {formatMoney(activeMetrics.resultadoBruto ?? (activeMetrics.resultadoOp + (activeMetrics.participacionAgencia || 0)), selectedCurrency)}
+                        </td>
+                        {hasParticipation && (
+                          <>
+                            <td className="py-3 px-4 text-right font-black text-sky-400">
+                              {activeMetrics.ventasDetalle.length > 0 && activeMetrics.ventasDetalle[0].participacion_pct ? `${activeMetrics.ventasDetalle[0].participacion_pct}%` : '-'}
+                            </td>
+                            <td className="py-3 px-4 text-right font-black text-sky-400">
+                              {activeMetrics.participacionAgencia > 0 ? `-${formatMoney(activeMetrics.participacionAgencia, selectedCurrency)}` : formatMoney(0, selectedCurrency)}
+                            </td>
+                            <td className={`py-3 px-4 text-right font-black ${
+                              activeMetrics.resultadoOp >= 0 
+                                ? (isLight ? 'text-emerald-700' : 'text-emerald-400') 
+                                : (isLight ? 'text-rose-700' : 'text-rose-400')
+                            }`}>
+                              {formatMoney(activeMetrics.resultadoOp, selectedCurrency)}
+                            </td>
+                          </>
+                        )}
+                      </tr>
+                    </>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          );
+        })()}
       </div>
 
       {/* 6. Acordeones Desplegables de Actividad del Periodo */}
