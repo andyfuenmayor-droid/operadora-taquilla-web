@@ -386,7 +386,7 @@ export const BankTransfersTab: React.FC = () => {
       });
     });
 
-    if (list.length === 0) {
+    if (list.length === 0 && !loadingData) {
       list.push({
         label: 'Cuenta Operadora General (USD)',
         moneda: 'USD',
@@ -396,19 +396,22 @@ export const BankTransfersTab: React.FC = () => {
     }
 
     return list;
-  }, [accounts, devices]);
+  }, [accounts, devices, loadingData]);
 
-  // Selección inicial automática del primer destino
+  // Selección inicial y reactiva automática del destino correcto
   useEffect(() => {
-    if (destinationOptions.length > 0 && !selectedDestinoLabel) {
-      setSelectedDestinoLabel(destinationOptions[0].label);
+    if (destinationOptions.length > 0) {
+      const exists = destinationOptions.some((d) => d.label === selectedDestinoLabel);
+      if (!selectedDestinoLabel || !exists) {
+        setSelectedDestinoLabel(destinationOptions[0].label);
+      }
     }
   }, [destinationOptions, selectedDestinoLabel]);
 
   const currentDestinoMeta = useMemo(() => {
     return destinationOptions.find((d) => d.label === selectedDestinoLabel) || destinationOptions[0] || {
       label: '',
-      moneda: 'BS',
+      moneda: 'Bs',
       metodo: 'Transferencia Bancaria',
       isDevice: false,
     };
@@ -466,16 +469,21 @@ export const BankTransfersTab: React.FC = () => {
       }
 
       const nowIso = new Date().toISOString();
+      const activeDestino = destinationOptions.find((d) => d.label === selectedDestinoLabel) || destinationOptions[0] || currentDestinoMeta;
+      const finalDestinoLabel = activeDestino?.label || selectedDestinoLabel;
+      const finalMetodo = activeDestino?.metodo || currentDestinoMeta.metodo;
+      const finalMoneda = activeDestino?.moneda || currentDestinoMeta.moneda;
+
       const newRecord = {
         fecha: fechaPago,
         agencia: agencyName,
-        metodo_pago: currentDestinoMeta.metodo,
+        metodo_pago: finalMetodo,
         monto: Math.round(parsedMonto * 100) / 100,
-        moneda: currentDestinoMeta.moneda,
+        moneda: finalMoneda,
         referencia: referenciaPago.trim().toUpperCase(),
         concepto: conceptoPago,
         datos_pagador: datosPagador.trim().toUpperCase() || 'N/A',
-        pos_o_cuenta: selectedDestinoLabel,
+        pos_o_cuenta: finalDestinoLabel,
         user_id: String(agency?.user_id || user?.user_id || user?.id || ''),
         cajero_id: user?.id ? String(user.id) : null,
         confirmado: false,
@@ -498,22 +506,22 @@ export const BankTransfersTab: React.FC = () => {
         tabla: 'cda_pagos_bancarios',
         agencia: agencyName,
         monto: Math.round(parsedMonto * 100) / 100,
-        moneda: currentDestinoMeta.moneda,
+        moneda: finalMoneda,
         referencia: referenciaPago.trim().toUpperCase(),
-        metodo_pago: currentDestinoMeta.metodo,
+        metodo_pago: finalMetodo,
         concepto: conceptoPago,
         datos_pagador: datosPagador.trim().toUpperCase() || 'N/A',
-        pos_o_cuenta: selectedDestinoLabel,
+        pos_o_cuenta: finalDestinoLabel,
         cajero_id: user?.id ? String(user.id) : undefined,
         created_at: nowIso,
       });
 
       confetti({ particleCount: 35, spread: 60, origin: { y: 0.8 } });
-      setFormSuccess(`✅ Pago por ${currentDestinoMeta.metodo} (Ref: ${referenciaPago.trim().toUpperCase()}) registrado exitosamente! En espera de confirmación.`);
+      setFormSuccess(`✅ Pago por ${finalMetodo} (Ref: ${referenciaPago.trim().toUpperCase()}) registrado exitosamente! En espera de confirmación.`);
 
       // Notificación visual in-app flotante instantánea para el cajero
       notificationService.showNotification('📤 Pago Enviado a Confirmación', {
-        body: `${currentDestinoMeta.metodo} • ${formatCurrency(parsedMonto, currentDestinoMeta.moneda as any)} (Ref: ${referenciaPago.trim().toUpperCase()}) en espera de validación administrativa.`,
+        body: `${finalMetodo} • ${formatCurrency(parsedMonto, finalMoneda as any)} (Ref: ${referenciaPago.trim().toUpperCase()}) en espera de validación administrativa.`,
         soundType: 'alert',
         toastType: 'payment',
         tag: `sent_pago_${referenciaPago.trim().toUpperCase()}`,
