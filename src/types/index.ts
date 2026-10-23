@@ -1,4 +1,4 @@
-export type UserRole = 'cajero' | 'supervisor' | 'agencia' | 'cobrador' | 'admin';
+export type UserRole = 'cajero' | 'supervisor' | 'agencia' | 'cobrador' | 'admin' | 'grupo';
 
 export interface UserSession {
   id: string | number;
@@ -8,6 +8,8 @@ export interface UserSession {
   agencia_id?: string | number;
   terminal_id?: string | number;
   user_id?: string | number;
+  grupo_id?: number | string;
+  grupo_nombre?: string;
   cedula_identidad?: string;
   telefono?: string;
   activo?: boolean;
@@ -22,6 +24,8 @@ export interface Agency {
   participacion_ag?: number;
   condiciones_sistemas?: Record<string, any> | string;
   grupo?: string;
+  grupo_id?: number | null;
+  grupo_nombre?: string | null;
   cuentas_asignadas?: string | string[];
   sistemas?: string; // Comma-separated list of assigned systems (e.g. "BETM3,PARLEY,LOTERIAS")
   monedas?: string;  // Comma-separated list of assigned currencies (e.g. "BS,USD,COP")
@@ -33,6 +37,26 @@ export interface Agency {
   saldo_inicial_usd?: number;
   saldo_inicial_cop?: number;
   activo?: boolean;
+}
+
+export interface Grupo {
+  id: number;
+  nombre_grupo: string;
+  codigo?: string;
+  responsable?: string;
+  telefono?: string;
+  email_acceso?: string;
+  password_acceso?: string;
+  monedas?: string;
+  comision_pct_default?: number;
+  participacion_pct_default?: number;
+  condiciones_sistemas?: Record<string, any> | string;
+  saldo_inicial_bs?: number;
+  saldo_inicial_usd?: number;
+  saldo_inicial_cop?: number;
+  saldos_iniciales_json?: Record<string, number> | string;
+  activo?: boolean;
+  user_id?: string;
 }
 
 export interface SystemCycle {

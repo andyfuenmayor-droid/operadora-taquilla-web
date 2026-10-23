@@ -28,6 +28,7 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
   const isSupervisor = role === 'supervisor' || role === 'admin';
   const isAgencia = role === 'agencia';
   const isCobrador = role === 'cobrador';
+  const isGrupo = role === 'grupo';
 
   return (
     <header className="sticky top-0 z-40 w-full bg-[#0D1B22]/95 backdrop-blur-md border-b border-slate-800 shadow-lg">
@@ -182,6 +183,83 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
               </>
             )}
 
+            {/* 3. ROL GRUPO (SUB-COMERCIALIZADOR) */}
+            {isGrupo && (
+              <>
+                <button
+                  onClick={() => onTabChange('reporte')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    currentTab === 'reporte'
+                      ? 'bg-purple-600 text-white shadow-sm font-bold'
+                      : 'text-purple-300 hover:text-white hover:bg-purple-900/40'
+                  }`}
+                >
+                  <BarChart3 className="w-3.5 h-3.5 text-purple-400" />
+                  <span>📊 Reporte</span>
+                </button>
+
+                <button
+                  onClick={() => onTabChange('pizarra')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    currentTab === 'pizarra'
+                      ? 'bg-purple-600 text-white shadow-sm font-bold'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  }`}
+                >
+                  <LayoutDashboard className="w-3.5 h-3.5" />
+                  <span>Pizarra</span>
+                </button>
+
+                <button
+                  onClick={() => onTabChange('inicio')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    currentTab === 'inicio'
+                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  }`}
+                >
+                  <Home className="w-3.5 h-3.5" />
+                  <span>Inicio</span>
+                </button>
+
+                <button
+                  onClick={() => onTabChange('pagos')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    currentTab === 'pagos'
+                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  }`}
+                >
+                  <CreditCard className="w-3.5 h-3.5" />
+                  <span>Entrega Efectivo</span>
+                </button>
+
+                <button
+                  onClick={() => onTabChange('banco')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    currentTab === 'banco'
+                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  }`}
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Banco / POS</span>
+                </button>
+
+                <button
+                  onClick={() => onTabChange('gastos')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    currentTab === 'gastos'
+                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  }`}
+                >
+                  <Receipt className="w-3.5 h-3.5" />
+                  <span>Gastos</span>
+                </button>
+              </>
+            )}
+
             {/* 3. ROL AGENCIA */}
             {isAgencia && (
               <>
@@ -279,7 +357,9 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
           <div className="flex items-center gap-2.5 shrink-0">
             <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-[#071217] border border-slate-800 shadow-sm">
               <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${
-                isSupervisor
+                isGrupo
+                  ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
+                  : isSupervisor
                   ? 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
                   : isAgencia
                   ? 'bg-sky-500/15 text-sky-400 border border-sky-500/30'
@@ -295,7 +375,9 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                 </div>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <span className={`text-[9px] uppercase font-black tracking-wider px-1.5 py-0.2 rounded border ${
-                    isSupervisor
+                    isGrupo
+                      ? 'bg-purple-500/30 text-purple-200 border-purple-500/50'
+                      : isSupervisor
                       ? 'bg-purple-500/20 text-purple-300 border-purple-500/30'
                       : isAgencia
                       ? 'bg-sky-500/20 text-sky-300 border-sky-500/30'
@@ -425,6 +507,60 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                 }`}
               >
                 Reporte
+              </button>
+            </>
+          )}
+
+          {/* Mobile Grupo */}
+          {isGrupo && (
+            <>
+              <button
+                onClick={() => onTabChange('reporte')}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                  currentTab === 'reporte' ? 'bg-purple-600 text-white' : 'text-purple-300 hover:text-white'
+                }`}
+              >
+                📊 Reporte
+              </button>
+              <button
+                onClick={() => onTabChange('pizarra')}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                  currentTab === 'pizarra' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Pizarra
+              </button>
+              <button
+                onClick={() => onTabChange('inicio')}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                  currentTab === 'inicio' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Inicio
+              </button>
+              <button
+                onClick={() => onTabChange('pagos')}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                  currentTab === 'pagos' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Entrega Efectivo
+              </button>
+              <button
+                onClick={() => onTabChange('banco')}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                  currentTab === 'banco' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Banco
+              </button>
+              <button
+                onClick={() => onTabChange('gastos')}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                  currentTab === 'gastos' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Gastos
               </button>
             </>
           )}

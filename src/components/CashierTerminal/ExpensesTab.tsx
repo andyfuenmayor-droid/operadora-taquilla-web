@@ -60,7 +60,46 @@ export const ExpensesTab: React.FC = () => {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const agencyName = agency?.nombre_agencia || '';
-  const isSupervisor = user?.rol === 'supervisor' || user?.rol === 'admin';
+  const isSupervisor = user?.rol === 'supervisor' || user?.rol === 'admin' || user?.rol === 'grupo';
+  const isGrupo = user?.rol === 'grupo';
+
+  // Árbol de Agencias Hijas para Rol Grupo
+  const [groupAgencies, setGroupAgencies] = useState<{ id: string | number; nombre_agencia: string }[]>([]);
+  const [selectedGroupAgency, setSelectedGroupAgency] = useState<string>('all');
+  const [agenciaGasto, setAgenciaGasto] = useState<string>('');
+
+  useEffect(() => {
+    if (!isGrupo) return;
+    const fetchAgencies = async () => {
+      try {
+        const grpId = user?.grupo_id || agency?.grupo_id;
+        const grpNom = user?.grupo_nombre || agency?.grupo_nombre || user?.nombre || '';
+        let q = supabase.table('agencias').select('id, nombre_agencia, grupo_id, grupo_nombre');
+        if (grpId) {
+          q = q.or(`grupo_id.eq.${grpId},grupo_nombre.ilike.${grpNom}`);
+        } else if (grpNom) {
+          q = q.ilike('grupo_nombre', grpNom);
+        }
+        const { data } = await q;
+        if (data && data.length > 0) {
+          setGroupAgencies(data);
+          setAgenciaGasto(data[0].nombre_agencia);
+        }
+      } catch (e) {
+        console.error('Error fetching group agencies for expenses:', e);
+      }
+    };
+    fetchAgencies();
+  }, [isGrupo, user?.grupo_id, user?.grupo_nombre, user?.nombre, agency?.grupo_id, agency?.grupo_nombre]);
+
+  // Nombres de agencias autorizadas para consulta (Aislamiento por Rol Grupo o Supervisor)
+  const targetAgencyNames = useMemo(() => {
+    if (isGrupo) {
+      if (selectedGroupAgency !== 'all') return [selectedGroupAgency.trim().toUpperCase()];
+      return groupAgencies.map((a) => a.nombre_agencia.trim().toUpperCase()).filter(Boolean);
+    }
+    return agencyName ? [agencyName.trim().toUpperCase()] : [];
+  }, [isGrupo, selectedGroupAgency, groupAgencies, agencyName]);
 
   // Sincronizar moneda con monedas asignadas si cambia
   useEffect(() => {
@@ -76,24 +115,21 @@ export const ExpensesTab: React.FC = () => {
     }
   }, [cycleHasta, todayStr]);
 
-  // Consulta de gastos unificada (cda_gastos_diarios + gastos) para la agencia
+  // Consulta de gastos unificada (cda_gastos_diarios + gastos) para la agencia o árbol de grupo
   const fetchExpenses = useCallback(async () => {
-    if (!agencyName) return;
+    if (!agencyName && targetAgencyNames.length === 0) return;
     setLoading(true);
     setErrorMsg(null);
 
     try {
       // 1. Consultar cda_gastos_diarios
-      let qDiarios = supabase
-        .from('cda_gastos_diarios')
-        .select('*')
-        .or(`agencia.ilike.${agencyName},nombre_agency.ilike.${agencyName}`);
+      let qDiarios = supabase.from('cda_gastos_diarios').select('*');
+      let qGastos = supabase.from('gastos').select('*');
 
-      // 2. Consultar gastos (CMS)
-      let qGastos = supabase
-        .from('gastos')
-        .select('*')
-        .or(`agencia.ilike.${agencyName},nombre_agency.ilike.${agencyName}`);
+      if (!isGrupo && agencyName) {
+        qDiarios = qDiarios.or(`agencia.ilike.${agencyName},nombre_agency.ilike.${agencyName}`);
+        qGastos = qGastos.or(`agencia.ilike.${agencyName},nombre_agency.ilike.${agencyName}`);
+      }
 
       // Aplicar filtros de fecha según el modo
       if (filterMode === 'ciclo') {
@@ -113,8 +149,15 @@ export const ExpensesTab: React.FC = () => {
         qGastos.order('fecha', { ascending: false }).order('id', { ascending: false }),
       ]);
 
-      const listDiarios = resDiarios.data || [];
-      const listGastos = resGastos.data || [];
+      const matchAg = (g: any) => {
+        if (targetAgencyNames.length === 0) return true;
+        const a1 = (g.agencia || '').trim().toUpperCase();
+        const a2 = (g.nombre_agency || '').trim().toUpperCase();
+        return targetAgencyNames.includes(a1) || targetAgencyNames.includes(a2);
+      };
+
+      const listDiarios = (resDiarios.data || []).filter(matchAg);
+      const listGastos = (resGastos.data || []).filter(matchAg);
 
       const unified: DailyExpense[] = [];
       const seenKeys = new Set<string>();
@@ -258,17 +301,21 @@ export const ExpensesTab: React.FC = () => {
       const cleanRef = referencia.trim().toUpperCase();
       const fullDesc = cleanRef ? `${cleanConcepto} [REF: ${cleanRef}]` : cleanConcepto;
 
+      const targetAg = isGrupo
+        ? (agenciaGasto || (selectedGroupAgency !== 'all' ? selectedGroupAgency : (groupAgencies[0]?.nombre_agencia || agencyName)))
+        : agencyName;
+
       const newExpense = {
         fecha: fechaGasto,
-        agencia: agencyName,
-        nombre_agency: agencyName,
+        agencia: targetAg,
+        nombre_agency: targetAg,
         cajero_id: user?.id ? String(user.id) : null,
         user_id: user?.user_id || user?.id,
         concepto: cleanConcepto,
         descripcion: fullDesc,
         monto: parsedMonto,
         moneda: normalizarMoneda(moneda),
-        confirmado: isSupervisor, // Confirmación directa si es supervisor, pendiente si es cajero
+        confirmado: isSupervisor, // Confirmación directa si es supervisor, admin o grupo
         rechazado: false,
       };
 
@@ -277,7 +324,7 @@ export const ExpensesTab: React.FC = () => {
 
       await realtimeBroadcast.broadcast('NEW_EXPENSE', {
         tabla: 'cda_gastos_diarios',
-        agencia: agencyName,
+        agencia: targetAg,
         monto: parsedMonto,
         moneda: normalizarMoneda(moneda),
         concepto: cleanConcepto,
@@ -400,6 +447,24 @@ export const ExpensesTab: React.FC = () => {
               className="bg-[#071217] border border-slate-700 rounded-xl px-3 py-1 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
             />
           )}
+
+          {isGrupo && groupAgencies.length > 0 && (
+            <div className="flex items-center gap-2 bg-[#071217] border border-purple-500/40 px-3 py-1 rounded-xl">
+              <span className="text-[11px] font-bold text-purple-300">Agencia:</span>
+              <select
+                value={selectedGroupAgency}
+                onChange={(e) => setSelectedGroupAgency(e.target.value)}
+                className="bg-transparent text-xs text-white focus:outline-none font-bold cursor-pointer"
+              >
+                <option value="all" className="bg-slate-900 text-white">🌐 Todas ({groupAgencies.length})</option>
+                {groupAgencies.map((a) => (
+                  <option key={a.id} value={a.nombre_agencia} className="bg-slate-900 text-white">
+                    🏢 {a.nombre_agencia}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         <button
@@ -448,10 +513,14 @@ export const ExpensesTab: React.FC = () => {
           <div className="flex items-center justify-between mb-4 border-b border-slate-800/80 pb-3">
             <h3 className="text-sm font-bold uppercase tracking-wider text-white flex items-center gap-2">
               <Plus className="w-4 h-4 text-emerald-400" />
-              <span>Registrar Gasto Operativo de la Agencia</span>
+              <span>Registrar Gasto Operativo {isGrupo ? 'de la Red' : 'de la Agencia'}</span>
             </h3>
             <span className="text-xs text-slate-400">
-              Agencia: <strong className="text-white">{agencyName}</strong>
+              {isGrupo ? (
+                <span className="text-purple-300 font-bold">🤝 Red de Grupo: {user?.nombre || user?.grupo_nombre}</span>
+              ) : (
+                <>Agencia: <strong className="text-white">{agencyName}</strong></>
+              )}
             </span>
           </div>
 
@@ -471,6 +540,25 @@ export const ExpensesTab: React.FC = () => {
 
           <form onSubmit={handleCreateExpense} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Selector de Agencia de Origen (Solo para rol Grupo) */}
+              {isGrupo && groupAgencies.length > 0 && (
+                <div className="sm:col-span-2 lg:col-span-4">
+                  <label className="block text-xs font-semibold text-purple-300 mb-1.5">
+                    Agencia Destino del Gasto *
+                  </label>
+                  <select
+                    value={agenciaGasto || groupAgencies[0]?.nombre_agencia || ''}
+                    onChange={(e) => setAgenciaGasto(e.target.value)}
+                    className="w-full bg-[#071217] border border-purple-500/40 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-purple-400 font-bold cursor-pointer"
+                  >
+                    {groupAgencies.map((a) => (
+                      <option key={a.id} value={a.nombre_agencia} className="bg-slate-900 text-white">
+                        🏢 {a.nombre_agencia}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               {/* Concepto / Descripción (Libre con sugerencias datalist) */}
               <div className="lg:col-span-2">
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center justify-between">

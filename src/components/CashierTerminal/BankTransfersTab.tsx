@@ -74,7 +74,7 @@ export const BankTransfersTab: React.FC = () => {
   const agencyName = agency?.nombre_agencia || '';
   const userRole = (user?.rol || 'cajero').toLowerCase();
   const isAgencia = userRole === 'agencia';
-  const isSupervisor = userRole === 'supervisor' || userRole === 'admin';
+  const isSupervisor = userRole === 'supervisor' || userRole === 'admin' || userRole === 'grupo';
 
   // Subtabs state
   const [subTab, setSubTab] = useState<'cuentas' | 'dispositivos' | 'registrar' | 'historial'>('cuentas');

@@ -308,6 +308,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
+      // 4. Search in grupos table (Role: 'grupo' - Intermediario / Sub-Comercializador)
+      if (!matchedUser) {
+        try {
+          const { data: grpData, error: grpErr } = await supabase
+            .table('grupos')
+            .select('*')
+            .or(`email_acceso.ilike.${uClean},nombre_grupo.ilike.${uClean},codigo.ilike.${uClean}`);
+
+          if (!grpErr && grpData && grpData.length > 0) {
+            for (const grp of grpData) {
+              const pass = String(grp.password_acceso || grp.clave_acceso || '1234').trim();
+              if (pass === pClean) {
+                if (grp.activo === false) {
+                  return { success: false, message: 'Este Grupo se encuentra inactivo. Contacte al Administrador.' };
+                }
+                matchedUser = {
+                  id: `grp_${grp.id}`,
+                  usuario: grp.email_acceso || grp.nombre_grupo,
+                  nombre: grp.nombre_grupo,
+                  rol: 'grupo' as UserRole,
+                  agencia_id: `grp_${grp.id}`,
+                  user_id: grp.user_id,
+                  grupo_id: grp.id,
+                  grupo_nombre: grp.nombre_grupo,
+                  telefono: grp.telefono,
+                  activo: true,
+                };
+                matchedAgency = {
+                  id: `grp_${grp.id}`,
+                  nombre_agencia: grp.nombre_grupo,
+                  grupo_id: grp.id,
+                  grupo_nombre: grp.nombre_grupo,
+                  user_id: grp.user_id,
+                  sistemas: 'TODOS',
+                  monedas: grp.monedas || 'BS,USD,COP',
+                };
+                break;
+              }
+            }
+          }
+        } catch (_) {}
+      }
+
       if (!matchedUser) {
         return { success: false, message: 'Usuario o clave incorrectos.' };
       }

@@ -16,6 +16,8 @@ const MainLayout: React.FC = () => {
     if (user) {
       if (user.rol === 'cobrador') {
         setCurrentTab('escaner');
+      } else if (user.rol === 'grupo') {
+        setCurrentTab('reporte');
       } else {
         setCurrentTab('inicio');
       }
@@ -60,8 +62,8 @@ const MainLayout: React.FC = () => {
           <CashierTerminal currentTab={currentTab} onTabChange={setCurrentTab} />
         )}
 
-        {/* Supervisor Exclusive Views */}
-        {currentTab === 'pizarra' && (user?.rol === 'supervisor' || user?.rol === 'admin') && <SupervisorBoard />}
+        {/* Supervisor & Grupo Exclusive Views */}
+        {currentTab === 'pizarra' && (user?.rol === 'supervisor' || user?.rol === 'admin' || user?.rol === 'grupo') && <SupervisorBoard />}
 
         {/* Route Collector Views */}
         {currentTab === 'escaner' && user?.rol === 'cobrador' && <CollectorPortal />}

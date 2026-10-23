@@ -80,6 +80,7 @@ export const SupervisorBoard: React.FC = () => {
   const { user, agency, systemCycle, assignedCurrencies } = useAuth();
   const agencyName = agency?.nombre_agencia || '';
   const supervisorName = user?.nombre || user?.usuario || 'Supervisor';
+  const isGrupo = user?.rol === 'grupo';
 
   // Subpestañas del panel de supervisión
   const [activeTab, setActiveTab] = useState<'efectivo' | 'confirmaciones' | 'bancos' | 'agencias'>('efectivo');
@@ -88,6 +89,11 @@ export const SupervisorBoard: React.FC = () => {
   const defaultDate = systemCycle?.hasta || getTodayDateString();
   const [fecha, setFecha] = useState(defaultDate);
   const [loading, setLoading] = useState(false);
+
+  // Árbol de Agencias Hijas para Rol Grupo
+  const [groupAgencies, setGroupAgencies] = useState<{ id: string | number; nombre_agencia: string }[]>([]);
+  const [selectedGroupAgency, setSelectedGroupAgency] = useState<string>('all');
+  const [agenciaEntrega, setAgenciaEntrega] = useState<string>('');
 
   // 1. Datos de Custodia y Arqueo
   const [cobradoresList, setCobradoresList] = useState<Cobrador[]>([]);
@@ -107,6 +113,31 @@ export const SupervisorBoard: React.FC = () => {
   const [notaEntrega, setNotaEntrega] = useState<string>('');
   const [submittingEntrega, setSubmittingEntrega] = useState(false);
   const [entregaMsg, setEntregaMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Cargar agencias hijas si el rol es 'grupo'
+  useEffect(() => {
+    if (!isGrupo) return;
+    const fetchGroupAgencies = async () => {
+      try {
+        const grpId = user?.grupo_id || agency?.grupo_id;
+        const grpNom = user?.grupo_nombre || agency?.grupo_nombre || user?.nombre || '';
+        let q = supabase.table('agencias').select('id, nombre_agencia, grupo_id, grupo_nombre');
+        if (grpId) {
+          q = q.or(`grupo_id.eq.${grpId},grupo_nombre.ilike.${grpNom}`);
+        } else if (grpNom) {
+          q = q.ilike('grupo_nombre', grpNom);
+        }
+        const { data, error } = await q;
+        if (!error && data && data.length > 0) {
+          setGroupAgencies(data);
+          setAgenciaEntrega(data[0].nombre_agencia);
+        }
+      } catch (e) {
+        console.error('Error fetching group agencies:', e);
+      }
+    };
+    fetchGroupAgencies();
+  }, [isGrupo, user?.grupo_id, user?.grupo_nombre, user?.nombre, agency?.grupo_id, agency?.grupo_nombre]);
 
   // 4. Voucher PIN Activo para dictar al cobrador
   const [activePinVoucher, setActivePinVoucher] = useState<{
@@ -152,27 +183,41 @@ export const SupervisorBoard: React.FC = () => {
           setSelectedCobradorId(String(cobs[0].id));
         }
 
-        // Cajeros de la agencia
-        let qCaj = supabase
-          .table('taquilla_usuarios')
-          .select('id, usuario, nombre_cajero, rol')
-          .eq('rol', 'cajero');
+        // Cajeros de la agencia o de las agencias del grupo
+        let list: { id: string; nombre: string }[] = [];
+        if (isGrupo && groupAgencies.length > 0) {
+          const agIds = groupAgencies.map((a) => a.id);
+          const { data: cajs } = await supabase
+            .table('taquilla_usuarios')
+            .select('id, usuario, nombre_cajero, rol, agencia_id')
+            .eq('rol', 'cajero')
+            .in('agencia_id', agIds);
+          list = (cajs || []).map((c: any) => ({
+            id: String(c.id),
+            nombre: c.nombre_cajero || c.usuario,
+          }));
+        } else {
+          let qCaj = supabase
+            .table('taquilla_usuarios')
+            .select('id, usuario, nombre_cajero, rol')
+            .eq('rol', 'cajero');
 
-        if (agency?.id) {
-          qCaj = qCaj.eq('agencia_id', agency.id);
-        }
+          if (agency?.id) {
+            qCaj = qCaj.eq('agencia_id', agency.id);
+          }
 
-        const { data: cajs } = await qCaj;
-        const list = (cajs || []).map((c: any) => ({
-          id: String(c.id),
-          nombre: c.nombre_cajero || c.usuario,
-        }));
+          const { data: cajs } = await qCaj;
+          list = (cajs || []).map((c: any) => ({
+            id: String(c.id),
+            nombre: c.nombre_cajero || c.usuario,
+          }));
 
-        if (list.length === 0 && agency?.usuario_taquilla) {
-          list.push({
-            id: 'taquilla',
-            nombre: agency.usuario_taquilla,
-          });
+          if (list.length === 0 && agency?.usuario_taquilla) {
+            list.push({
+              id: 'taquilla',
+              nombre: agency.usuario_taquilla,
+            });
+          }
         }
 
         setCashiersList(list);
@@ -182,7 +227,7 @@ export const SupervisorBoard: React.FC = () => {
     };
 
     fetchAuxData();
-  }, [agency?.id, agency?.usuario_taquilla]);
+  }, [agency?.id, agency?.usuario_taquilla, isGrupo, groupAgencies]);
 
   // Helper para resolver el nombre del cajero asignado
   const resolveCajeroName = useCallback(
@@ -203,7 +248,16 @@ export const SupervisorBoard: React.FC = () => {
     [cashiersList, agency?.usuario_taquilla]
   );
 
-  // Cargar todos los datos del panel de supervisión (estrictamente acotado a la agencia y cajeros asignados)
+  // Nombres de agencias autorizadas para consulta (Aislamiento por Rol Grupo o Supervisor)
+  const targetAgencyNames = useMemo(() => {
+    if (isGrupo) {
+      if (selectedGroupAgency !== 'all') return [selectedGroupAgency.trim().toUpperCase()];
+      return groupAgencies.map((a) => a.nombre_agencia.trim().toUpperCase()).filter(Boolean);
+    }
+    return agencyName ? [agencyName.trim().toUpperCase()] : [];
+  }, [isGrupo, selectedGroupAgency, groupAgencies, agencyName]);
+
+  // Cargar todos los datos del panel de supervisión (estrictamente acotado a la agencia o árbol de grupo)
   const fetchSupervisorData = useCallback(async () => {
     setLoading(true);
     setEntregaMsg(null);
@@ -214,16 +268,17 @@ export const SupervisorBoard: React.FC = () => {
         .select('*')
         .order('id', { ascending: false });
 
-      if (agencyName) {
+      if (!isGrupo && agencyName) {
         qPagos = qPagos.or(`agencia.ilike.${agencyName.trim()},nombre_agency.ilike.${agencyName.trim()}`);
       }
       const { data: pagosData } = await qPagos;
 
       // 3. Separar entregas a cobrador vs entregas de efectivo de cajeros asignados
       const rawPagos: CajeroPaymentRow[] = ((pagosData || []) as CajeroPaymentRow[]).filter((p) => {
-        if (!agencyName) return true;
-        const matchAg = (p.agencia || '').trim().toUpperCase() === agencyName.trim().toUpperCase() ||
-                        (p.nombre_agency || '').trim().toUpperCase() === agencyName.trim().toUpperCase();
+        if (targetAgencyNames.length === 0) return true;
+        const agStr = (p.agencia || '').trim().toUpperCase();
+        const nomStr = (p.nombre_agency || '').trim().toUpperCase();
+        const matchAg = targetAgencyNames.includes(agStr) || targetAgencyNames.includes(nomStr);
         const matchCaj = Boolean(p.cajero_id && cashiersList.some((c) => String(c.id) === String(p.cajero_id)));
         return matchAg || matchCaj;
       });
@@ -286,13 +341,13 @@ export const SupervisorBoard: React.FC = () => {
 
       setCustodiaMetrics(metrics);
 
-      // 5. Fetch transferencias bancarias (filtradas estrictamente por la agencia y cajeros asignados al supervisor)
+      // 5. Fetch transferencias bancarias (filtradas estrictamente por la agencia o árbol de grupo)
       let qBancos = supabase
         .table('cda_pagos_bancarios')
         .select('*')
         .order('id', { ascending: false });
 
-      if (agencyName) {
+      if (!isGrupo && agencyName) {
         qBancos = qBancos.ilike('agencia', agencyName.trim());
       }
 
@@ -306,14 +361,14 @@ export const SupervisorBoard: React.FC = () => {
 
       // Doble filtro en memoria para garantizar aislamiento total
       const scopedTransfers = ((bData || []) as BankPayment[]).filter((t) => {
-        if (!agencyName) return true;
-        const matchAg = (t.agencia || '').trim().toUpperCase() === agencyName.trim().toUpperCase();
+        if (targetAgencyNames.length === 0) return true;
+        const matchAg = targetAgencyNames.includes((t.agencia || '').trim().toUpperCase());
         const matchCaj = Boolean(t.cajero_id && cashiersList.some((c) => String(c.id) === String(t.cajero_id)));
         return matchAg || matchCaj;
       });
       setPendingTransfers(scopedTransfers);
 
-      // 6. Fetch datos de agencias y cierres (si es supervisor, exclusivamente su agencia asignada)
+      // 6. Fetch datos de agencias y cierres (si es supervisor o grupo, acotado a su jurisdicción)
       let qSales = supabase
         .table('cda_reportes_diarios')
         .select('nombre_agency, monto_venta, comision, monto_premios, cerrado')
@@ -412,8 +467,8 @@ export const SupervisorBoard: React.FC = () => {
       });
 
       const scopedAgencies = Object.values(mapAgencies).filter((summary) => {
-        if (user?.rol === 'supervisor' && agencyName) {
-          return summary.agencia.trim().toUpperCase() === agencyName.trim().toUpperCase();
+        if (targetAgencyNames.length > 0) {
+          return targetAgencyNames.includes(summary.agencia.trim().toUpperCase());
         }
         return true;
       });
@@ -424,7 +479,7 @@ export const SupervisorBoard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [agencyName, assignedCurrencies, fecha, filtroRangoBancos, systemCycle, user?.rol, cashiersList]);
+  }, [agencyName, assignedCurrencies, fecha, filtroRangoBancos, systemCycle, user?.rol, cashiersList, isGrupo, targetAgencyNames]);
 
   useEffect(() => {
     fetchSupervisorData();
@@ -578,7 +633,10 @@ export const SupervisorBoard: React.FC = () => {
     const pin6 = `${Math.floor(Math.random() * 900000 + 100000)}`;
     const qrTokenVal = `QR-REC-${pin6}`;
     const fechaActual = fecha || getTodayDateString();
-    const comentarioSupervisor = `Entrega Supervisor (${supervisorName}) a Cobrador (${cobradorNombre}) - (PIN: ${pin6})`;
+    const targetAgencyForEntrega = isGrupo
+      ? (agenciaEntrega || (selectedGroupAgency !== 'all' ? selectedGroupAgency : (groupAgencies[0]?.nombre_agencia || agencyName)))
+      : agencyName;
+    const comentarioSupervisor = `Entrega ${isGrupo ? 'Grupo' : 'Supervisor'} (${supervisorName}) a Cobrador (${cobradorNombre}) - (PIN: ${pin6})`;
 
     try {
       const tenantUserId = agency?.user_id || user?.user_id || user?.id;
@@ -589,8 +647,8 @@ export const SupervisorBoard: React.FC = () => {
         .table('cda_pagos_diarios')
         .insert({
           fecha: fechaActual,
-          agencia: agencyName,
-          nombre_agency: agencyName,
+          agencia: targetAgencyForEntrega,
+          nombre_agency: targetAgencyForEntrega,
           tipo_pago: 'Entregado a Cobrador',
           monto: Math.round(parsedMonto * 100) / 100,
           moneda: monedaEntrega,
@@ -615,13 +673,13 @@ export const SupervisorBoard: React.FC = () => {
         .table('cda_caja_efectivo_supervisor')
         .insert({
           user_id: targetUserId,
-          agencia: agencyName,
+          agencia: targetAgencyForEntrega,
           supervisor_nombre: supervisorName,
           tipo_movimiento: 'ENTREGA_COBRADOR',
           monto: Math.round(parsedMonto * 100) / 100,
           moneda: monedaEntrega,
           pago_id: insPago?.id || null,
-          comentario: `Entrega de caja ${agencyName} a Cobrador (Cobrador: ${cobradorNombre} | PIN: ${pin6})`
+          comentario: `Entrega de caja ${targetAgencyForEntrega} a Cobrador (Cobrador: ${cobradorNombre} | PIN: ${pin6})`
         });
 
       if (errCaja) {
@@ -812,16 +870,43 @@ export const SupervisorBoard: React.FC = () => {
               Pizarra de Supervisión y Arqueo
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
             </h2>
-            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-              {agencyName || 'AGENCIA CENTRAL'}
-            </span>
+            {isGrupo ? (
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-500/20 text-purple-400 border border-purple-500/30">
+                🤝 GRUPO: {user?.nombre || user?.grupo_nombre || agencyName}
+              </span>
+            ) : (
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                {agencyName || 'AGENCIA CENTRAL'}
+              </span>
+            )}
           </div>
           <p className="text-xs text-slate-400 mt-0.5">
-            Custodia de efectivo, confirmación de cajeros y entregas a cobrador de ruta
+            {isGrupo
+              ? 'Custodia de efectivo, transferencias bancarias y supervisión de agencias de la red'
+              : 'Custodia de efectivo, confirmación de cajeros y entregas a cobrador de ruta'}
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {isGrupo && groupAgencies.length > 0 && (
+            <div className="flex items-center gap-2 bg-[#071217] border border-purple-500/40 px-3 py-1.5 rounded-xl">
+              <Building2 className="w-3.5 h-3.5 text-purple-400" />
+              <span className="text-[11px] font-bold text-purple-300">Agencia:</span>
+              <select
+                value={selectedGroupAgency}
+                onChange={(e) => setSelectedGroupAgency(e.target.value)}
+                className="bg-transparent text-xs text-white focus:outline-none font-bold cursor-pointer"
+              >
+                <option value="all" className="bg-slate-900 text-white">🌐 Todas ({groupAgencies.length})</option>
+                {groupAgencies.map((a) => (
+                  <option key={a.id} value={a.nombre_agencia} className="bg-slate-900 text-white">
+                    🏢 {a.nombre_agencia}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div className="flex items-center gap-2 bg-[#071217] border border-slate-700 px-3 py-1.5 rounded-xl">
             <span className="text-[11px] font-bold text-slate-400">Fecha:</span>
             <input
@@ -1105,7 +1190,27 @@ export const SupervisorBoard: React.FC = () => {
             )}
 
             <form onSubmit={handleEntregarCobrador} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className={`grid grid-cols-1 sm:grid-cols-2 ${isGrupo ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-3`}>
+                {/* 0. Selector de Agencia (Rol Grupo) */}
+                {isGrupo && groupAgencies.length > 0 && (
+                  <div>
+                    <label className="block text-[11px] font-semibold text-purple-300 mb-1">
+                      Agencia de Origen *
+                    </label>
+                    <select
+                      value={agenciaEntrega || groupAgencies[0]?.nombre_agencia || ''}
+                      onChange={(e) => setAgenciaEntrega(e.target.value)}
+                      className="w-full bg-[#071217] border border-purple-500/40 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-400 font-bold cursor-pointer"
+                    >
+                      {groupAgencies.map((a) => (
+                        <option key={a.id} value={a.nombre_agencia} className="bg-slate-900 text-white">
+                          🏢 {a.nombre_agencia}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 {/* 1. Selector de Cobrador */}
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-400 mb-1">

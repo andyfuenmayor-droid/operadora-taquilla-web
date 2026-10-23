@@ -93,7 +93,7 @@ export const PaymentsTab: React.FC = () => {
   } | null>(null);
 
   const agencyName = agency?.nombre_agencia || '';
-  const isSupervisor = user?.rol === 'supervisor' || user?.rol === 'admin';
+  const isSupervisor = user?.rol === 'supervisor' || user?.rol === 'admin' || user?.rol === 'grupo';
   const isAgencia = user?.rol === 'agencia';
 
   // Opciones de Concepto según el rol

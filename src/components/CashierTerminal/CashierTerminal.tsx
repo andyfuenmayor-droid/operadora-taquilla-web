@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { HomeDashboard } from '../HomeDashboard/HomeDashboard';
 import { DateRangeReportTab } from '../DateRangeReport/DateRangeReportTab';
+import { GroupReportTab } from '../GroupReport/GroupReportTab';
 import { ExpensesTab } from './ExpensesTab';
 import { PaymentsTab } from './PaymentsTab';
 import { BankTransfersTab } from './BankTransfersTab';
@@ -23,7 +24,8 @@ export const CashierTerminal: React.FC<CashierTerminalProps> = ({ currentTab, on
     supervisor: allTabs,
     admin: allTabs,
     agencia: allTabs,
-    cobrador: allTabs
+    cobrador: allTabs,
+    grupo: allTabs,
   };
 
   const allowedTabs = allowedTabsByRole[role] || allowedTabsByRole.cajero;
@@ -40,7 +42,7 @@ export const CashierTerminal: React.FC<CashierTerminalProps> = ({ currentTab, on
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       {activeTab === 'inicio' && <HomeDashboard onNavigate={onTabChange} />}
-      {activeTab === 'reporte' && <DateRangeReportTab />}
+      {activeTab === 'reporte' && (role === 'grupo' ? <GroupReportTab /> : <DateRangeReportTab />)}
       {activeTab === 'historial' && <AgencyCycleHistoryTab />}
       {activeTab === 'gastos' && <ExpensesTab />}
       {activeTab === 'pagos' && <PaymentsTab />}
