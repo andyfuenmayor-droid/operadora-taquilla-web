@@ -26,10 +26,10 @@ const MainLayout: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#071217] flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 dark:bg-[#071217] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-xs font-semibold text-slate-400">Cargando Taquilla Web...</p>
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Cargando Taquilla Web...</p>
         </div>
       </div>
     );
@@ -50,7 +50,7 @@ const MainLayout: React.FC = () => {
   ].includes(currentTab);
 
   return (
-    <div className="min-h-screen bg-[#071217] text-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-black">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#071217] text-slate-900 dark:text-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-white dark:selection:text-black transition-colors">
       {/* Global In-App Floating Toast Notifications */}
       <ToastContainer />
 
@@ -69,7 +69,7 @@ const MainLayout: React.FC = () => {
         {currentTab === 'escaner' && user?.rol === 'cobrador' && <CollectorPortal />}
       </div>
 
-      <footer className="py-4 border-t border-slate-900 text-center text-xs text-slate-500">
+      <footer className="py-4 border-t border-slate-200 dark:border-slate-900 text-center text-xs text-slate-500 dark:text-slate-400">
         Taquilla Web POS &bull; taq.multibancaexpress.com &bull; &copy; {new Date().getFullYear()} Multibanca Express
       </footer>
 

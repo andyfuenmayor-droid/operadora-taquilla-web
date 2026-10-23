@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import type { BankPayment } from '../../types';
-import { formatCurrency, getTodayDateString, formatTime, formatMoney } from '../../utils/formatters';
+import { formatCurrency, getTodayDateString, formatTime, formatMoney, normalizarMoneda } from '../../utils/formatters';
 import { 
   CheckCircle2, 
   XCircle, 
@@ -299,7 +299,15 @@ export const SupervisorBoard: React.FC = () => {
 
       // 4. Calcular métricas operativas por moneda estrictamente dentro del ciclo activo
       const metrics: Record<string, CustodiaMetrics> = {};
-      const monedasToCheck = Array.from(new Set([...assignedCurrencies, 'COP', 'USD', 'BS']));
+      const allDetectedCurrencies = new Set<string>(assignedCurrencies);
+      cajeroRows.forEach((p) => { if (p.moneda) allDetectedCurrencies.add(normalizarMoneda(p.moneda)); });
+      cobradorRows.forEach((p) => { if (p.moneda) allDetectedCurrencies.add(normalizarMoneda(p.moneda)); });
+      if (allDetectedCurrencies.size === 0) {
+        allDetectedCurrencies.add('BS');
+        allDetectedCurrencies.add('USD');
+        allDetectedCurrencies.add('COP');
+      }
+      const monedasToCheck = Array.from(allDetectedCurrencies);
       
       monedasToCheck.forEach((m) => {
         metrics[m] = { balance: 0, entradas: 0, entregas: 0, pendientes: 0 };
@@ -314,7 +322,7 @@ export const SupervisorBoard: React.FC = () => {
         const inCycle = !cycleDesde || (fStr >= cycleDesde && fStr <= (cycleHasta || fStr));
         if (!inCycle || p.rechazado) return;
 
-        const mon = (p.moneda || 'COP').toUpperCase();
+        const mon = normalizarMoneda(p.moneda || assignedCurrencies[0] || 'BS');
         if (!metrics[mon]) metrics[mon] = { balance: 0, entradas: 0, entregas: 0, pendientes: 0 };
         const mto = Number(p.monto) || 0;
 
@@ -332,7 +340,7 @@ export const SupervisorBoard: React.FC = () => {
         const inCycle = !cycleDesde || (fStr >= cycleDesde && fStr <= (cycleHasta || fStr));
         if (!inCycle || p.rechazado) return;
 
-        const mon = (p.moneda || 'COP').toUpperCase();
+        const mon = normalizarMoneda(p.moneda || assignedCurrencies[0] || 'BS');
         if (!metrics[mon]) metrics[mon] = { balance: 0, entradas: 0, entregas: 0, pendientes: 0 };
         const mto = Number(p.monto) || 0;
 

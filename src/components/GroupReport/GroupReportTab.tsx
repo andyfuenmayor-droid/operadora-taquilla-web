@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { formatCurrency } from '../../utils/formatters';
+import { getCurrencyFlag } from '../../utils/currencies';
 import type { Agency, Grupo } from '../../types';
 import {
   Handshake,
@@ -31,7 +32,7 @@ interface AgencyGroupRow {
 }
 
 export const GroupReportTab: React.FC = () => {
-  const { user, systemCycle } = useAuth();
+  const { user, systemCycle, assignedCurrencies } = useAuth();
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -141,6 +142,7 @@ export const GroupReportTab: React.FC = () => {
   // Rows calculation per agency and currency
   const calculatedRows: AgencyGroupRow[] = useMemo(() => {
     const rows: AgencyGroupRow[] = [];
+    const fallbackCurrencies = (assignedCurrencies && assignedCurrencies.length > 0) ? assignedCurrencies : ['USD'];
 
     daughterAgencies.forEach((ag) => {
       const agNom = ag.nombre_agencia.toUpperCase();
@@ -148,7 +150,7 @@ export const GroupReportTab: React.FC = () => {
 
       const agMonedas = ag.monedas
         ? ag.monedas.split(',').map((m) => m.trim().toUpperCase()).filter(Boolean)
-        : ['BS', 'USD', 'COP'];
+        : fallbackCurrencies;
 
       agMonedas.forEach((mon) => {
         const agSales = salesRecords.filter((s: any) => {
@@ -261,7 +263,7 @@ export const GroupReportTab: React.FC = () => {
     });
 
     return rows;
-  }, [daughterAgencies, salesRecords, dailyPayments, bankPayments, expenses, groupConditions, grupo]);
+  }, [daughterAgencies, salesRecords, dailyPayments, bankPayments, expenses, groupConditions, grupo, assignedCurrencies]);
 
   // KPI summary by currency
   const kpiByCurrency = useMemo(() => {
@@ -376,20 +378,20 @@ export const GroupReportTab: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-[#0D1B22] via-[#10242E] to-[#0D1B22] border border-purple-500/30 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
+      <div className="bg-white dark:bg-[#0D1B22] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm dark:shadow-2xl relative overflow-hidden transition-colors">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10">
           <div className="space-y-1.5">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-400 text-xs font-bold">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs font-bold">
               <Handshake className="w-3.5 h-3.5" />
               <span>Portal de Auditoría y Liquidación para Grupos</span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2.5">
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2.5">
               <span>{grupoNombre}</span>
-              <span className="text-xs px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 font-mono font-normal">
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 font-mono font-normal">
                 {daughterAgencies.length} agencias en árbol
               </span>
             </h1>
-            <p className="text-xs sm:text-sm text-slate-400">
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
               Ciclo {systemCycle?.tipo === 'SEMANAL' ? 'Semanal' : 'Diario'} • Semana {systemCycle?.semana || 'Actual'} ({systemCycle?.desde || ''} al {systemCycle?.hasta || ''})
             </p>
           </div>
@@ -398,9 +400,9 @@ export const GroupReportTab: React.FC = () => {
             <button
               onClick={loadData}
               disabled={loading}
-              className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold text-xs flex items-center gap-2 transition-all border border-slate-700 cursor-pointer"
+              className="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs flex items-center gap-2 transition-all border border-slate-200 dark:border-slate-700 cursor-pointer"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-purple-400' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-emerald-600 dark:text-emerald-400' : ''}`} />
               <span>Actualizar</span>
             </button>
 
@@ -409,7 +411,7 @@ export const GroupReportTab: React.FC = () => {
               className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
                 copied
                   ? 'bg-emerald-500 text-slate-950 font-black'
-                  : 'bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 border border-emerald-500/30'
+                  : 'bg-emerald-50 dark:bg-emerald-600/20 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-600/30 border border-emerald-300 dark:border-emerald-500/30'
               }`}
             >
               {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
@@ -418,7 +420,7 @@ export const GroupReportTab: React.FC = () => {
 
             <button
               onClick={handlePrint}
-              className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-2 transition-all cursor-pointer shadow-lg shadow-purple-600/20"
+              className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-2 transition-all cursor-pointer shadow-md shadow-emerald-600/20"
             >
               <Printer className="w-4 h-4" />
               <span>Imprimir PDF</span>
@@ -430,61 +432,61 @@ export const GroupReportTab: React.FC = () => {
       {/* KPI Cards por Divisa */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {Object.entries(kpiByCurrency).map(([mon, k]) => {
-          const flag = mon === 'BS' ? '🇻🇪' : mon === 'USD' ? '🇺🇸' : mon === 'COP' ? '🇨🇴' : '🌐';
+          const flag = getCurrencyFlag(mon);
           return (
             <div
               key={mon}
-              className="bg-[#0D1B22] border border-slate-800 rounded-3xl p-5 shadow-xl space-y-3.5"
+              className="bg-white dark:bg-[#0D1B22] border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-sm dark:shadow-xl space-y-3.5 transition-colors"
             >
-              <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
                 <div className="flex items-center gap-2">
                   <span className="text-xl select-none">{flag}</span>
                   <div>
-                    <span className="text-xs font-black text-white font-mono uppercase">{mon}</span>
-                    <span className="text-[10px] text-slate-400 block font-sans">
+                    <span className="text-xs font-black text-slate-900 dark:text-white font-mono uppercase">{mon}</span>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-sans">
                       {k.countAgencias} agencias activas
                     </span>
                   </div>
                 </div>
-                <span className="px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono font-bold text-[10px] border border-purple-500/30">
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-mono font-bold text-[10px] border border-emerald-200 dark:border-emerald-500/30">
                   Red Grupo
                 </span>
               </div>
 
               <div className="space-y-1.5 text-xs font-mono">
-                <div className="flex justify-between text-slate-400">
+                <div className="flex justify-between text-slate-600 dark:text-slate-400">
                   <span>Venta Total Red:</span>
-                  <span className="text-white font-bold">{formatCurrency(k.ventaTotal, mon)}</span>
+                  <span className="text-slate-900 dark:text-white font-bold">{formatCurrency(k.ventaTotal, mon)}</span>
                 </div>
-                <div className="flex justify-between text-slate-400">
+                <div className="flex justify-between text-slate-600 dark:text-slate-400">
                   <span>Premios Pagados:</span>
-                  <span className="text-rose-400">-{formatCurrency(k.premiosTotal, mon)}</span>
+                  <span className="text-rose-600 dark:text-rose-400">-{formatCurrency(k.premiosTotal, mon)}</span>
                 </div>
-                <div className="flex justify-between text-slate-400">
+                <div className="flex justify-between text-slate-600 dark:text-slate-400">
                   <span>Por Cobrar a Agencias:</span>
-                  <span className="text-amber-400 font-bold">{formatCurrency(k.netoRecaudar, mon)}</span>
+                  <span className="text-amber-600 dark:text-amber-400 font-bold">{formatCurrency(k.netoRecaudar, mon)}</span>
                 </div>
 
-                <div className="my-2 p-2 rounded-xl bg-purple-950/20 border border-purple-500/20 space-y-1">
-                  <div className="flex justify-between text-purple-300">
+                <div className="my-2 p-2.5 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-500/20 space-y-1">
+                  <div className="flex justify-between text-emerald-800 dark:text-emerald-300">
                     <span>Dif. Comisión (+):</span>
                     <span className="font-bold">+{formatCurrency(k.difComision, mon)}</span>
                   </div>
                   {k.difParticipacion > 0 && (
-                    <div className="flex justify-between text-purple-300">
+                    <div className="flex justify-between text-emerald-800 dark:text-emerald-300">
                       <span>Dif. Participación (+):</span>
                       <span className="font-bold">+{formatCurrency(k.difParticipacion, mon)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-emerald-400 font-black text-xs pt-1 border-t border-purple-500/30">
+                  <div className="flex justify-between text-emerald-700 dark:text-emerald-400 font-black text-xs pt-1 border-t border-emerald-200 dark:border-emerald-500/30">
                     <span>Ganancia Neta Grupo:</span>
                     <span>+{formatCurrency(k.gananciaGrupo, mon)}</span>
                   </div>
                 </div>
 
-                <div className="flex justify-between items-center text-xs font-bold pt-1.5 border-t border-slate-800 text-slate-200">
+                <div className="flex justify-between items-center text-xs font-bold pt-1.5 border-t border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200">
                   <span>Balance Comercializadora:</span>
-                  <span className={k.balanceComercializadora >= 0 ? 'text-sky-400' : 'text-rose-400'}>
+                  <span className={k.balanceComercializadora >= 0 ? 'text-sky-600 dark:text-sky-400' : 'text-rose-600 dark:text-rose-400'}>
                     {formatCurrency(k.balanceComercializadora, mon)}
                   </span>
                 </div>
@@ -495,7 +497,7 @@ export const GroupReportTab: React.FC = () => {
       </div>
 
       {/* Filtros de Tabla */}
-      <div className="bg-[#0D1B22] border border-slate-800 rounded-3xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="bg-white dark:bg-[#0D1B22] border border-slate-200 dark:border-slate-800 rounded-3xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm transition-colors">
         <div className="relative flex-1">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
@@ -503,7 +505,7 @@ export const GroupReportTab: React.FC = () => {
             placeholder="Buscar agencia de su red..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 rounded-xl bg-[#071217] border border-slate-700 text-xs text-white focus:outline-none focus:border-purple-500"
+            className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-50 dark:bg-[#071217] border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 transition-colors"
           />
         </div>
 
@@ -511,7 +513,7 @@ export const GroupReportTab: React.FC = () => {
           <select
             value={selectedCurrency}
             onChange={(e) => setSelectedCurrency(e.target.value)}
-            className="px-3 py-2 rounded-xl bg-[#071217] border border-slate-700 text-xs text-white focus:outline-none focus:border-purple-500 font-medium cursor-pointer"
+            className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#071217] border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 font-medium cursor-pointer transition-colors"
           >
             <option value="ALL">Todas las Monedas</option>
             {Object.keys(kpiByCurrency).map((m) => (
@@ -524,7 +526,7 @@ export const GroupReportTab: React.FC = () => {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="px-3 py-2 rounded-xl bg-[#071217] border border-slate-700 text-xs text-white focus:outline-none focus:border-purple-500 font-medium cursor-pointer"
+            className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#071217] border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 font-medium cursor-pointer transition-colors"
           >
             <option value="all">Todos los Estados</option>
             <option value="PENDIENTE">🔴 Pendiente por Cobrar</option>
@@ -535,10 +537,10 @@ export const GroupReportTab: React.FC = () => {
       </div>
 
       {/* Tabla Desglosada Agencia por Agencia */}
-      <div className="bg-[#0D1B22] border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
-        <div className="p-5 border-b border-slate-800 flex items-center justify-between">
-          <h3 className="text-sm font-black text-white flex items-center gap-2">
-            <Building2 className="w-4 h-4 text-purple-400" />
+      <div className="bg-white dark:bg-[#0D1B22] border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm dark:shadow-2xl transition-colors">
+        <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+          <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+            <Building2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
             <span>Desglose por Agencia ({filteredRows.length} registros)</span>
           </h3>
         </div>
@@ -546,7 +548,7 @@ export const GroupReportTab: React.FC = () => {
         <div className="overflow-x-auto custom-scrollbar">
           <table className="w-full text-xs font-mono">
             <thead>
-              <tr className="bg-[#071217] text-slate-400 border-b border-slate-800 text-[11px] uppercase tracking-wider">
+              <tr className="bg-slate-50 dark:bg-[#071217] text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 text-[11px] uppercase tracking-wider">
                 <th className="py-3 px-4 text-left font-sans">Agencia</th>
                 <th className="py-3 px-3 text-center font-sans">Moneda</th>
                 <th className="py-3 px-3 text-right">Venta Bruta</th>
@@ -554,58 +556,58 @@ export const GroupReportTab: React.FC = () => {
                 <th className="py-3 px-3 text-right">Venta Neta</th>
                 <th className="py-3 px-3 text-right">Cobrado</th>
                 <th className="py-3 px-3 text-right">Gastos</th>
-                <th className="py-3 px-3 text-right font-black text-amber-400">Por Cobrar</th>
-                <th className="py-3 px-3 text-right font-black text-emerald-400">Ganancia Grupo</th>
+                <th className="py-3 px-3 text-right font-black text-amber-600 dark:text-amber-400">Por Cobrar</th>
+                <th className="py-3 px-3 text-right font-black text-emerald-600 dark:text-emerald-400">Ganancia Grupo</th>
                 <th className="py-3 px-4 text-center font-sans">Estado</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/80">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
               {filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-12 text-center text-slate-400 font-sans">
+                  <td colSpan={10} className="py-12 text-center text-slate-500 dark:text-slate-400 font-sans">
                     No se encontraron agencias ni ventas para los filtros aplicados.
                   </td>
                 </tr>
               ) : (
                 filteredRows.map((row) => (
-                  <tr key={`${row.agenciaId}_${row.moneda}`} className="hover:bg-slate-800/40 transition-colors">
-                    <td className="py-3 px-4 font-sans font-bold text-white whitespace-nowrap">
+                  <tr key={`${row.agenciaId}_${row.moneda}`} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                    <td className="py-3 px-4 font-sans font-bold text-slate-900 dark:text-white whitespace-nowrap">
                       {row.nombreAgencia}
                     </td>
                     <td className="py-3 px-3 text-center">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                         {row.moneda}
                       </span>
                     </td>
-                    <td className="py-3 px-3 text-right text-slate-300">
+                    <td className="py-3 px-3 text-right text-slate-700 dark:text-slate-300">
                       {formatCurrency(row.ventaBruta, row.moneda)}
                     </td>
-                    <td className="py-3 px-3 text-right text-rose-400">
+                    <td className="py-3 px-3 text-right text-rose-600 dark:text-rose-400">
                       -{formatCurrency(row.premios, row.moneda)}
                     </td>
-                    <td className="py-3 px-3 text-right text-slate-300">
+                    <td className="py-3 px-3 text-right text-slate-700 dark:text-slate-300">
                       {formatCurrency(row.ventaNeta, row.moneda)}
                     </td>
-                    <td className="py-3 px-3 text-right text-sky-400">
+                    <td className="py-3 px-3 text-right text-sky-600 dark:text-sky-400">
                       {row.cobros > 0 ? `-${formatCurrency(row.cobros, row.moneda)}` : '-'}
                     </td>
-                    <td className="py-3 px-3 text-right text-rose-400">
+                    <td className="py-3 px-3 text-right text-rose-600 dark:text-rose-400">
                       {row.gastos > 0 ? `-${formatCurrency(row.gastos, row.moneda)}` : '-'}
                     </td>
-                    <td className="py-3 px-3 text-right font-black text-amber-400">
+                    <td className="py-3 px-3 text-right font-black text-amber-600 dark:text-amber-400">
                       {formatCurrency(row.saldoAgencia, row.moneda)}
                     </td>
-                    <td className="py-3 px-3 text-right font-black text-emerald-400">
+                    <td className="py-3 px-3 text-right font-black text-emerald-600 dark:text-emerald-400">
                       +{formatCurrency(row.gananciaGrupo, row.moneda)}
                     </td>
                     <td className="py-3 px-4 text-center">
                       <span
                         className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase font-sans ${
                           row.status === 'PENDIENTE'
-                            ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                            ? 'bg-rose-50 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/30'
                             : row.status === 'CUADRADO'
-                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                            : 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
+                            ? 'bg-emerald-50 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30'
+                            : 'bg-sky-50 dark:bg-sky-500/20 text-sky-700 dark:text-sky-400 border border-sky-200 dark:border-sky-500/30'
                         }`}
                       >
                         {row.status}

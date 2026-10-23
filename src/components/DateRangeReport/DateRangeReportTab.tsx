@@ -254,7 +254,7 @@ export const DateRangeReportTab: React.FC = () => {
         <button
           onClick={() => fetchReportData(true)}
           disabled={loading}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold transition-all shadow-md shadow-emerald-500/10 cursor-pointer disabled:opacity-50"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-sm cursor-pointer disabled:opacity-50"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           <span>Actualizar</span>
@@ -271,7 +271,7 @@ export const DateRangeReportTab: React.FC = () => {
               onClick={() => setSelectedCurrency(curr)}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 isActive
-                  ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/20'
+                  ? 'bg-emerald-600 text-white shadow-sm'
                   : isLight
                   ? 'bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 border border-slate-200 shadow-xs'
                   : 'bg-[#0D1B22] text-slate-400 hover:text-white hover:bg-slate-800/60 border border-slate-800/80'
@@ -719,7 +719,7 @@ export const DateRangeReportTab: React.FC = () => {
 
             <button
               onClick={handleShareWhatsApp}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold transition-all shadow-md shadow-emerald-500/20 cursor-pointer"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-sm cursor-pointer"
             >
               <Share2 className="w-3.5 h-3.5" />
               <span>📲 Compartir por WhatsApp</span>

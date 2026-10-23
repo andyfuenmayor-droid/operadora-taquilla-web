@@ -785,7 +785,7 @@ export const BankTransfersTab: React.FC = () => {
             onClick={() => setSubTab(t.id)}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
               subTab === t.id
-                ? 'bg-emerald-500 text-black shadow-md font-extrabold'
+                ? 'bg-emerald-600 text-white shadow-sm font-extrabold'
                 : isLight
                 ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                 : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
@@ -1312,7 +1312,7 @@ export const BankTransfersTab: React.FC = () => {
                 <button
                   type="submit"
                   disabled={submitting || isDayClosed}
-                  className="w-full py-3.5 px-4 rounded-xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+                  className="w-full py-3.5 px-4 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm disabled:opacity-50"
                 >
                   <Send className="w-4 h-4" />
                   <span>{submitting ? 'GUARDANDO PAGO...' : '💾 REGISTRAR PAGO BANCARIO'}</span>

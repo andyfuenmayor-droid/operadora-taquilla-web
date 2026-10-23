@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import type { DailyPayment } from '../../types';
 import { formatCurrency, formatDate, formatTime, normalizarMoneda } from '../../utils/formatters';
+import { getCurrencyFlag } from '../../utils/currencies';
 import { 
   Camera, 
   CameraOff, 
@@ -27,7 +28,7 @@ interface AgencyRouteItem {
 }
 
 export const CollectorPortal: React.FC = () => {
-  const { user } = useAuth();
+  const { user, assignedCurrencies } = useAuth();
   const [activeTab, setActiveTab] = useState<'scan' | 'route' | 'custody'>('scan');
 
   // Scanner & PIN state
@@ -249,54 +250,62 @@ export const CollectorPortal: React.FC = () => {
   };
 
   // Compute active custody metrics per currency (only payments not yet settled/liquidated to admin)
-  const activeCustodyHistory = collectedHistory.filter((h) => !h.liquidado_admin);
+  const activeCustodyHistory = useMemo(() => {
+    return collectedHistory.filter((h) => !h.liquidado_admin);
+  }, [collectedHistory]);
 
-  const custodyBS = activeCustodyHistory
-    .filter((h) => normalizarMoneda(h.moneda) === 'BS')
-    .reduce((acc, h) => acc + (Number(h.monto) || 0), 0);
+  const custodyByCurrency = useMemo(() => {
+    const map: Record<string, number> = {};
+    const activeCurrs = (assignedCurrencies && assignedCurrencies.length > 0)
+      ? assignedCurrencies
+      : ['USD', 'BS', 'COP'];
 
-  const custodyUSD = activeCustodyHistory
-    .filter((h) => normalizarMoneda(h.moneda) === 'USD')
-    .reduce((acc, h) => acc + (Number(h.monto) || 0), 0);
+    activeCurrs.forEach((c) => {
+      map[normalizarMoneda(c)] = 0;
+    });
 
-  const custodyCOP = activeCustodyHistory
-    .filter((h) => normalizarMoneda(h.moneda) === 'COP')
-    .reduce((acc, h) => acc + (Number(h.monto) || 0), 0);
+    activeCustodyHistory.forEach((h) => {
+      const cur = normalizarMoneda(h.moneda);
+      map[cur] = (map[cur] || 0) + (Number(h.monto) || 0);
+    });
+
+    return map;
+  }, [activeCustodyHistory, assignedCurrencies]);
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-emerald-950/40 via-[#0D1B22] to-sky-950/40 border border-emerald-500/30 p-5 rounded-2xl">
+      <div className="bg-white dark:bg-[#0D1B22] border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm dark:shadow-xl transition-colors">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20">
               <QrCode className="w-7 h-7" />
             </div>
             <div>
-              <div className="text-[10px] uppercase font-extrabold tracking-wider text-emerald-400">
+              <div className="text-[10px] uppercase font-extrabold tracking-wider text-emerald-600 dark:text-emerald-400">
                 Portal Móvil de Cobranza & Validación
               </div>
-              <h2 className="text-xl font-black text-white">
+              <h2 className="text-xl font-black text-slate-900 dark:text-white">
                 Hola, {collectorName}
               </h2>
-              <div className="text-xs text-slate-400">
+              <div className="text-xs text-slate-500 dark:text-slate-400">
                 Validación instantánea de entregas y custodia de fondos en ruta
               </div>
             </div>
           </div>
-          <div className="px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-bold">
+          <div className="px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs font-bold">
             🟢 EN TURNO ACTIVO
           </div>
         </div>
 
         {/* Sub-tabs Navigation */}
-        <div className="flex items-center gap-2 mt-5 border-t border-slate-800/80 pt-4 overflow-x-auto">
+        <div className="flex items-center gap-2 mt-5 border-t border-slate-200 dark:border-slate-800/80 pt-4 overflow-x-auto">
           <button
             onClick={() => setActiveTab('scan')}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               activeTab === 'scan'
-                ? 'bg-emerald-500 text-black shadow-md'
-                : 'bg-slate-800/60 text-slate-300 hover:text-white'
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             <KeyRound className="w-4 h-4" />
@@ -307,8 +316,8 @@ export const CollectorPortal: React.FC = () => {
             onClick={() => setActiveTab('route')}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               activeTab === 'route'
-                ? 'bg-emerald-500 text-black shadow-md'
-                : 'bg-slate-800/60 text-slate-300 hover:text-white'
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             <MapPin className="w-4 h-4" />
@@ -319,8 +328,8 @@ export const CollectorPortal: React.FC = () => {
             onClick={() => setActiveTab('custody')}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               activeTab === 'custody'
-                ? 'bg-emerald-500 text-black shadow-md'
-                : 'bg-slate-800/60 text-slate-300 hover:text-white'
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             <Coins className="w-4 h-4" />
@@ -336,15 +345,15 @@ export const CollectorPortal: React.FC = () => {
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Camera Box */}
-            <div className="bg-[#0D1B22] border border-slate-800 rounded-2xl p-5 flex flex-col items-center justify-center min-h-[290px]">
+            <div className="bg-white dark:bg-[#0D1B22] border border-slate-200 dark:border-slate-800 rounded-2xl p-5 flex flex-col items-center justify-center min-h-[290px] shadow-sm transition-colors">
               <div
                 id="qr-reader-container"
-                className="w-full max-w-[260px] h-[220px] rounded-xl overflow-hidden bg-black/40 border border-slate-700/60 flex items-center justify-center relative mb-4"
+                className="w-full max-w-[260px] h-[220px] rounded-xl overflow-hidden bg-slate-100 dark:bg-black/40 border border-slate-200 dark:border-slate-700/60 flex items-center justify-center relative mb-4"
               >
                 {!isScanning && (
                   <div className="text-center p-4">
-                    <Camera className="w-10 h-10 text-slate-600 mx-auto mb-2" />
-                    <span className="text-xs text-slate-400">Cámara Inactiva</span>
+                    <Camera className="w-10 h-10 text-slate-400 dark:text-slate-600 mx-auto mb-2" />
+                    <span className="text-xs text-slate-500 dark:text-slate-400">Cámara Inactiva</span>
                   </div>
                 )}
               </div>
@@ -353,7 +362,7 @@ export const CollectorPortal: React.FC = () => {
                 {!isScanning ? (
                   <button
                     onClick={startScanner}
-                    className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 transition-all cursor-pointer"
+                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
                   >
                     <Camera className="w-4 h-4" />
                     <span>Activar Cámara QR</span>
@@ -361,7 +370,7 @@ export const CollectorPortal: React.FC = () => {
                 ) : (
                   <button
                     onClick={stopScanner}
-                    className="w-full bg-rose-500 hover:bg-rose-400 text-white font-bold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    className="w-full bg-rose-600 hover:bg-rose-500 text-white font-bold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
                   >
                     <CameraOff className="w-4 h-4" />
                     <span>Detener Cámara</span>
@@ -371,13 +380,13 @@ export const CollectorPortal: React.FC = () => {
             </div>
 
             {/* Manual PIN / Ticket Input */}
-            <div className="bg-[#0D1B22] border border-slate-800 rounded-2xl p-5 flex flex-col justify-between">
+            <div className="bg-white dark:bg-[#0D1B22] border border-slate-200 dark:border-slate-800 rounded-2xl p-5 flex flex-col justify-between shadow-sm transition-colors">
               <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-2 flex items-center gap-2">
-                  <KeyRound className="w-4 h-4 text-sky-400" />
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                  <KeyRound className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   Validación Rápida por Código PIN (6 Dígitos)
                 </h3>
-                <p className="text-xs text-slate-400 mb-4">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
                   Ingresa el código PIN de 6 dígitos que te dictó o generó la taquilla:
                 </p>
 
@@ -387,12 +396,12 @@ export const CollectorPortal: React.FC = () => {
                     value={manualCode}
                     onChange={(e) => setManualCode(e.target.value)}
                     placeholder="Ej. 482910 o TK-9382"
-                    className="w-full bg-[#071217] border border-slate-700 rounded-xl px-4 py-3 text-lg text-white font-mono font-bold uppercase focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-slate-50 dark:bg-[#071217] border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-lg text-slate-900 dark:text-white font-mono font-bold uppercase focus:outline-none focus:border-emerald-500 transition-colors"
                   />
                   <button
                     type="submit"
                     disabled={loadingVerify || !manualCode.trim()}
-                    className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black font-black py-3 px-4 rounded-xl text-xs transition-all cursor-pointer disabled:opacity-50"
+                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3 px-4 rounded-xl text-xs transition-all cursor-pointer disabled:opacity-50 shadow-sm"
                   >
                     {loadingVerify ? 'Verificando...' : '⚡ VALIDAR PIN / TICKET'}
                   </button>
@@ -400,7 +409,7 @@ export const CollectorPortal: React.FC = () => {
               </div>
 
               {errorStatus && (
-                <div className="mt-4 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-start gap-2">
+                <div className="mt-4 p-3.5 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs flex items-start gap-2">
                   <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                   <div>{errorStatus}</div>
                 </div>
@@ -410,19 +419,19 @@ export const CollectorPortal: React.FC = () => {
 
           {/* Verified Ticket Card */}
           {verifiedTicket && (
-            <div className="bg-[#0D1B22] border-2 border-emerald-500/50 rounded-2xl p-6 shadow-2xl animate-fadeIn">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-4 mb-4">
+            <div className="bg-white dark:bg-[#0D1B22] border-2 border-emerald-500 rounded-2xl p-6 shadow-sm dark:shadow-2xl transition-colors">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-800 pb-4 mb-4">
                 <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
                     Comprobante Autenticado
                   </span>
-                  <h3 className="text-2xl font-mono font-black text-white">
+                  <h3 className="text-2xl font-mono font-black text-slate-900 dark:text-white">
                     #{verifiedTicket.ticket_nro || verifiedTicket.qr_token || verifiedTicket.id}
                   </h3>
                 </div>
                 <button
                   onClick={() => setVerifiedTicket(null)}
-                  className="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                  className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                   title="Limpiar"
                 >
                   <RotateCcw className="w-4 h-4" />
@@ -431,43 +440,43 @@ export const CollectorPortal: React.FC = () => {
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
                 <div>
-                  <div className="text-[11px] text-slate-400">Agencia</div>
-                  <div className="font-bold text-white text-sm">{verifiedTicket.agencia}</div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">Agencia</div>
+                  <div className="font-bold text-slate-900 dark:text-white text-sm">{verifiedTicket.agencia}</div>
                 </div>
                 <div>
-                  <div className="text-[11px] text-slate-400">Fecha y Hora</div>
-                  <div className="font-mono text-slate-300 text-sm">
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">Fecha y Hora</div>
+                  <div className="font-mono text-slate-700 dark:text-slate-300 text-sm">
                     {verifiedTicket.fecha} {verifiedTicket.hora ? formatTime(verifiedTicket.hora) : ''}
                   </div>
                 </div>
                 <div>
-                  <div className="text-[11px] text-slate-400">Tipo de Entrega</div>
-                  <div className="font-semibold text-sky-400 text-sm">{verifiedTicket.metodo_pago || 'Efectivo Ruta'}</div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">Tipo de Entrega</div>
+                  <div className="font-semibold text-sky-600 dark:text-sky-400 text-sm">{verifiedTicket.metodo_pago || 'Efectivo Ruta'}</div>
                 </div>
                 <div>
-                  <div className="text-[11px] text-slate-400">Monto</div>
-                  <div className="font-mono font-black text-emerald-400 text-xl">
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">Monto</div>
+                  <div className="font-mono font-black text-emerald-600 dark:text-emerald-400 text-xl">
                     {formatCurrency(verifiedTicket.monto, verifiedTicket.moneda)}
                   </div>
                 </div>
               </div>
 
-              <div className="p-4 rounded-xl bg-[#071217] border border-slate-800 flex flex-wrap items-center justify-between gap-3">
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#071217] border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <div className="text-xs text-slate-400">Estado:</div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400">Estado:</div>
                   <div className="text-sm font-bold mt-0.5">
                     {verifiedTicket.liquidado_admin ? (
-                      <span className="text-emerald-400 flex items-center gap-1.5">
+                      <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
                         <CheckCircle2 className="w-4 h-4" />
                         🏛️ Entregado y liquidado a Administración
                       </span>
                     ) : verifiedTicket.fecha_escaneo_cobrador ? (
-                      <span className="text-amber-400 flex items-center gap-1.5">
+                      <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
                         <CheckCircle2 className="w-4 h-4" />
                         🛵 En Custodia Activa ({verifiedTicket.cobrador_nombre || collectorName})
                       </span>
                     ) : (
-                      <span className="text-emerald-400 flex items-center gap-1.5">
+                      <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
                         <CheckCircle2 className="w-4 h-4" />
                         Listo para Recibir Efectivo
                       </span>
@@ -479,7 +488,7 @@ export const CollectorPortal: React.FC = () => {
                   <button
                     onClick={() => handleConfirmCollection(verifiedTicket)}
                     disabled={loadingConfirm}
-                    className="bg-emerald-500 hover:bg-emerald-400 text-black font-black px-6 py-3 rounded-xl text-xs shadow-lg shadow-emerald-500/20 transition-all cursor-pointer disabled:opacity-50"
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-6 py-3 rounded-xl text-xs shadow-sm transition-all cursor-pointer disabled:opacity-50"
                   >
                     {loadingConfirm ? 'Registrando...' : '🤝 CONFIRMAR RECEPCIÓN DE EFECTIVO'}
                   </button>
@@ -489,23 +498,23 @@ export const CollectorPortal: React.FC = () => {
           )}
 
           {/* Pending Collections in Route */}
-          <div className="bg-[#0D1B22] border border-slate-800 rounded-2xl overflow-hidden shadow-lg p-5">
+          <div className="bg-white dark:bg-[#0D1B22] border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm p-5 transition-colors">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-                <HandCoins className="w-4 h-4 text-emerald-400" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                <HandCoins className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 Entregas en Efectivo Pendientes por Cobrar ({pendingCollections.length})
               </h3>
               <button
                 onClick={loadCollectorData}
-                className="text-xs text-slate-400 hover:text-white"
+                className="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
               >
                 Actualizar
               </button>
             </div>
 
             {pendingCollections.length === 0 ? (
-              <div className="p-6 text-center text-slate-400 text-xs bg-[#071217] rounded-xl border border-slate-800 space-y-2">
-                <div className="text-sm font-bold text-emerald-400">
+              <div className="p-6 text-center text-slate-500 dark:text-slate-400 text-xs bg-slate-50 dark:bg-[#071217] rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
+                <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
                   ✅ ¡Al día! No hay entregas pendientes de confirmación en tus agencias asignadas.
                 </div>
                 <p className="text-[11px] text-slate-500 max-w-md mx-auto">
@@ -515,9 +524,9 @@ export const CollectorPortal: React.FC = () => {
                   <div className="pt-2">
                     <button
                       onClick={() => setActiveTab('custody')}
-                      className="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer border border-slate-700"
+                      className="px-3.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer border border-slate-200 dark:border-slate-700"
                     >
-                      <Receipt className="w-3.5 h-3.5 text-emerald-400" />
+                      <Receipt className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                       <span>Ver historial de recaudaciones ({collectedHistory.length} registros)</span>
                     </button>
                   </div>
@@ -530,28 +539,28 @@ export const CollectorPortal: React.FC = () => {
                   return (
                     <div
                       key={item.id}
-                      className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl bg-[#071217] border border-slate-800/80 hover:border-slate-700 transition-colors"
+                      className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl bg-slate-50 dark:bg-[#071217] border border-slate-200 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700 transition-colors"
                     >
                       <div>
-                        <div className="text-sm font-black text-white">🏢 {item.agencia}</div>
-                        <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-2">
+                        <div className="text-sm font-black text-slate-900 dark:text-white">🏢 {item.agencia}</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-2">
                           <span>📅 {item.fecha}</span>
                           <span>&bull;</span>
-                          <span>PIN: <strong className="font-mono text-sky-400">{pinCode}</strong></span>
+                          <span>PIN: <strong className="font-mono text-sky-600 dark:text-sky-400">{pinCode}</strong></span>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-4">
                         <div className="text-right">
-                          <div className="text-xs text-slate-400 font-semibold uppercase">Monto a Recibir</div>
-                          <div className="text-lg font-black font-mono text-emerald-400">
+                          <div className="text-xs text-slate-500 dark:text-slate-400 font-semibold uppercase">Monto a Recibir</div>
+                          <div className="text-lg font-black font-mono text-emerald-600 dark:text-emerald-400">
                             {formatCurrency(item.monto, item.moneda)}
                           </div>
                         </div>
 
                         <button
                           onClick={() => handleConfirmCollection(item)}
-                          className="bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold px-4 py-2 rounded-xl text-xs transition-all cursor-pointer"
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-4 py-2 rounded-xl text-xs transition-all cursor-pointer shadow-sm"
                         >
                           🤝 Recibir
                         </button>
@@ -569,13 +578,13 @@ export const CollectorPortal: React.FC = () => {
       {/* TAB 2: MI RUTA DE AGENCIAS */}
       {/* ========================================================= */}
       {activeTab === 'route' && (
-        <div className="bg-[#0D1B22] border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+        <div className="bg-white dark:bg-[#0D1B22] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4 transition-colors">
           <div>
-            <h3 className="text-sm font-bold uppercase tracking-wider text-white flex items-center gap-2">
-              <MapPin className="w-5 h-5 text-sky-400" />
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
+              <MapPin className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
               Directorio de Agencias en Ruta
             </h3>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               Puntos de venta configurados para visitas de cobranza física:
             </p>
           </div>
@@ -594,11 +603,11 @@ export const CollectorPortal: React.FC = () => {
                 return (
                   <div
                     key={idx}
-                    className="p-4 rounded-xl bg-[#071217] border border-slate-800 flex items-center justify-between gap-3"
+                    className="p-4 rounded-xl bg-slate-50 dark:bg-[#071217] border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 transition-colors"
                   >
                     <div>
-                      <div className="font-bold text-white text-sm">🏢 {ag.nombre_agencia}</div>
-                      <div className="text-[11px] text-emerald-400 font-semibold mt-1">
+                      <div className="font-bold text-slate-900 dark:text-white text-sm">🏢 {ag.nombre_agencia}</div>
+                      <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-1">
                         🟢 Habilitada en Ruta
                       </div>
                     </div>
@@ -608,13 +617,13 @@ export const CollectorPortal: React.FC = () => {
                         href={waUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold hover:bg-emerald-500/30 transition-colors"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 text-xs font-bold hover:bg-emerald-100 dark:hover:bg-emerald-500/30 transition-colors"
                       >
                         <MessageCircle className="w-3.5 h-3.5" />
                         <span>WhatsApp</span>
                       </a>
                     ) : (
-                      <span className="text-[10px] text-slate-500">Sin teléfono</span>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500">Sin teléfono</span>
                     )}
                   </div>
                 );
@@ -631,45 +640,33 @@ export const CollectorPortal: React.FC = () => {
         <div className="space-y-6">
           {/* Custody Metrics Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-[#0D1B22] border border-slate-800 p-5 rounded-2xl">
-              <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">
-                Custodia Bolívares (BS)
-              </div>
-              <div className="text-2xl font-black font-mono text-emerald-400">
-                {formatCurrency(custodyBS, 'BS')}
-              </div>
-              <div className="text-[10px] text-slate-500 mt-1">Recaudación en efectivo Bs.</div>
-            </div>
-
-            <div className="bg-[#0D1B22] border border-slate-800 p-5 rounded-2xl">
-              <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">
-                Custodia Dólares (USD)
-              </div>
-              <div className="text-2xl font-black font-mono text-sky-400">
-                {formatCurrency(custodyUSD, 'USD')}
-              </div>
-              <div className="text-[10px] text-slate-500 mt-1">Recaudación en efectivo USD</div>
-            </div>
-
-            <div className="bg-[#0D1B22] border border-slate-800 p-5 rounded-2xl">
-              <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">
-                Custodia Pesos (COP)
-              </div>
-              <div className="text-2xl font-black font-mono text-amber-400">
-                {formatCurrency(custodyCOP, 'COP')}
-              </div>
-              <div className="text-[10px] text-slate-500 mt-1">Recaudación en efectivo COP</div>
-            </div>
+            {Object.entries(custodyByCurrency).map(([mon, total]) => {
+              const flag = getCurrencyFlag(mon);
+              return (
+                <div key={mon} className="bg-white dark:bg-[#0D1B22] border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm transition-colors">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">
+                      Custodia ({mon})
+                    </span>
+                    <span className="text-lg select-none">{flag}</span>
+                  </div>
+                  <div className="text-2xl font-black font-mono text-emerald-600 dark:text-emerald-400">
+                    {formatCurrency(total, mon)}
+                  </div>
+                  <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Recaudación en efectivo {mon}</div>
+                </div>
+              );
+            })}
           </div>
 
           {/* Detailed Collected History Table */}
-          <div className="bg-[#0D1B22] border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
-            <div className="p-4 border-b border-slate-800 flex justify-between items-center">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-                <Receipt className="w-4 h-4 text-emerald-400" />
+          <div className="bg-white dark:bg-[#0D1B22] border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm transition-colors">
+            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                <Receipt className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 Historial de Recaudaciones & Custodia ({collectedHistory.length})
               </h3>
-              <span className="text-[11px] font-bold text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
+              <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-200 dark:border-amber-500/20">
                 🛵 {activeCustodyHistory.length} en custodia activa
               </span>
             </div>
@@ -677,7 +674,7 @@ export const CollectorPortal: React.FC = () => {
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="border-b border-slate-800/80 bg-slate-900/40 text-slate-400">
+                  <tr className="border-b border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-900/40 text-slate-600 dark:text-slate-400">
                     <th className="py-3 px-4 font-semibold">Ticket / PIN</th>
                     <th className="py-3 px-4 font-semibold">Agencia</th>
                     <th className="py-3 px-4 font-semibold">Fecha Taquilla</th>
@@ -687,7 +684,7 @@ export const CollectorPortal: React.FC = () => {
                     <th className="py-3 px-4 font-semibold text-center">Estado</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/50">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
                   {collectedHistory.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="py-6 text-center text-slate-500">
@@ -696,36 +693,36 @@ export const CollectorPortal: React.FC = () => {
                     </tr>
                   ) : (
                     collectedHistory.map((h) => (
-                      <tr key={h.id} className="hover:bg-slate-800/30">
-                        <td className="py-3 px-4 font-mono font-bold text-white">
+                      <tr key={h.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                        <td className="py-3 px-4 font-mono font-bold text-slate-900 dark:text-white">
                           {h.ticket_nro || (h.qr_token ? h.qr_token.replace('QR-REC-', '') : `ID-${h.id}`)}
                         </td>
-                        <td className="py-3 px-4 text-slate-300">
+                        <td className="py-3 px-4 text-slate-700 dark:text-slate-300">
                           {h.agencia}
                         </td>
-                        <td className="py-3 px-4 text-slate-400 font-mono">
+                        <td className="py-3 px-4 text-slate-500 dark:text-slate-400 font-mono">
                           {h.fecha} {h.hora ? formatTime(h.hora) : ''}
                         </td>
-                        <td className="py-3 px-4 text-sky-400 font-mono">
+                        <td className="py-3 px-4 text-sky-600 dark:text-sky-400 font-mono">
                           {h.fecha_escaneo_cobrador ? formatDate(h.fecha_escaneo_cobrador) : '-'}
                         </td>
-                        <td className="py-3 px-4 text-emerald-400 font-mono font-semibold">
+                        <td className="py-3 px-4 text-emerald-600 dark:text-emerald-400 font-mono font-semibold">
                           {h.fecha_liquidacion_admin ? (
                             <span>🏛️ {formatDate(h.fecha_liquidacion_admin)}</span>
                           ) : (
-                            <span className="text-amber-400/80 text-[11px]">🛵 En Ruta</span>
+                            <span className="text-amber-600 dark:text-amber-400/80 text-[11px]">🛵 En Ruta</span>
                           )}
                         </td>
-                        <td className="py-3 px-4 text-right font-mono font-bold text-emerald-400">
+                        <td className="py-3 px-4 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">
                           {formatCurrency(h.monto, h.moneda)}
                         </td>
                         <td className="py-3 px-4 text-center">
                           {h.liquidado_admin ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-50 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30">
                               🏛️ Entregado a Admin
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-sky-500/20 text-sky-400 border border-sky-500/30">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-sky-50 dark:bg-sky-500/20 text-sky-700 dark:text-sky-400 border border-sky-200 dark:border-sky-500/30">
                               🛵 En Custodia (En Ruta)
                             </span>
                           )}

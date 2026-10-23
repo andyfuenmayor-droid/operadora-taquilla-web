@@ -1,0 +1,16 @@
+# Antigravity Workspace Rules - Operadora Taquilla Web POS
+
+## Ley Permanente de Diseño Visual y Reglas Operativas (UI Design Lock)
+1. **Paridad Total Dual Mode (Modo Claro / Modo Oscuro):**
+   Todos los módulos, cabeceras, formularios, tablas, tarjetas de resumen y modales deben soportar con paridad completa tanto el Modo Claro (`bg-white`, `border-slate-200`, `text-slate-900`) como el Modo Oscuro (`dark:bg-[#0D1B22]`, `dark:border-slate-800`, `dark:text-white`).
+2. **Paleta Corporativa Estandarizada:**
+   Los botones de acción principal deben ser de color verde esmeralda (`bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl shadow-sm transition-all`).
+   Queda estrictamente prohibido introducir botones morados, gradientes arbitrarios o estilos desalineados.
+3. **Monedas 100% Dinámicas:**
+   Cero hardcoding de listas de divisas `['BS', 'USD', 'COP']`. Todas las vistas deben consultar `assignedCurrencies` del contexto de autenticación o `loadCurrencies(userId)` para soportar las divisas activas de la agencia o grupo de forma dinámica.
+4. **Validación y Calidad Obligatoria:**
+   Antes de finalizar cualquier tarea en este repositorio, ejecuta siempre:
+   ```bash
+   npx tsc -b && npm run build
+   ```
+   asegurando 0 errores TypeScript y bundle de producción exitoso.

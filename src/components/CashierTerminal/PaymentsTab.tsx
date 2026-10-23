@@ -8,6 +8,7 @@ import {
   type CurrencyOperationalMetrics 
 } from '../../utils/operationalDashboard';
 import { formatMoney, getTodayDateString } from '../../utils/formatters';
+import { getCurrencyFlag } from '../../utils/currencies';
 import { 
   Save, 
   RefreshCw, 
@@ -39,14 +40,6 @@ interface PaymentRow {
   pin_6?: string;
   supervisor_nombre?: string;
 }
-
-const FLAG_MAP: Record<string, string> = {
-  BS: '🇻🇪',
-  USD: '🇺🇸',
-  COP: '🇨🇴',
-  EUR: '🇪🇺',
-  BRL: '🇧🇷'
-};
 
 export const PaymentsTab: React.FC = () => {
   const { user, agency, systemCycle, assignedCurrencies, assignedSystems, isDayClosed } = useAuth();
@@ -618,7 +611,7 @@ export const PaymentsTab: React.FC = () => {
         {/* Grid de Tarjetas de Balance por Moneda */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-1">
           {assignedCurrencies.map((mCode) => {
-            const flag = FLAG_MAP[mCode] || '💱';
+            const flag = getCurrencyFlag(mCode);
             const metrics = metricsByCurrency[mCode];
             const sym = metrics?.sym || (mCode === 'BS' ? 'Bs.' : mCode === 'USD' ? '$' : 'COP$');
 
@@ -911,7 +904,7 @@ export const PaymentsTab: React.FC = () => {
                               <button
                                 disabled={processingId === p.id}
                                 onClick={() => handleConfirmPayment(p)}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black text-[10px] font-bold cursor-pointer disabled:opacity-50"
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold cursor-pointer disabled:opacity-50"
                               >
                                 <CheckCircle2 className="w-3 h-3" />
                                 <span>Confirmar</span>
@@ -1074,7 +1067,7 @@ export const PaymentsTab: React.FC = () => {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-black py-3 px-4 rounded-xl text-xs sm:text-sm tracking-wider uppercase transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 cursor-pointer disabled:opacity-50"
+              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-4 rounded-xl text-xs sm:text-sm tracking-wider uppercase transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
               <span>{submitting ? 'GUARDANDO...' : '💾 GUARDAR PAGO'}</span>

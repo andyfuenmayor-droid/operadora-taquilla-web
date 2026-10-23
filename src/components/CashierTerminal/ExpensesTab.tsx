@@ -388,21 +388,21 @@ export const ExpensesTab: React.FC = () => {
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* 1. Barra de Control y Ciclo Operativo */}
-      <div className="bg-gradient-to-br from-[#0D1B22] via-[#0A161C] to-[#0D1B22] p-4 sm:p-5 rounded-2xl border border-slate-800 shadow-xl flex flex-wrap items-center justify-between gap-4">
+      <div className="bg-white dark:bg-[#0D1B22] p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-xl flex flex-wrap items-center justify-between gap-4 transition-colors">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/20 text-xs font-bold font-mono">
+          <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-500/20 text-xs font-bold font-mono">
             <Calendar className="w-4 h-4" />
             <span>Ciclo: {formatDate(cycleDesde)} al {formatDate(cycleHasta)} ({cycleSemana})</span>
           </div>
 
           {/* Filtros de Vista */}
-          <div className="flex items-center bg-[#071217] p-1 rounded-xl border border-slate-800 text-xs">
+          <div className="flex items-center bg-slate-100 dark:bg-[#071217] p-1 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
             <button
               onClick={() => setFilterMode('ciclo')}
               className={`px-3 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
                 filterMode === 'ciclo'
-                  ? 'bg-emerald-500 text-black shadow'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               Gastos del Ciclo
@@ -411,8 +411,8 @@ export const ExpensesTab: React.FC = () => {
               onClick={() => setFilterMode('hoy')}
               className={`px-3 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
                 filterMode === 'hoy'
-                  ? 'bg-emerald-500 text-black shadow'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               Solo Hoy
@@ -421,8 +421,8 @@ export const ExpensesTab: React.FC = () => {
               onClick={() => setFilterMode('todos')}
               className={`px-3 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
                 filterMode === 'todos'
-                  ? 'bg-emerald-500 text-black shadow'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               Todos
@@ -431,8 +431,8 @@ export const ExpensesTab: React.FC = () => {
               onClick={() => setFilterMode('fecha')}
               className={`px-3 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
                 filterMode === 'fecha'
-                  ? 'bg-emerald-500 text-black shadow'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               Por Fecha
@@ -444,21 +444,21 @@ export const ExpensesTab: React.FC = () => {
               type="date"
               value={customFecha}
               onChange={(e) => setCustomFecha(e.target.value)}
-              className="bg-[#071217] border border-slate-700 rounded-xl px-3 py-1 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
+              className="bg-white dark:bg-[#071217] border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 font-mono"
             />
           )}
 
           {isGrupo && groupAgencies.length > 0 && (
-            <div className="flex items-center gap-2 bg-[#071217] border border-purple-500/40 px-3 py-1 rounded-xl">
-              <span className="text-[11px] font-bold text-purple-300">Agencia:</span>
+            <div className="flex items-center gap-2 bg-purple-50 dark:bg-[#071217] border border-purple-200 dark:border-purple-500/40 px-3 py-1 rounded-xl">
+              <span className="text-[11px] font-bold text-purple-700 dark:text-purple-300">Agencia:</span>
               <select
                 value={selectedGroupAgency}
                 onChange={(e) => setSelectedGroupAgency(e.target.value)}
-                className="bg-transparent text-xs text-white focus:outline-none font-bold cursor-pointer"
+                className="bg-transparent text-xs text-slate-900 dark:text-white focus:outline-none font-bold cursor-pointer"
               >
-                <option value="all" className="bg-slate-900 text-white">🌐 Todas ({groupAgencies.length})</option>
+                <option value="all" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">🌐 Todas ({groupAgencies.length})</option>
                 {groupAgencies.map((a) => (
-                  <option key={a.id} value={a.nombre_agencia} className="bg-slate-900 text-white">
+                  <option key={a.id} value={a.nombre_agencia} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
                     🏢 {a.nombre_agencia}
                   </option>
                 ))}
@@ -470,7 +470,7 @@ export const ExpensesTab: React.FC = () => {
         <button
           onClick={fetchExpenses}
           disabled={loading}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition-colors cursor-pointer border border-slate-700 shadow"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer border border-slate-200 dark:border-slate-700 shadow-sm"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           <span>Actualizar</span>
@@ -484,15 +484,15 @@ export const ExpensesTab: React.FC = () => {
           return (
             <div
               key={curr}
-              className="bg-gradient-to-br from-[#0D1B22] to-[#0A161C] border border-slate-800 p-4 rounded-2xl flex items-center justify-between shadow-lg relative overflow-hidden"
+              className="bg-white dark:bg-[#0D1B22] border border-slate-200 dark:border-slate-800 p-4 rounded-2xl flex items-center justify-between shadow-sm dark:shadow-lg relative overflow-hidden transition-colors"
             >
               <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/5 rounded-full blur-xl pointer-events-none" />
               <div>
-                <div className="text-xs text-slate-400 font-semibold mb-1 flex items-center gap-1.5">
+                <div className="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-1 flex items-center gap-1.5">
                   <span>Total Gastos ({curr})</span>
-                  <span className="text-[10px] text-slate-500 font-mono">• {filterMode === 'ciclo' ? cycleSemana : filterMode.toUpperCase()}</span>
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">• {filterMode === 'ciclo' ? cycleSemana : filterMode.toUpperCase()}</span>
                 </div>
-                <div className="text-xl sm:text-2xl font-black text-rose-400 font-mono">
+                <div className="text-xl sm:text-2xl font-black text-rose-600 dark:text-rose-400 font-mono">
                   {formatCurrency(item.total, curr)}
                 </div>
                 <div className="text-[11px] text-slate-500 mt-1">
@@ -509,30 +509,30 @@ export const ExpensesTab: React.FC = () => {
 
       {/* 3. Formulario: Registrar Nuevo Gasto Operativo (Concepto libre, sin categorías predeterminadas) */}
       {(!isDayClosed || isSupervisor) ? (
-        <div className="bg-[#0D1B22] border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl relative overflow-hidden">
-          <div className="flex items-center justify-between mb-4 border-b border-slate-800/80 pb-3">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-white flex items-center gap-2">
-              <Plus className="w-4 h-4 text-emerald-400" />
+        <div className="bg-white dark:bg-[#0D1B22] border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-sm dark:shadow-xl relative overflow-hidden transition-colors">
+          <div className="flex items-center justify-between mb-4 border-b border-slate-200 dark:border-slate-800/80 pb-3">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
+              <Plus className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               <span>Registrar Gasto Operativo {isGrupo ? 'de la Red' : 'de la Agencia'}</span>
             </h3>
-            <span className="text-xs text-slate-400">
+            <span className="text-xs text-slate-500 dark:text-slate-400">
               {isGrupo ? (
-                <span className="text-purple-300 font-bold">🤝 Red de Grupo: {user?.nombre || user?.grupo_nombre}</span>
+                <span className="text-purple-700 dark:text-purple-300 font-bold">🤝 Red de Grupo: {user?.nombre || user?.grupo_nombre}</span>
               ) : (
-                <>Agencia: <strong className="text-white">{agencyName}</strong></>
+                <>Agencia: <strong className="text-slate-900 dark:text-white">{agencyName}</strong></>
               )}
             </span>
           </div>
 
           {errorMsg && (
-            <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2">
+            <div className="mb-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{errorMsg}</span>
             </div>
           )}
 
           {successMsg && (
-            <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs flex items-center gap-2">
+            <div className="mb-4 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 shrink-0" />
               <span>{successMsg}</span>
             </div>
@@ -543,16 +543,16 @@ export const ExpensesTab: React.FC = () => {
               {/* Selector de Agencia de Origen (Solo para rol Grupo) */}
               {isGrupo && groupAgencies.length > 0 && (
                 <div className="sm:col-span-2 lg:col-span-4">
-                  <label className="block text-xs font-semibold text-purple-300 mb-1.5">
+                  <label className="block text-xs font-semibold text-purple-700 dark:text-purple-300 mb-1.5">
                     Agencia Destino del Gasto *
                   </label>
                   <select
                     value={agenciaGasto || groupAgencies[0]?.nombre_agencia || ''}
                     onChange={(e) => setAgenciaGasto(e.target.value)}
-                    className="w-full bg-[#071217] border border-purple-500/40 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-purple-400 font-bold cursor-pointer"
+                    className="w-full bg-slate-50 dark:bg-[#071217] border border-purple-300 dark:border-purple-500/40 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-purple-500 font-bold cursor-pointer"
                   >
                     {groupAgencies.map((a) => (
-                      <option key={a.id} value={a.nombre_agencia} className="bg-slate-900 text-white">
+                      <option key={a.id} value={a.nombre_agencia} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
                         🏢 {a.nombre_agencia}
                       </option>
                     ))}
@@ -561,9 +561,9 @@ export const ExpensesTab: React.FC = () => {
               )}
               {/* Concepto / Descripción (Libre con sugerencias datalist) */}
               <div className="lg:col-span-2">
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center justify-between">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
                   <span>Concepto / Descripción del Gasto *</span>
-                  <span className="text-[10px] text-emerald-400 font-normal">Libre / Sin predeterminados</span>
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-normal">Libre / Sin predeterminados</span>
                 </label>
                 <input
                   type="text"
@@ -572,7 +572,7 @@ export const ExpensesTab: React.FC = () => {
                   value={concepto}
                   onChange={(e) => setConcepto(e.target.value)}
                   placeholder="Ej: Sueldo, Pago de internet, Papelería, Mantenimiento..."
-                  className="w-full bg-[#071217] border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 transition-colors uppercase font-medium placeholder:normal-case placeholder:text-slate-500"
+                  className="w-full bg-slate-50 dark:bg-[#071217] border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 transition-colors uppercase font-medium placeholder:normal-case placeholder:text-slate-400"
                 />
                 <datalist id="conceptos-sugeridos">
                   {suggestedConcepts.map((item) => (
@@ -583,7 +583,7 @@ export const ExpensesTab: React.FC = () => {
 
               {/* Referencia / Comprobante */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                   N° Comprobante / Referencia (Opcional)
                 </label>
                 <input
@@ -591,13 +591,13 @@ export const ExpensesTab: React.FC = () => {
                   value={referencia}
                   onChange={(e) => setReferencia(e.target.value)}
                   placeholder="Ej: FACTURA 4920, RECIBO"
-                  className="w-full bg-[#071217] border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 transition-colors uppercase font-mono placeholder:normal-case placeholder:text-slate-500"
+                  className="w-full bg-slate-50 dark:bg-[#071217] border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 transition-colors uppercase font-mono placeholder:normal-case placeholder:text-slate-400"
                 />
               </div>
 
               {/* Fecha del Gasto */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                   Fecha del Gasto *
                 </label>
                 <input
@@ -605,7 +605,7 @@ export const ExpensesTab: React.FC = () => {
                   required
                   value={fechaGasto}
                   onChange={(e) => setFechaGasto(e.target.value)}
-                  className="w-full bg-[#071217] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 transition-colors font-mono"
+                  className="w-full bg-slate-50 dark:bg-[#071217] border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 transition-colors font-mono"
                 />
               </div>
             </div>
@@ -613,7 +613,7 @@ export const ExpensesTab: React.FC = () => {
             {/* Monto, Moneda y Botón de Registro */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end pt-1">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                   Monto del Gasto *
                 </label>
                 <input
@@ -624,18 +624,18 @@ export const ExpensesTab: React.FC = () => {
                   value={monto}
                   onChange={(e) => setMonto(e.target.value === '' ? '' : parseFloat(e.target.value))}
                   placeholder="0.00"
-                  className="w-full bg-[#071217] border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono text-base font-bold placeholder:text-slate-500"
+                  className="w-full bg-slate-50 dark:bg-[#071217] border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 font-mono text-base font-bold placeholder:text-slate-400"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                   Moneda *
                 </label>
                 <select
                   value={moneda}
                   onChange={(e) => setMoneda(e.target.value)}
-                  className="w-full bg-[#071217] border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-bold"
+                  className="w-full bg-slate-50 dark:bg-[#071217] border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 font-bold cursor-pointer"
                 >
                   {assignedCurrencies.map((m) => (
                     <option key={m} value={m}>
@@ -649,7 +649,7 @@ export const ExpensesTab: React.FC = () => {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-black py-2.5 px-5 rounded-xl text-xs sm:text-sm transition-all shadow-lg hover:shadow-emerald-500/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-5 rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   <Plus className="w-4 h-4" />
                   <span>{submitting ? 'Registrando Gasto...' : 'Registrar Gasto Operativo'}</span>
@@ -659,25 +659,25 @@ export const ExpensesTab: React.FC = () => {
           </form>
         </div>
       ) : (
-        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs flex items-center gap-2">
+        <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs flex items-center gap-2">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>🔒 Jornada de caja cerrada para hoy. No se pueden registrar nuevos gastos diarios hasta la reapertura.</span>
         </div>
       )}
 
       {/* 4. Tabla de Gastos Registrados */}
-      <div className="bg-[#0D1B22] border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-        <div className="p-4 border-b border-slate-800 flex flex-wrap justify-between items-center gap-2 bg-slate-900/30">
+      <div className="bg-white dark:bg-[#0D1B22] border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm dark:shadow-xl transition-colors">
+        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-wrap justify-between items-center gap-2 bg-slate-50 dark:bg-slate-900/30">
           <div className="flex items-center gap-2">
-            <FileText className="w-4 h-4 text-rose-400" />
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-200">
+            <FileText className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
               Gastos Registrados ({expenses.length})
             </h3>
             <span className="text-[11px] text-slate-500 font-mono">
               • {filterMode === 'ciclo' ? `Semana ${systemCycle?.semana || 'Actual'}` : filterMode.toUpperCase()}
             </span>
           </div>
-          <div className="text-[11px] text-slate-400">
+          <div className="text-[11px] text-slate-500 dark:text-slate-400">
             Mostrando todos los gastos operativos registrados para la agencia
           </div>
         </div>
@@ -685,7 +685,7 @@ export const ExpensesTab: React.FC = () => {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="border-b border-slate-800/80 bg-slate-900/60 text-slate-400 font-mono">
+              <tr className="border-b border-slate-200 dark:border-slate-800/80 bg-slate-100/70 dark:bg-slate-900/60 text-slate-600 dark:text-slate-400 font-mono">
                 <th className="py-3 px-4 font-semibold">Fecha</th>
                 <th className="py-3 px-4 font-semibold">Concepto / Descripción</th>
                 <th className="py-3 px-4 font-semibold">Referencia</th>
@@ -695,13 +695,13 @@ export const ExpensesTab: React.FC = () => {
                 <th className="py-3 px-4 font-semibold text-center">Acción</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/50">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
               {expenses.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-10 text-center text-slate-500">
-                    <Receipt className="w-8 h-8 mx-auto text-slate-600 mb-2 opacity-50" />
+                    <Receipt className="w-8 h-8 mx-auto text-slate-400 dark:text-slate-600 mb-2 opacity-50" />
                     <p className="font-medium">No hay gastos operativos registrados para este periodo.</p>
-                    <p className="text-[11px] text-slate-600 mt-1">
+                    <p className="text-[11px] text-slate-400 dark:text-slate-600 mt-1">
                       Los gastos que registre aquí se descontarán automáticamente del balance del ciclo.
                     </p>
                   </td>
@@ -709,35 +709,35 @@ export const ExpensesTab: React.FC = () => {
               ) : (
                 expenses.map((expense) => {
                   return (
-                    <tr key={`${expense.id}_${expense.fecha}`} className="hover:bg-slate-800/30 transition-colors">
-                      <td className="py-3 px-4 font-mono text-slate-300 whitespace-nowrap">
+                    <tr key={`${expense.id}_${expense.fecha}`} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                      <td className="py-3 px-4 font-mono text-slate-700 dark:text-slate-300 whitespace-nowrap">
                         {formatDate(expense.fecha)}
                       </td>
-                      <td className="py-3 px-4 font-bold text-white max-w-xs break-words">
+                      <td className="py-3 px-4 font-bold text-slate-900 dark:text-white max-w-xs break-words">
                         {expense.concepto}
                       </td>
-                      <td className="py-3 px-4 font-mono text-slate-400">
+                      <td className="py-3 px-4 font-mono text-slate-500 dark:text-slate-400">
                         {expense.referencia || 'N/A'}
                       </td>
-                      <td className="py-3 px-4 text-slate-400">
+                      <td className="py-3 px-4 text-slate-600 dark:text-slate-400">
                         {expense.nombre_cajero || 'Taquilla'}
                       </td>
-                      <td className="py-3 px-4 text-right font-mono font-bold text-rose-400 whitespace-nowrap">
+                      <td className="py-3 px-4 text-right font-mono font-bold text-rose-600 dark:text-rose-400 whitespace-nowrap">
                         {formatCurrency(expense.monto, expense.moneda)}
                       </td>
                       <td className="py-3 px-4 text-center whitespace-nowrap">
                         {expense.rechazado ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-400 border border-rose-500/30" title={expense.motivo_rechazo || 'Rechazado por administración'}>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 dark:bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/30" title={expense.motivo_rechazo || 'Rechazado por administración'}>
                             <XCircle className="w-3 h-3" />
                             Rechazado
                           </span>
                         ) : expense.confirmado ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30" title="Gasto formalmente confirmado por el Administrador en Operadora CMS">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30" title="Gasto formalmente confirmado por el Administrador en Operadora CMS">
                             <CheckCircle2 className="w-3 h-3" />
                             Confirmado Admin
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30" title="Pendiente de aprobación por el Administrador en Operadora CMS">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30" title="Pendiente de aprobación por el Administrador en Operadora CMS">
                             <Clock className="w-3 h-3" />
                             Pendiente Admin
                           </span>
@@ -747,13 +747,13 @@ export const ExpensesTab: React.FC = () => {
                         {(!expense.confirmado || isSupervisor) && expense.id ? (
                           <button
                             onClick={() => handleDeleteExpense(expense.id)}
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                            className="p-1.5 rounded-lg text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors cursor-pointer"
                             title="Eliminar gasto"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         ) : (
-                          <span className="text-slate-600 text-[11px]">-</span>
+                          <span className="text-slate-400 dark:text-slate-600 text-[11px]">-</span>
                         )}
                       </td>
                     </tr>

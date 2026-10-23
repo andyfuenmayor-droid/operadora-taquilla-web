@@ -359,29 +359,29 @@ export const CashClosureTab: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Top Filter Bar: Date, Currency & Supervisor Cashier Selector */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-[#0D1B22] p-4 rounded-2xl border border-slate-800">
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-[#0D1B22] p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               Fecha:
             </label>
             <input
               type="date"
               value={fecha}
               onChange={(e) => setFecha(e.target.value)}
-              className="bg-[#071217] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+              className="bg-slate-50 dark:bg-[#071217] border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 font-mono"
             />
           </div>
 
           <div className="flex items-center gap-2">
-            <Coins className="w-3.5 h-3.5 text-amber-400" />
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
+            <Coins className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               Moneda:
             </label>
             <select
               value={selectedCurrency}
               onChange={(e) => setSelectedCurrency(e.target.value)}
-              className="bg-[#071217] border border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold text-amber-400 focus:outline-none focus:border-emerald-500"
+              className="bg-slate-50 dark:bg-[#071217] border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold text-amber-600 dark:text-amber-400 focus:outline-none focus:border-emerald-500 cursor-pointer"
             >
               {assignedCurrencies.map((c) => (
                 <option key={c} value={c}>
@@ -393,14 +393,14 @@ export const CashClosureTab: React.FC = () => {
 
           {isSupervisorOrAdmin && cashiersList.length > 0 && (
             <div className="flex items-center gap-2">
-              <Users className="w-3.5 h-3.5 text-sky-400" />
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              <Users className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 Cajero:
               </label>
               <select
                 value={selectedCashierId}
                 onChange={(e) => setSelectedCashierId(e.target.value)}
-                className="bg-[#071217] border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                className="bg-slate-50 dark:bg-[#071217] border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
               >
                 <option value="ALL">👥 TODOS LOS CAJEROS</option>
                 {cashiersList.map((c) => (
@@ -415,12 +415,12 @@ export const CashClosureTab: React.FC = () => {
 
         <div className="flex items-center gap-2">
           {yaCerrado ? (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30">
               <ShieldCheck className="w-4 h-4" />
               Jornada Cerrada
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-50 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30">
               🟢 Jornada Abierta
             </span>
           )}
@@ -428,7 +428,7 @@ export const CashClosureTab: React.FC = () => {
           <button
             onClick={calculateClosureData}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer border border-slate-200 dark:border-slate-700"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             <span>Recalcular</span>
@@ -438,79 +438,79 @@ export const CashClosureTab: React.FC = () => {
 
       {/* Breakdown Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
-        <div className="bg-[#0D1B22] border border-slate-800 p-4 rounded-2xl">
-          <div className="text-slate-400 text-xs font-semibold mb-1">Saldo Inicial</div>
-          <div className="text-base font-black text-slate-200 font-mono">
+        <div className="bg-white dark:bg-[#0D1B22] border border-slate-200 dark:border-slate-800 p-4 rounded-2xl shadow-sm transition-colors">
+          <div className="text-slate-500 dark:text-slate-400 text-xs font-semibold mb-1">Saldo Inicial</div>
+          <div className="text-base font-black text-slate-900 dark:text-slate-200 font-mono">
             {formatCurrency(saldoInicial, selectedCurrency)}
           </div>
-          <div className="text-[10px] text-slate-500 mt-1">Caja anterior</div>
+          <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Caja anterior</div>
         </div>
 
-        <div className="bg-[#0D1B22] border border-slate-800 p-4 rounded-2xl">
-          <div className="text-slate-400 text-xs font-semibold mb-1">(+) Ventas Brutas</div>
-          <div className="text-base font-black text-emerald-400 font-mono">
+        <div className="bg-white dark:bg-[#0D1B22] border border-slate-200 dark:border-slate-800 p-4 rounded-2xl shadow-sm transition-colors">
+          <div className="text-slate-500 dark:text-slate-400 text-xs font-semibold mb-1">(+) Ventas Brutas</div>
+          <div className="text-base font-black text-emerald-600 dark:text-emerald-400 font-mono">
             +{formatCurrency(totalVentas, selectedCurrency)}
           </div>
-          <div className="text-[10px] text-emerald-500/70 mt-1">Ingreso en taquilla</div>
+          <div className="text-[10px] text-emerald-600/70 dark:text-emerald-500/70 mt-1">Ingreso en taquilla</div>
         </div>
 
-        <div className="bg-[#0D1B22] border border-slate-800 p-4 rounded-2xl">
-          <div className="text-slate-400 text-xs font-semibold mb-1">(-) Comisión Ag.</div>
-          <div className="text-base font-black text-slate-300 font-mono">
+        <div className="bg-white dark:bg-[#0D1B22] border border-slate-200 dark:border-slate-800 p-4 rounded-2xl shadow-sm transition-colors">
+          <div className="text-slate-500 dark:text-slate-400 text-xs font-semibold mb-1">(-) Comisión Ag.</div>
+          <div className="text-base font-black text-slate-700 dark:text-slate-300 font-mono">
             -{formatCurrency(totalComisiones, selectedCurrency)}
           </div>
-          <div className="text-[10px] text-slate-500 mt-1">Comisión retenida</div>
+          <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Comisión retenida</div>
         </div>
 
-        <div className="bg-[#0D1B22] border border-slate-800 p-4 rounded-2xl">
-          <div className="text-slate-400 text-xs font-semibold mb-1">(-) Premios Pag.</div>
-          <div className="text-base font-black text-rose-400 font-mono">
+        <div className="bg-white dark:bg-[#0D1B22] border border-slate-200 dark:border-slate-800 p-4 rounded-2xl shadow-sm transition-colors">
+          <div className="text-slate-500 dark:text-slate-400 text-xs font-semibold mb-1">(-) Premios Pag.</div>
+          <div className="text-base font-black text-rose-600 dark:text-rose-400 font-mono">
             -{formatCurrency(totalPremios, selectedCurrency)}
           </div>
-          <div className="text-[10px] text-rose-500/70 mt-1">Salida por premios</div>
+          <div className="text-[10px] text-rose-600/70 dark:text-rose-500/70 mt-1">Salida por premios</div>
         </div>
 
-        <div className="bg-[#0D1B22] border border-slate-800 p-4 rounded-2xl">
-          <div className="text-slate-400 text-xs font-semibold mb-1">(-) Gastos</div>
-          <div className="text-base font-black text-amber-400 font-mono">
+        <div className="bg-white dark:bg-[#0D1B22] border border-slate-200 dark:border-slate-800 p-4 rounded-2xl shadow-sm transition-colors">
+          <div className="text-slate-500 dark:text-slate-400 text-xs font-semibold mb-1">(-) Gastos</div>
+          <div className="text-base font-black text-amber-600 dark:text-amber-400 font-mono">
             -{formatCurrency(totalGastos, selectedCurrency)}
           </div>
-          <div className="text-[10px] text-amber-500/70 mt-1">Operación y papelería</div>
+          <div className="text-[10px] text-amber-600/70 dark:text-amber-500/70 mt-1">Operación y papelería</div>
         </div>
 
-        <div className="bg-[#0D1B22] border border-slate-800 p-4 rounded-2xl">
-          <div className="text-slate-400 text-xs font-semibold mb-1">(-) Banco / Rutas</div>
-          <div className="text-base font-black text-sky-400 font-mono">
+        <div className="bg-white dark:bg-[#0D1B22] border border-slate-200 dark:border-slate-800 p-4 rounded-2xl shadow-sm transition-colors">
+          <div className="text-slate-500 dark:text-slate-400 text-xs font-semibold mb-1">(-) Banco / Rutas</div>
+          <div className="text-base font-black text-sky-600 dark:text-sky-400 font-mono">
             -{formatCurrency(totalBanco, selectedCurrency)}
           </div>
-          <div className="text-[10px] text-sky-500/70 mt-1">Depósitos / cobrador</div>
+          <div className="text-[10px] text-sky-600/70 dark:text-sky-500/70 mt-1">Depósitos / cobrador</div>
         </div>
       </div>
 
       {/* Arqueo Comparison & Commit Section */}
-      <div className="bg-[#0D1B22] border border-slate-800 rounded-2xl p-6 shadow-xl">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-white mb-6 flex items-center gap-2">
-          <Calculator className="w-5 h-5 text-emerald-400" />
+      <div className="bg-white dark:bg-[#0D1B22] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm dark:shadow-xl transition-colors">
+        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white mb-6 flex items-center gap-2">
+          <Calculator className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
           Arqueo de Efectivo Físico & Cuadre de Caja ({selectedCurrency})
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
           {/* Expected Cash */}
-          <div className="p-5 rounded-2xl bg-[#071217] border border-slate-800 text-center">
-            <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-2">
+          <div className="p-5 rounded-2xl bg-slate-50 dark:bg-[#071217] border border-slate-200 dark:border-slate-800 text-center">
+            <div className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider mb-2">
               Saldo Teórico Esperado
             </div>
-            <div className="text-3xl font-black text-white font-mono">
+            <div className="text-3xl font-black text-slate-900 dark:text-white font-mono">
               {formatCurrency(saldoEsperado, selectedCurrency)}
             </div>
-            <div className="text-[11px] text-slate-500 mt-2">
+            <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-2">
               Calculado automáticamente según transacciones
             </div>
           </div>
 
           {/* Actual Cash Input */}
-          <div className="p-5 rounded-2xl bg-[#071217] border border-slate-800">
-            <label className="block text-xs text-emerald-400 font-bold uppercase tracking-wider mb-2 text-center">
+          <div className="p-5 rounded-2xl bg-slate-50 dark:bg-[#071217] border border-slate-200 dark:border-slate-800">
+            <label className="block text-xs text-emerald-700 dark:text-emerald-400 font-bold uppercase tracking-wider mb-2 text-center">
               Efectivo Real en Gaveta ({selectedCurrency})
             </label>
             <input
@@ -521,9 +521,9 @@ export const CashClosureTab: React.FC = () => {
               value={efectivoFisico}
               onChange={(e) => setEfectivoFisico(e.target.value === '' ? '' : parseFloat(e.target.value))}
               placeholder="0.00"
-              className="w-full bg-[#0D1B22] border border-emerald-500/50 rounded-xl px-4 py-3 text-2xl font-black text-emerald-400 font-mono text-center focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-75"
+              className="w-full bg-white dark:bg-[#0D1B22] border border-emerald-500 rounded-xl px-4 py-3 text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono text-center focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-75 transition-colors"
             />
-            <div className="text-[11px] text-slate-500 mt-2 text-center">
+            <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-2 text-center">
               Total de billetes contados en caja
             </div>
           </div>
@@ -531,10 +531,10 @@ export const CashClosureTab: React.FC = () => {
           {/* Difference & Status */}
           <div className={`p-5 rounded-2xl border text-center ${
             Math.abs(diferencia) < 0.01
-              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+              ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400'
               : diferencia > 0
-              ? 'bg-sky-500/10 border-sky-500/30 text-sky-400'
-              : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+              ? 'bg-sky-50 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/30 text-sky-700 dark:text-sky-400'
+              : 'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-400'
           }`}>
             <div className="text-xs font-bold uppercase tracking-wider mb-2">
               {Math.abs(diferencia) < 0.01
@@ -565,7 +565,7 @@ export const CashClosureTab: React.FC = () => {
 
         {/* Observations input */}
         <div className="mt-6">
-          <label className="block text-xs font-semibold text-slate-400 mb-1.5">
+          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
             Observaciones o Comentarios del Cierre
           </label>
           <textarea
@@ -574,7 +574,7 @@ export const CashClosureTab: React.FC = () => {
             value={observaciones}
             onChange={(e) => setObservaciones(e.target.value)}
             placeholder="Ej. Cierre de turno sin novedades, remesa entregada en sobre..."
-            className="w-full bg-[#071217] border border-slate-700 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-emerald-500 disabled:opacity-60"
+            className="w-full bg-slate-50 dark:bg-[#071217] border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 disabled:opacity-60 transition-colors"
           />
         </div>
 
@@ -582,9 +582,9 @@ export const CashClosureTab: React.FC = () => {
         <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
           <button
             onClick={handlePrintClosure}
-            className="flex items-center gap-2 px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition-all cursor-pointer"
+            className="flex items-center gap-2 px-4 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-white border border-slate-200 dark:border-slate-700 text-xs font-bold transition-all cursor-pointer shadow-sm"
           >
-            <Printer className="w-4 h-4 text-emerald-400" />
+            <Printer className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
             <span>Imprimir Respaldo Térmico (58mm)</span>
           </button>
 
@@ -592,7 +592,7 @@ export const CashClosureTab: React.FC = () => {
             <button
               onClick={handleReopenDay}
               disabled={submitting}
-              className="flex items-center gap-2 px-5 py-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/40 text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+              className="flex items-center gap-2 px-5 py-3 rounded-xl bg-amber-50 dark:bg-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/40 text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
             >
               <Unlock className="w-4 h-4" />
               <span>{submitting ? 'Reabriendo...' : '🔓 Reabrir Día (Supervisor)'}</span>
@@ -603,7 +603,7 @@ export const CashClosureTab: React.FC = () => {
             <button
               onClick={handleCommitClosure}
               disabled={submitting}
-              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black text-xs font-extrabold shadow-lg shadow-emerald-500/20 transition-all cursor-pointer disabled:opacity-50"
+              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-sm transition-all cursor-pointer disabled:opacity-50"
             >
               <ShieldCheck className="w-4 h-4" />
               <span>{submitting ? 'Guardando Cierre...' : 'Cerrar Caja Definitivamente'}</span>

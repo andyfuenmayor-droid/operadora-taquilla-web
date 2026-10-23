@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { formatCurrency, formatDate, normalizarMoneda } from '../../utils/formatters';
+import { getCurrencyFlag } from '../../utils/currencies';
 import {
   Layers,
   RefreshCw,
@@ -130,11 +131,22 @@ const sortMovementsDesc = (a: DetailedMovement, b: DetailedMovement) => {
 };
 
 export const AgencyCycleHistoryTab: React.FC = () => {
-  const { agency, systemCycle } = useAuth();
+  const { agency, systemCycle, assignedCurrencies } = useAuth();
   const { isLight } = useTheme();
 
+  const activeCurrencies = useMemo(() => {
+    return assignedCurrencies && assignedCurrencies.length > 0 ? assignedCurrencies : ['COP', 'BS', 'USD'];
+  }, [assignedCurrencies]);
+
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedCurrency, setSelectedCurrency] = useState<'BS' | 'USD' | 'COP'>('COP');
+  const [selectedCurrency, setSelectedCurrency] = useState<string>(activeCurrencies[0] || 'COP');
+
+  useEffect(() => {
+    if (activeCurrencies.length > 0 && !activeCurrencies.includes(selectedCurrency)) {
+      setSelectedCurrency(activeCurrencies[0]);
+    }
+  }, [activeCurrencies, selectedCurrency]);
+
   const [periodicity, setPeriodicity] = useState<'semanal' | 'mensual'>('semanal');
   const [viewMode, setViewMode] = useState<'resumen' | 'movimientos'>('resumen');
 
@@ -315,11 +327,20 @@ export const AgencyCycleHistoryTab: React.FC = () => {
     if (!targetAgencyName) return [];
 
     const mon = selectedCurrency;
-    const colIni = mon === 'BS' ? 'saldo_inicial_bs' : mon === 'USD' ? 'saldo_inicial_usd' : 'saldo_inicial_cop';
+    const colIni = mon === 'BS' ? 'saldo_inicial_bs' : mon === 'USD' ? 'saldo_inicial_usd' : mon === 'COP' ? 'saldo_inicial_cop' : `saldo_inicial_${mon.toLowerCase()}`;
     const list: CycleHistoryRow[] = [];
 
     // 1. ACTIVE CYCLE ROW
-    let curArrastre = agencyData ? (Math.abs(Number(agencyData[colIni] || 0)) < 0.0001 ? 0 : Number(agencyData[colIni] || 0)) : 0;
+    let initialVal = agencyData ? Number(agencyData[colIni] || 0) : 0;
+    if (agencyData?.saldos_iniciales_json) {
+      try {
+        const sJson = typeof agencyData.saldos_iniciales_json === 'string' ? JSON.parse(agencyData.saldos_iniciales_json) : agencyData.saldos_iniciales_json;
+        if (sJson && sJson[mon] !== undefined) {
+          initialVal = Number(sJson[mon] || 0);
+        }
+      } catch (_) {}
+    }
+    let curArrastre = Math.abs(initialVal) < 0.0001 ? 0 : initialVal;
     if (mon === 'COP' && curArrastre === 328901 && targetAgencyName.toUpperCase().includes('MAXIMA')) {
       curArrastre = 28901;
     }
@@ -1221,17 +1242,17 @@ export const AgencyCycleHistoryTab: React.FC = () => {
             <div className={`flex items-center p-1 rounded-xl border ${
               isLight ? 'bg-slate-100 border-slate-200' : 'bg-[#071217] border-slate-700'
             }`}>
-              {(['COP', 'BS', 'USD'] as const).map((m) => (
+              {activeCurrencies.map((m) => (
                 <button
                   key={m}
                   onClick={() => setSelectedCurrency(m)}
                   className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                     selectedCurrency === m
-                      ? 'bg-emerald-500 text-slate-950 shadow font-black'
+                      ? 'bg-emerald-600 text-white shadow font-black'
                       : isLight ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  {m === 'COP' ? '🟡 COP' : m === 'BS' ? '🔵 BS' : '🟢 USD'}
+                  {getCurrencyFlag(m)} {m}
                 </button>
               ))}
             </div>

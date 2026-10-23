@@ -31,7 +31,7 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
   const isGrupo = role === 'grupo';
 
   return (
-    <header className="sticky top-0 z-40 w-full bg-[#0D1B22]/95 backdrop-blur-md border-b border-slate-800 shadow-lg">
+    <header className="sticky top-0 z-40 w-full bg-white/95 dark:bg-[#0D1B22]/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shadow-xs dark:shadow-lg transition-colors">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Brand Logo */}
@@ -40,7 +40,7 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
           </div>
 
           {/* Desktop Navigation Pills */}
-          <nav className="hidden xl:flex items-center gap-1 bg-[#071217] p-1 rounded-xl border border-slate-800">
+          <nav className="hidden xl:flex items-center gap-1 bg-slate-100 dark:bg-[#071217] p-1 rounded-xl border border-slate-200 dark:border-slate-800">
             {/* 1. ROL CAJERO */}
             {isCajero && (
               <>
@@ -48,8 +48,8 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                   onClick={() => onTabChange('inicio')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     currentTab === 'inicio'
-                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                      ? 'bg-emerald-600 text-white shadow-xs font-bold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
                   }`}
                 >
                   <Home className="w-3.5 h-3.5" />
@@ -60,8 +60,8 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                   onClick={() => onTabChange('reporte')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     currentTab === 'reporte'
-                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                      ? 'bg-emerald-600 text-white shadow-xs font-bold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
                   }`}
                 >
                   <BarChart3 className="w-3.5 h-3.5" />
@@ -72,8 +72,8 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                   onClick={() => onTabChange('historial')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     currentTab === 'historial'
-                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                      ? 'bg-emerald-600 text-white shadow-xs font-bold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
                   }`}
                 >
                   <History className="w-3.5 h-3.5" />
@@ -84,8 +84,8 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                   onClick={() => onTabChange('gastos')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     currentTab === 'gastos'
-                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                      ? 'bg-emerald-600 text-white shadow-xs font-bold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
                   }`}
                 >
                   <Receipt className="w-3.5 h-3.5" />
@@ -96,8 +96,8 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                   onClick={() => onTabChange('pagos')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     currentTab === 'pagos'
-                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                      ? 'bg-emerald-600 text-white shadow-xs font-bold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
                   }`}
                 >
                   <CreditCard className="w-3.5 h-3.5" />
@@ -108,8 +108,8 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                   onClick={() => onTabChange('banco')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     currentTab === 'banco'
-                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                      ? 'bg-emerald-600 text-white shadow-xs font-bold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
                   }`}
                 >
                   <ShieldCheck className="w-3.5 h-3.5" />
@@ -125,8 +125,8 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                   onClick={() => onTabChange('inicio')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     currentTab === 'inicio'
-                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                      ? 'bg-emerald-600 text-white shadow-xs font-bold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
                   }`}
                 >
                   <Home className="w-3.5 h-3.5" />
@@ -137,8 +137,8 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                   onClick={() => onTabChange('pizarra')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     currentTab === 'pizarra'
-                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                      ? 'bg-emerald-600 text-white shadow-xs font-bold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
                   }`}
                 >
                   <LayoutDashboard className="w-3.5 h-3.5" />
@@ -149,8 +149,8 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                   onClick={() => onTabChange('historial')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     currentTab === 'historial'
-                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                      ? 'bg-emerald-600 text-white shadow-xs font-bold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
                   }`}
                 >
                   <History className="w-3.5 h-3.5" />
@@ -161,8 +161,8 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                   onClick={() => onTabChange('pagos')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     currentTab === 'pagos'
-                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                      ? 'bg-emerald-600 text-white shadow-xs font-bold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
                   }`}
                 >
                   <CreditCard className="w-3.5 h-3.5" />
@@ -173,8 +173,8 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                   onClick={() => onTabChange('reporte')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     currentTab === 'reporte'
-                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                      ? 'bg-emerald-600 text-white shadow-xs font-bold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
                   }`}
                 >
                   <BarChart3 className="w-3.5 h-3.5" />
@@ -190,11 +190,11 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                   onClick={() => onTabChange('reporte')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     currentTab === 'reporte'
-                      ? 'bg-purple-600 text-white shadow-sm font-bold'
-                      : 'text-purple-300 hover:text-white hover:bg-purple-900/40'
+                      ? 'bg-emerald-600 text-white shadow-xs font-bold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
                   }`}
                 >
-                  <BarChart3 className="w-3.5 h-3.5 text-purple-400" />
+                  <BarChart3 className="w-3.5 h-3.5" />
                   <span>📊 Reporte</span>
                 </button>
 
@@ -202,8 +202,8 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                   onClick={() => onTabChange('pizarra')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     currentTab === 'pizarra'
-                      ? 'bg-purple-600 text-white shadow-sm font-bold'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                      ? 'bg-emerald-600 text-white shadow-xs font-bold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
                   }`}
                 >
                   <LayoutDashboard className="w-3.5 h-3.5" />
@@ -214,8 +214,8 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                   onClick={() => onTabChange('inicio')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     currentTab === 'inicio'
-                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                      ? 'bg-emerald-600 text-white shadow-xs font-bold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
                   }`}
                 >
                   <Home className="w-3.5 h-3.5" />
@@ -226,8 +226,8 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                   onClick={() => onTabChange('pagos')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     currentTab === 'pagos'
-                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                      ? 'bg-emerald-600 text-white shadow-xs font-bold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
                   }`}
                 >
                   <CreditCard className="w-3.5 h-3.5" />
@@ -238,8 +238,8 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                   onClick={() => onTabChange('banco')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     currentTab === 'banco'
-                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                      ? 'bg-emerald-600 text-white shadow-xs font-bold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
                   }`}
                 >
                   <ShieldCheck className="w-3.5 h-3.5" />
@@ -250,8 +250,8 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                   onClick={() => onTabChange('gastos')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     currentTab === 'gastos'
-                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                      ? 'bg-emerald-600 text-white shadow-xs font-bold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
                   }`}
                 >
                   <Receipt className="w-3.5 h-3.5" />
@@ -260,15 +260,15 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
               </>
             )}
 
-            {/* 3. ROL AGENCIA */}
+            {/* 4. ROL AGENCIA */}
             {isAgencia && (
               <>
                 <button
                   onClick={() => onTabChange('inicio')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     currentTab === 'inicio'
-                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                      ? 'bg-emerald-600 text-white shadow-xs font-bold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
                   }`}
                 >
                   <Home className="w-3.5 h-3.5" />
@@ -279,8 +279,8 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                   onClick={() => onTabChange('reporte')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     currentTab === 'reporte'
-                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                      ? 'bg-emerald-600 text-white shadow-xs font-bold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
                   }`}
                 >
                   <BarChart3 className="w-3.5 h-3.5" />
@@ -291,8 +291,8 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                   onClick={() => onTabChange('historial')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     currentTab === 'historial'
-                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                      ? 'bg-emerald-600 text-white shadow-xs font-bold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
                   }`}
                 >
                   <History className="w-3.5 h-3.5" />
@@ -303,8 +303,8 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                   onClick={() => onTabChange('gastos')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     currentTab === 'gastos'
-                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                      ? 'bg-emerald-600 text-white shadow-xs font-bold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
                   }`}
                 >
                   <Receipt className="w-3.5 h-3.5" />
@@ -315,8 +315,8 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                   onClick={() => onTabChange('pagos')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     currentTab === 'pagos'
-                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                      ? 'bg-emerald-600 text-white shadow-xs font-bold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
                   }`}
                 >
                   <CreditCard className="w-3.5 h-3.5" />
@@ -327,8 +327,8 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
                   onClick={() => onTabChange('banco')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     currentTab === 'banco'
-                      ? 'bg-emerald-500 text-black shadow-sm font-bold'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                      ? 'bg-emerald-600 text-white shadow-xs font-bold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
                   }`}
                 >
                   <ShieldCheck className="w-3.5 h-3.5" />
@@ -337,14 +337,14 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
               </>
             )}
 
-            {/* 4. ROL COBRADOR */}
+            {/* 5. ROL COBRADOR */}
             {isCobrador && (
               <button
                 onClick={() => onTabChange('escaner')}
                 className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                   currentTab === 'escaner'
-                    ? 'bg-emerald-500 text-black shadow-sm font-bold'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                    ? 'bg-emerald-600 text-white shadow-xs font-bold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
                 }`}
               >
                 <QrCode className="w-3.5 h-3.5" />
@@ -355,40 +355,40 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
 
           {/* User profile & Logout */}
           <div className="flex items-center gap-2.5 shrink-0">
-            <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-[#071217] border border-slate-800 shadow-sm">
+            <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-[#071217] border border-slate-200 dark:border-slate-800 shadow-xs">
               <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${
                 isGrupo
-                  ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
+                  ? 'bg-purple-500/20 text-purple-600 dark:text-purple-300 border border-purple-500/40'
                   : isSupervisor
-                  ? 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
+                  ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30'
                   : isAgencia
-                  ? 'bg-sky-500/15 text-sky-400 border border-sky-500/30'
+                  ? 'bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/30'
                   : isCobrador
-                  ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
-                  : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                  ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30'
+                  : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
               }`}>
                 <UserIcon className="w-4 h-4" />
               </div>
               <div className="text-left hidden sm:block">
-                <div className="text-xs font-black text-white leading-tight">
+                <div className="text-xs font-black text-slate-900 dark:text-white leading-tight">
                   {user?.nombre || user?.usuario}
                 </div>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <span className={`text-[9px] uppercase font-black tracking-wider px-1.5 py-0.2 rounded border ${
                     isGrupo
-                      ? 'bg-purple-500/30 text-purple-200 border-purple-500/50'
+                      ? 'bg-purple-500/20 text-purple-700 dark:text-purple-200 border-purple-500/40'
                       : isSupervisor
-                      ? 'bg-purple-500/20 text-purple-300 border-purple-500/30'
+                      ? 'bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/30'
                       : isAgencia
-                      ? 'bg-sky-500/20 text-sky-300 border-sky-500/30'
+                      ? 'bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/30'
                       : isCobrador
-                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                      : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                      ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30'
+                      : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
                   }`}>
                     {user?.rol || 'cajero'}
                   </span>
                   {user?.nombre && user?.usuario && user.nombre.toLowerCase().trim() !== user.usuario.toLowerCase().trim() && (
-                    <span className="text-[10px] text-slate-500 font-mono">
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
                       @{user.usuario}
                     </span>
                   )}
@@ -402,7 +402,7 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
             <button
               onClick={logout}
               title="Cerrar Sesión"
-              className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-all cursor-pointer"
+              className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 transition-all cursor-pointer shadow-xs"
             >
               <LogOut className="w-4 h-4" />
             </button>
@@ -410,54 +410,54 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
         </div>
 
         {/* Medium/Mobile Navigation Bar with horizontal scrolling */}
-        <div className="xl:hidden flex items-center py-2.5 border-t border-slate-800/80 overflow-x-auto gap-1 scrollbar-none">
+        <div className="xl:hidden flex items-center py-2.5 border-t border-slate-200 dark:border-slate-800/80 overflow-x-auto gap-1 scrollbar-none">
           {/* Mobile Cajero */}
           {isCajero && (
             <>
               <button
                 onClick={() => onTabChange('inicio')}
-                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
-                  currentTab === 'inicio' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+                  currentTab === 'inicio' ? 'bg-emerald-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 Inicio
               </button>
               <button
                 onClick={() => onTabChange('reporte')}
-                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
-                  currentTab === 'reporte' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+                  currentTab === 'reporte' ? 'bg-emerald-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 Reporte
               </button>
               <button
                 onClick={() => onTabChange('historial')}
-                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
-                  currentTab === 'historial' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+                  currentTab === 'historial' ? 'bg-emerald-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 Historial
               </button>
               <button
                 onClick={() => onTabChange('gastos')}
-                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
-                  currentTab === 'gastos' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+                  currentTab === 'gastos' ? 'bg-emerald-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 Gastos
               </button>
               <button
                 onClick={() => onTabChange('pagos')}
-                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
-                  currentTab === 'pagos' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+                  currentTab === 'pagos' ? 'bg-emerald-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 Pagos
               </button>
               <button
                 onClick={() => onTabChange('banco')}
-                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
-                  currentTab === 'banco' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+                  currentTab === 'banco' ? 'bg-emerald-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 Banco
@@ -470,40 +470,40 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
             <>
               <button
                 onClick={() => onTabChange('inicio')}
-                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
-                  currentTab === 'inicio' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+                  currentTab === 'inicio' ? 'bg-emerald-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 Inicio
               </button>
               <button
                 onClick={() => onTabChange('pizarra')}
-                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
-                  currentTab === 'pizarra' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+                  currentTab === 'pizarra' ? 'bg-emerald-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 Pizarra
               </button>
               <button
                 onClick={() => onTabChange('historial')}
-                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
-                  currentTab === 'historial' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+                  currentTab === 'historial' ? 'bg-emerald-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 Historial
               </button>
               <button
                 onClick={() => onTabChange('pagos')}
-                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
-                  currentTab === 'pagos' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+                  currentTab === 'pagos' ? 'bg-emerald-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 Entrega Efectivo
               </button>
               <button
                 onClick={() => onTabChange('reporte')}
-                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
-                  currentTab === 'reporte' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+                  currentTab === 'reporte' ? 'bg-emerald-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 Reporte
@@ -516,48 +516,48 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
             <>
               <button
                 onClick={() => onTabChange('reporte')}
-                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
-                  currentTab === 'reporte' ? 'bg-purple-600 text-white' : 'text-purple-300 hover:text-white'
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+                  currentTab === 'reporte' ? 'bg-emerald-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 📊 Reporte
               </button>
               <button
                 onClick={() => onTabChange('pizarra')}
-                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
-                  currentTab === 'pizarra' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+                  currentTab === 'pizarra' ? 'bg-emerald-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 Pizarra
               </button>
               <button
                 onClick={() => onTabChange('inicio')}
-                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
-                  currentTab === 'inicio' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+                  currentTab === 'inicio' ? 'bg-emerald-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 Inicio
               </button>
               <button
                 onClick={() => onTabChange('pagos')}
-                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
-                  currentTab === 'pagos' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+                  currentTab === 'pagos' ? 'bg-emerald-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 Entrega Efectivo
               </button>
               <button
                 onClick={() => onTabChange('banco')}
-                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
-                  currentTab === 'banco' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+                  currentTab === 'banco' ? 'bg-emerald-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 Banco
               </button>
               <button
                 onClick={() => onTabChange('gastos')}
-                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
-                  currentTab === 'gastos' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+                  currentTab === 'gastos' ? 'bg-emerald-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 Gastos
@@ -570,48 +570,48 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
             <>
               <button
                 onClick={() => onTabChange('inicio')}
-                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
-                  currentTab === 'inicio' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+                  currentTab === 'inicio' ? 'bg-emerald-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 Inicio
               </button>
               <button
                 onClick={() => onTabChange('reporte')}
-                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
-                  currentTab === 'reporte' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+                  currentTab === 'reporte' ? 'bg-emerald-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 Reporte
               </button>
               <button
                 onClick={() => onTabChange('historial')}
-                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
-                  currentTab === 'historial' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+                  currentTab === 'historial' ? 'bg-emerald-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 Historial
               </button>
               <button
                 onClick={() => onTabChange('gastos')}
-                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
-                  currentTab === 'gastos' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+                  currentTab === 'gastos' ? 'bg-emerald-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 Gastos
               </button>
               <button
                 onClick={() => onTabChange('pagos')}
-                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
-                  currentTab === 'pagos' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+                  currentTab === 'pagos' ? 'bg-emerald-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 Pago Efectivo
               </button>
               <button
                 onClick={() => onTabChange('banco')}
-                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
-                  currentTab === 'banco' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+                  currentTab === 'banco' ? 'bg-emerald-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 Gestión Bancaria
@@ -623,8 +623,8 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
           {isCobrador && (
             <button
               onClick={() => onTabChange('escaner')}
-              className={`text-xs font-bold px-4 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
-                currentTab === 'escaner' ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-white'
+              className={`text-xs font-bold px-4 py-1.5 rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+                currentTab === 'escaner' ? 'bg-emerald-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               Portal Cobranza
@@ -635,3 +635,4 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onTabChange }) => {
     </header>
   );
 };
+
