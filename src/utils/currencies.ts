@@ -89,7 +89,8 @@ export async function loadCurrencies(userId?: string): Promise<CurrencyConfig[]>
             try {
               localStorage.setItem(localKey, JSON.stringify(parsed));
             } catch (_) {}
-            return parsed;
+            const activeList = parsed.filter((c: any) => c.activo !== false);
+            return activeList.length > 0 ? activeList : parsed;
           }
         } catch (_) {}
       }
@@ -103,7 +104,8 @@ export async function loadCurrencies(userId?: string): Promise<CurrencyConfig[]>
     if (rawLocal) {
       const parsedLocal = JSON.parse(rawLocal);
       if (Array.isArray(parsedLocal) && parsedLocal.length > 0) {
-        return parsedLocal;
+        const activeLocal = parsedLocal.filter((c: any) => c.activo !== false);
+        return activeLocal.length > 0 ? activeLocal : parsedLocal;
       }
     }
   } catch (e) {
