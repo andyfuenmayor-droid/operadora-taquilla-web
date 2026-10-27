@@ -546,9 +546,25 @@ export const AgencyCycleHistoryTab: React.FC = () => {
       return matchMon && inCycle && !p.rechazado;
     });
 
+    const hasAdminDeliv = allActiveDaily.some((p) => {
+      const tipoP = String(p.tipo_pago || '').toUpperCase();
+      return (
+        tipoP.includes('ADMIN') ||
+        tipoP.includes('ENTREGADO A ADMIN') ||
+        (p.confirmado_por && String(p.confirmado_por).trim().length > 0 && !tipoP.includes('SUPERVISOR'))
+      );
+    });
+
     allActiveDaily.forEach((p) => {
       const isCob = Boolean(p.qr_token) || String(p.tipo_pago || '').toUpperCase().includes('COBRADOR');
       const isConf = Boolean(p.confirmado) || Boolean(p.confirmado_supervisor) || Boolean(p.fecha_escaneo_cobrador);
+      const tipoP = String(p.tipo_pago || '').toUpperCase();
+      const isSupervisor = tipoP.includes('SUPERVISOR') || tipoP === 'ENTREGADO A SUPERVISOR';
+
+      if (isSupervisor && hasAdminDeliv) {
+        return;
+      }
+
       const monto = Number(p.monto || 0);
       rawActiveMovements.push({
         id: p.id,

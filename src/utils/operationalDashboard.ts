@@ -524,59 +524,113 @@ export async function fetchFullCycleMetrics(
         return true;
       });
 
-      const cobradorRows = confirmedDaily.filter((p: any) => Boolean(p.qr_token) || String(p.tipo_pago || '').toUpperCase().includes('COBRADOR'));
-      const supervisorRows = confirmedDaily.filter((p: any) => !Boolean(p.qr_token) && !String(p.tipo_pago || '').toUpperCase().includes('COBRADOR'));
-      const cobradorSum = cobradorRows.reduce((acc: number, p: any) => acc + (Number(p.monto) || 0), 0);
-      const supervisorSum = supervisorRows.reduce((acc: number, p: any) => acc + (Number(p.monto) || 0), 0);
+      // Agrupar pagos diarios por moneda para evitar colisiones entre divisas y duplicaciones
+      const dailyByMon = new Map<string, { admin: any[]; cobrador: any[]; supervisor: any[]; otros: any[] }>();
 
-      // Priorizar entregas a supervisor (que tienen cajero_id); si cobradores superan, agregar excedente
-      if (supervisorRows.length > 0) {
-        supervisorRows.forEach((p: any) => {
+      confirmedDaily.forEach((p: any) => {
+        const mNorm = normalizarMoneda(p.moneda);
+        if (!dailyByMon.has(mNorm)) {
+          dailyByMon.set(mNorm, { admin: [], cobrador: [], supervisor: [], otros: [] });
+        }
+        const tipoP = String(p.tipo_pago || '').toUpperCase();
+        const isCob = Boolean(p.qr_token) || tipoP.includes('COBRADOR');
+        const isAdmin =
+          tipoP.includes('ADMIN') ||
+          tipoP.includes('ENTREGADO A ADMIN') ||
+          tipoP.includes('ENTREGA_ADMIN') ||
+          (p.confirmado_por && String(p.confirmado_por).trim().length > 0 && !tipoP.includes('SUPERVISOR'));
+        const isSupervisor = tipoP.includes('SUPERVISOR') || tipoP === 'ENTREGADO A SUPERVISOR';
+
+        if (isAdmin) {
+          dailyByMon.get(mNorm)!.admin.push(p);
+        } else if (isCob) {
+          dailyByMon.get(mNorm)!.cobrador.push(p);
+        } else if (isSupervisor) {
+          dailyByMon.get(mNorm)!.supervisor.push(p);
+        } else {
+          dailyByMon.get(mNorm)!.otros.push(p);
+        }
+      });
+
+      dailyByMon.forEach((group, mNorm) => {
+        const adminSum = group.admin.reduce((acc: number, p: any) => acc + (Number(p.monto) || 0), 0);
+        const cobradorSum = group.cobrador.reduce((acc: number, p: any) => acc + (Number(p.monto) || 0), 0);
+        const supervisorSum = group.supervisor.reduce((acc: number, p: any) => acc + (Number(p.monto) || 0), 0);
+        const turnedOver = adminSum + cobradorSum;
+
+        // 1. Entregas directas a Admin (pagos oficiales entregados al Administrador)
+        group.admin.forEach((p: any) => {
           unified.push({
             ...p,
             origen: 'cda_pagos_diarios',
             tabla: 'cda_pagos_diarios',
             metodo: p.metodo || 'EFECTIVO',
             metodo_pago: p.metodo_pago || 'EFECTIVO',
-            referencia: p.referencia || 'Efectivo Taquilla',
-            moneda: normalizarMoneda(p.moneda),
+            referencia: p.referencia || `Entregado a Admin${p.supervisor_nombre ? ` (Por Sup: ${p.supervisor_nombre})` : ''}`,
+            moneda: mNorm,
             monto: Number(p.monto ?? 0),
             confirmado: true,
             rechazado: false
           });
         });
-        if (cobradorSum > supervisorSum) {
-          const excess = cobradorSum - supervisorSum;
-          unified.push({
-            id: 'cob_excess',
-            agencia: agencyName,
-            origen: 'cda_pagos_diarios',
-            tabla: 'cda_pagos_diarios',
-            metodo: 'COBRADOR',
-            metodo_pago: 'COBRADOR',
-            referencia: 'Cobrador de Ruta (Excedente)',
-            moneda: supervisorRows[0]?.moneda ? normalizarMoneda(supervisorRows[0].moneda) : 'COP',
-            monto: excess,
-            confirmado: true,
-            rechazado: false
-          });
-        }
-      } else {
-        cobradorRows.forEach((p: any) => {
+
+        // 2. Recaudaciones de Cobrador en ruta (con QR o liquidadas)
+        group.cobrador.forEach((p: any) => {
           unified.push({
             ...p,
             origen: 'cda_pagos_diarios',
             tabla: 'cda_pagos_diarios',
             metodo: p.metodo || 'COBRADOR',
             metodo_pago: p.metodo_pago || 'COBRADOR',
-            referencia: p.referencia || 'Cobrador de Ruta',
-            moneda: normalizarMoneda(p.moneda),
+            referencia: p.referencia || (p.qr_token ? `QR: ${p.qr_token}` : 'Cobrador de Ruta'),
+            moneda: mNorm,
             monto: Number(p.monto ?? 0),
             confirmado: true,
             rechazado: false
           });
         });
-      }
+
+        // 3. Otros pagos directos
+        group.otros.forEach((p: any) => {
+          unified.push({
+            ...p,
+            origen: 'cda_pagos_diarios',
+            tabla: 'cda_pagos_diarios',
+            metodo: p.metodo || 'EFECTIVO',
+            metodo_pago: p.metodo_pago || 'EFECTIVO',
+            referencia: p.referencia || 'Pago Directo',
+            moneda: mNorm,
+            monto: Number(p.monto ?? 0),
+            confirmado: true,
+            rechazado: false
+          });
+        });
+
+        // 4. Entregas a Supervisor (custodia interna en taquilla):
+        // Para la liquidación de la agencia, el pago válido es el que entrega el supervisor a Admin o a Cobrador.
+        // Si el supervisor ya entregó fondos a Admin o Cobrador (turnedOver > 0),
+        // los traspasos internos cajero -> supervisor se absorben para NO duplicar.
+        let excess = Math.max(0, supervisorSum - turnedOver);
+        if (excess > 0 && turnedOver === 0) {
+          group.supervisor.forEach((p: any) => {
+            if (excess <= 0) return;
+            const toAdd = Math.min(Number(p.monto ?? 0), excess);
+            excess -= toAdd;
+            unified.push({
+              ...p,
+              origen: 'cda_pagos_diarios',
+              tabla: 'cda_pagos_diarios',
+              metodo: p.metodo || 'EFECTIVO',
+              metodo_pago: p.metodo_pago || 'EFECTIVO',
+              referencia: p.referencia || `Entregado a Supervisor${p.supervisor_nombre ? `: ${p.supervisor_nombre}` : ''}`,
+              moneda: mNorm,
+              monto: toAdd,
+              confirmado: true,
+              rechazado: false
+            });
+          });
+        }
+      });
 
       // Procesar pagos bancarios de cda_pagos_bancarios
       bankData.forEach((b: any) => {

@@ -216,6 +216,23 @@ export const GroupReportTab: React.FC = () => {
           const pNom = String(p.agencia || p.nombre_agency || '').trim().toUpperCase();
           return pNom === agNom || pNom.replace(/^AGENCIA\s+/i, '').trim() === cleanNom;
         });
+
+        const hasAdminDeliv = agDP.some((p: any) => {
+          const tipoP = String(p.tipo_pago || '').toUpperCase();
+          return (
+            tipoP.includes('ADMIN') ||
+            tipoP.includes('ENTREGADO A ADMIN') ||
+            (p.confirmado_por && String(p.confirmado_por).trim().length > 0 && !tipoP.includes('SUPERVISOR'))
+          );
+        });
+
+        const validDP = agDP.filter((p: any) => {
+          const tipoP = String(p.tipo_pago || '').toUpperCase();
+          const isSupervisor = tipoP.includes('SUPERVISOR') || tipoP === 'ENTREGADO A SUPERVISOR';
+          if (isSupervisor && hasAdminDeliv) return false;
+          return true;
+        });
+
         const agBP = bankPayments.filter((p: any) => {
           const pMon = String(p.moneda || 'BS').trim().toUpperCase();
           if (pMon !== mon) return false;
@@ -224,7 +241,7 @@ export const GroupReportTab: React.FC = () => {
         });
 
         const cobros =
-          agDP.reduce((acc, curr) => acc + (Number(curr.monto) || 0), 0) +
+          validDP.reduce((acc, curr) => acc + (Number(curr.monto) || 0), 0) +
           agBP.reduce((acc, curr) => acc + (Number(curr.monto) || 0), 0);
 
         // Gastos
