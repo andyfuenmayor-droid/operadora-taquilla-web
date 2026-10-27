@@ -37,21 +37,8 @@ export const isNightTime = (): boolean => {
  *    - Horario diurno (7:00 AM a 6:59 PM): Modo claro por defecto ('light').
  */
 export const resolveAutoTheme = (): AppTheme => {
-  // 1. Si el explorador/sistema tiene explícitamente configurado modo oscuro
-  if (typeof window !== 'undefined' && window.matchMedia) {
-    try {
-      if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        return 'dark';
-      }
-    } catch (e) {
-      console.warn('Error checking prefers-color-scheme:', e);
-    }
-  }
-
-  // 2. Si el explorador no tiene preferencia definida o no está en modo oscuro:
-  // Horario nocturno (19:00 - 06:59) -> dark
-  // Horario diurno (07:00 - 18:59) -> light
-  return isNightTime() ? 'dark' : 'light';
+  // El fondo e interfaz visual invariante por defecto de la terminal es 'dark'
+  return 'dark';
 };
 
 /**
